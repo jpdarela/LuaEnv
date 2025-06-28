@@ -20,23 +20,23 @@ I decided to learn Lua and am currently using Windows 11 with Visual Studio 2022
 
 TODO: Add a link to the GitHub repository
 
-Download the [zip file]() and unzip it.
+Download the [zip file](https://github.com/jpdarela/lua_msvc_build/archive/refs/heads/main.zip) and unzip it.
 
 Or clone it using git:
 
 ```Powershell
 # Clone the repository
-PS C:\> git clone https://github.com/jpdarela/lua_msvc_build.git
+git clone https://github.com/jpdarela/lua_msvc_build.git
 
-PS C:\> cd lua_msvc_build
+# Change to the project directory
+cd lua_msvc_build
 ```
 
 ### Environment Setup:
 
 ```powershell
-
 # Set the environment. Adjust path to your Visual Studio installation
-PS C:\lua_msvc_build> &"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch "amd64" -SkipAutomaticLocation
+&"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch "amd64" -SkipAutomaticLocation
 ```
 
 Then proceed with the setup command. This will build lua and install it to the directory (C:\lua_msvc_build\lua).
@@ -44,19 +44,19 @@ Then proceed with the setup command. This will build lua and install it to the d
 For a static build:
 
 ```powershell
-PS C:\lua_msvc_build> python setup.py
+python setup.py
 ```
 
 For a DLL build:
 
 ```powershell
-PS C:\lua_msvc_build> python setup.py --dll
+python setup.py --dll
 ```
 
 Alternatively, you can set a custom installation directory. For instance, I install my stuff in a folder called opt in my home directory. This folder is already in my PATH, so I can just run:
 
 ```powershell
-PS C:\lua_msvc_build> python setup.py  --dll --prefix C:\Users\darel\opt\lua
+python setup.py  --dll --prefix C:\Users\darel\opt\lua
 ```
 
 This single command will:
@@ -162,6 +162,9 @@ Release/
 The `use-lua.ps1` script provides a convenient way to configure your current PowerShell session to use any Lua installation, not just those built with this project. This versatile script can work with official Lua distributions, pre-compiled binaries, or any custom Lua installation, and can be used to set up the environment without modifying system-wide PATH settings.
 
 #### Quick Usage
+
+Note: If the prefix directory is on your PATH, you can run the script directly without specifying path to the use-lua.ps1 script. (e.g. `.\`)
+
 ```powershell
 # Basic usage - automatically detects Lua installation from .lua_prefix.txt
 .\use-lua.ps1
@@ -192,7 +195,6 @@ luarocks --version
 - **"Visual Studio Developer Shell not found"**: Install Visual Studio with C++ build tools (needed for native module compilation)
 - **"Lua installation not found"**: Verify the Lua path contains a `bin` directory with `lua.exe`
 - **"LuaRocks installation not found"**: Ensure LuaRocks path contains `luarocks.exe`
-- **"Permission errors"**: Run PowerShell as Administrator if accessing restricted directories
 - **"Execution Policy"**: Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` if script execution is blocked
 - **Package installation issues**: Ensure the custom tree directory is writable and the path is correctly specified
 
