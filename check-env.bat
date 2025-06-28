@@ -21,33 +21,33 @@ if %QUIET_MODE%==0 (
     echo Checking Visual Studio environment variables...
 )
 if defined VCINSTALLDIR (
-    if %QUIET_MODE%==0 echo ✓ VCINSTALLDIR = "%VCINSTALLDIR%"
+    if %QUIET_MODE%==0 echo [OK] VCINSTALLDIR = "%VCINSTALLDIR%"
 ) else (
-    if %QUIET_MODE%==0 echo ✗ VCINSTALLDIR not set
+    if %QUIET_MODE%==0 echo [ERROR] VCINSTALLDIR not set
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!VCINSTALLDIR_MISSING;"
 )
 
 if defined VSCMD_ARG_TGT_ARCH (
-    if %QUIET_MODE%==0 echo ✓ Target Architecture = %VSCMD_ARG_TGT_ARCH%
+    if %QUIET_MODE%==0 echo [OK] Target Architecture = %VSCMD_ARG_TGT_ARCH%
 ) else (
-    if %QUIET_MODE%==0 echo ✗ Target Architecture not detected
+    if %QUIET_MODE%==0 echo [ERROR] Target Architecture not detected
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!TARGET_ARCH_MISSING;"
 )
 
 if defined WindowsSdkDir (
-    if %QUIET_MODE%==0 echo ✓ WindowsSdkDir = "%WindowsSdkDir%"
+    if %QUIET_MODE%==0 echo [OK] WindowsSdkDir = "%WindowsSdkDir%"
 ) else (
-    if %QUIET_MODE%==0 echo ✗ WindowsSdkDir not set
+    if %QUIET_MODE%==0 echo [ERROR] WindowsSdkDir not set
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!WINDOWS_SDK_MISSING;"
 )
 
 if defined WindowsSDKVersion (
-    if %QUIET_MODE%==0 echo ✓ WindowsSDKVersion = "%WindowsSDKVersion%"
+    if %QUIET_MODE%==0 echo [OK] WindowsSDKVersion = "%WindowsSDKVersion%"
 ) else (
-    if %QUIET_MODE%==0 echo ✗ WindowsSDKVersion not set
+    if %QUIET_MODE%==0 echo [ERROR] WindowsSDKVersion not set
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!WINDOWS_SDK_VERSION_MISSING;"
 )
@@ -59,36 +59,36 @@ if %QUIET_MODE%==0 (
 
 where cl.exe >nul 2>&1
 if !ERRORLEVEL! equ 0 (
-    if %QUIET_MODE%==0 echo ✓ cl.exe ^(C compiler^) found in PATH
+    if %QUIET_MODE%==0 echo [OK] cl.exe ^(C compiler^) found in PATH
 ) else (
-    if %QUIET_MODE%==0 echo ✗ cl.exe ^(C compiler^) not found in PATH
+    if %QUIET_MODE%==0 echo [ERROR] cl.exe ^(C compiler^) not found in PATH
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!CL_EXE_MISSING;"
 )
 
 where link.exe >nul 2>&1
 if !ERRORLEVEL! equ 0 (
-    if %QUIET_MODE%==0 echo ✓ link.exe ^(Linker^) found in PATH
+    if %QUIET_MODE%==0 echo [OK] link.exe ^(Linker^) found in PATH
 ) else (
-    if %QUIET_MODE%==0 echo ✗ link.exe ^(Linker^) not found in PATH
+    if %QUIET_MODE%==0 echo [ERROR] link.exe ^(Linker^) not found in PATH
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!LINK_EXE_MISSING;"
 )
 
 where lib.exe >nul 2>&1
 if !ERRORLEVEL! equ 0 (
-    if %QUIET_MODE%==0 echo ✓ lib.exe ^(Librarian^) found in PATH
+    if %QUIET_MODE%==0 echo [OK] lib.exe ^(Librarian^) found in PATH
 ) else (
-    if %QUIET_MODE%==0 echo ✗ lib.exe ^(Librarian^) not found in PATH
+    if %QUIET_MODE%==0 echo [ERROR] lib.exe ^(Librarian^) not found in PATH
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!LIB_EXE_MISSING;"
 )
 
 where nmake.exe >nul 2>&1
 if !ERRORLEVEL! equ 0 (
-    if %QUIET_MODE%==0 echo ✓ nmake.exe found in PATH
+    if %QUIET_MODE%==0 echo [OK] nmake.exe found in PATH
 ) else (
-    if %QUIET_MODE%==0 echo ✗ nmake.exe not found in PATH
+    if %QUIET_MODE%==0 echo [ERROR] nmake.exe not found in PATH
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!NMAKE_EXE_MISSING;"
 )
@@ -112,7 +112,7 @@ if defined ISSUES_FOUND (
 
 if defined LIB (
     if %QUIET_MODE%==0 (
-        echo ✓ LIB environment variable set:
+        echo [OK] LIB environment variable set:
         for %%i in ("%LIB:;=" "%") do echo   %%~i
         echo.
         echo Checking for MSVCRT.lib...
@@ -120,12 +120,12 @@ if defined LIB (
     set FOUND_MSVCRT=0
     for %%i in ("%LIB:;=" "%") do (
         if exist "%%~i\MSVCRT.lib" (
-            if %QUIET_MODE%==0 echo ✓ Found MSVCRT.lib in %%~i
+            if %QUIET_MODE%==0 echo [OK] Found MSVCRT.lib in %%~i
             set FOUND_MSVCRT=1
         )
     )
     if !FOUND_MSVCRT!==0 (
-        if %QUIET_MODE%==0 echo ✗ MSVCRT.lib not found in any LIB path
+        if %QUIET_MODE%==0 echo [ERROR] MSVCRT.lib not found in any LIB path
         set "ENV_OK=0"
         set "ISSUES_FOUND=!ISSUES_FOUND!MSVCRT_LIB_MISSING;"
     )
@@ -137,12 +137,12 @@ if defined LIB (
     set FOUND_UCRT=0
     for %%i in ("%LIB:;=" "%") do (
         if exist "%%~i\ucrt.lib" (
-            if %QUIET_MODE%==0 echo ✓ Found ucrt.lib in %%~i
+            if %QUIET_MODE%==0 echo [OK] Found ucrt.lib in %%~i
             set FOUND_UCRT=1
         )
     )
     if !FOUND_UCRT!==0 (
-        if %QUIET_MODE%==0 echo ✗ ucrt.lib not found in any LIB path
+        if %QUIET_MODE%==0 echo [ERROR] ucrt.lib not found in any LIB path
         set "ENV_OK=0"
         set "ISSUES_FOUND=!ISSUES_FOUND!UCRT_LIB_MISSING;"
     )
@@ -156,30 +156,30 @@ if defined LIB (
     for %%i in ("%LIB:;=" "%") do (
         if exist "%%~i\kernel32.lib" (
             if !FOUND_KERNEL32!==0 (
-                if %QUIET_MODE%==0 echo ✓ Found kernel32.lib in %%~i
+                if %QUIET_MODE%==0 echo [OK] Found kernel32.lib in %%~i
                 set FOUND_KERNEL32=1
             )
         )
         if exist "%%~i\msvcrt.lib" (
             if !FOUND_MSVCRT_LOWER!==0 (
-                if %QUIET_MODE%==0 echo ✓ Found msvcrt.lib in %%~i
+                if %QUIET_MODE%==0 echo [OK] Found msvcrt.lib in %%~i
                 set FOUND_MSVCRT_LOWER=1
             )
         )
     )
     if !FOUND_KERNEL32!==0 (
-        if %QUIET_MODE%==0 echo ✗ kernel32.lib not found in any LIB path
+        if %QUIET_MODE%==0 echo [ERROR] kernel32.lib not found in any LIB path
         set "ENV_OK=0"
         set "ISSUES_FOUND=!ISSUES_FOUND!KERNEL32_LIB_MISSING;"
     )
     if !FOUND_MSVCRT_LOWER!==0 (
-        if %QUIET_MODE%==0 echo ✗ msvcrt.lib not found in any LIB path
+        if %QUIET_MODE%==0 echo [ERROR] msvcrt.lib not found in any LIB path
         set "ENV_OK=0"
         set "ISSUES_FOUND=!ISSUES_FOUND!MSVCRT_LOWER_LIB_MISSING;"
     )
 
 ) else (
-    if %QUIET_MODE%==0 echo ✗ LIB environment variable not set
+    if %QUIET_MODE%==0 echo [ERROR] LIB environment variable not set
     set "ENV_OK=0"
     set "ISSUES_FOUND=!ISSUES_FOUND!LIB_ENV_VAR_MISSING;"
 )
@@ -226,7 +226,11 @@ if %QUIET_MODE%==1 (
 )
 
 REM Exit with appropriate code for programmatic use
-exit /b %ENV_OK%
+if %ENV_OK%==1 (
+    exit /b 0
+) else (
+    exit /b 1
+)
 
 :output_results
 if %QUIET_MODE%==1 (
@@ -246,7 +250,12 @@ if %QUIET_MODE%==1 (
     ) else (
         echo Some issues were found. Please review the output above.
     )
-)
     echo.
+)
 
+REM Exit with appropriate code for programmatic use
+if %ENV_OK%==1 (
+    exit /b 0
+) else (
+    exit /b 1
 )

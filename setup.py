@@ -37,10 +37,10 @@ def call_check_env_bat_script():
                     issues = [issue for issue in issues_str.split(';') if issue]
 
             if env_ok:
-                print("✓ Visual Studio environment is properly configured.")
+                print("? Visual Studio environment is properly configured.")
                 return True
             else:
-                print("✗ Visual Studio environment issues detected:")
+                print("? Visual Studio environment issues detected:")
                 issue_descriptions = {
                     'VCINSTALLDIR_MISSING': 'Visual Studio installation directory not found',
                     'TARGET_ARCH_MISSING': 'Target architecture not set',

@@ -125,14 +125,14 @@ link /OUT:Release\luac.exe %LINKFLAGS% Release\luac.obj Release\lapi.obj Release
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ✗ Build failed with error %ERRORLEVEL%
+    echo ? Build failed with error %ERRORLEVEL%
     pause
     exit /b %ERRORLEVEL%
 )
 
 echo.
 echo ====================================================================
-echo ✓ BUILD SUCCESSFUL!
+echo ? BUILD SUCCESSFUL!
 echo ====================================================================
 echo.
 echo Static build completed successfully!
@@ -179,7 +179,7 @@ if exist "..\doc\*.css" copy "..\doc\*.css" "!INSTALL_DIR!\doc\"
 
 echo.
 echo ====================================================================
-echo ✓ INSTALLATION COMPLETE!
+echo ? INSTALLATION COMPLETE!
 echo ====================================================================
 echo.
 echo Lua has been installed to: !INSTALL_DIR!

@@ -89,7 +89,7 @@ link /OUT:Release\lua54.dll %LINKFLAGS% /IMPLIB:Release\lua54.lib Release\lapi.o
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ✗ DLL creation failed with error %ERRORLEVEL%
+    echo [ERROR] DLL creation failed with error %ERRORLEVEL%
     pause
     exit /b %ERRORLEVEL%
 )
@@ -104,7 +104,7 @@ link /OUT:Release\lua.exe /RELEASE /INCREMENTAL:NO Release\lua.obj Release\lua54
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ✗ lua.exe linking failed with error %ERRORLEVEL%
+    echo [ERROR] lua.exe linking failed with error %ERRORLEVEL%
     pause
     exit /b %ERRORLEVEL%
 )
@@ -142,14 +142,14 @@ link /OUT:Release\luac.exe /RELEASE /INCREMENTAL:NO Release\luac.obj Release\lua
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ✗ luac.exe linking failed with error %ERRORLEVEL%
+    echo [ERROR] luac.exe linking failed with error %ERRORLEVEL%
     pause
     exit /b %ERRORLEVEL%
 )
 
 echo.
 echo ====================================================================
-echo ✓ DLL BUILD SUCCESSFUL!
+echo [OK] DLL BUILD SUCCESSFUL!
 echo ====================================================================
 echo.
 echo DLL build completed successfully!

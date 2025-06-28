@@ -119,7 +119,7 @@ if "%BUILD_TYPE%"=="dll" (
 
 echo.
 echo ====================================================================
-echo ✓ LuaRocks Configuration Complete!
+echo ? LuaRocks Configuration Complete!
 echo ====================================================================
 echo.
 echo LuaRocks has been configured to use your %BUILD_TYPE% Lua build:
@@ -146,13 +146,13 @@ luarocks show --tree=system 2>nul || echo No system packages installed yet.
 
 echo.
 echo ====================================================================
-echo 📁 LuaRocks Installation Information
+echo ?? LuaRocks Installation Information
 echo ====================================================================
 echo.
 where luarocks.exe
 echo.
 echo If LuaRocks is not in your PATH permanently, you can add it by:
-echo 1. Right-click "This PC" → Properties → Advanced System Settings
+echo 1. Right-click "This PC" ? Properties ? Advanced System Settings
 echo 2. Click "Environment Variables"
 echo 3. Edit the "Path" variable and add the LuaRocks directory shown above
 echo.
@@ -160,7 +160,7 @@ echo Alternatively, you can run LuaRocks from its installation directory.
 echo.
 
 echo ====================================================================
-echo 📦 Package Installation Location
+echo ?? Package Installation Location
 echo ====================================================================
 echo.
 echo By default, LuaRocks installs packages to:

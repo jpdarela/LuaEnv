@@ -62,27 +62,27 @@ class LuaDLLInstaller:
         for binary in self.binaries:
             binary_path = self.release_dir / binary
             if binary_path.exists():
-                print(f"  ✓ {binary}")
+                print(f"  ? {binary}")
             else:
-                print(f"  ✗ {binary} (missing)")
+                print(f"  ? {binary} (missing)")
                 missing_files.append(str(binary_path))
 
         # Check libraries
         for library in self.libraries:
             library_path = self.release_dir / library
             if library_path.exists():
-                print(f"  ✓ {library}")
+                print(f"  ? {library}")
             else:
-                print(f"  ✗ {library} (missing)")
+                print(f"  ? {library} (missing)")
                 missing_files.append(str(library_path))
 
         # Check headers
         for header in self.headers:
             header_path = self.source_dir / header
             if header_path.exists():
-                print(f"  ✓ {header}")
+                print(f"  ? {header}")
             else:
-                print(f"  ✗ {header} (missing)")
+                print(f"  ? {header} (missing)")
                 missing_files.append(str(header_path))
 
         if missing_files:
