@@ -18,18 +18,3 @@
 # Special handling for specific files in this project
 README.md text eol=lf
 .gitignore text eol=lf
-
-# Force specific files to use CRLF (Windows batch scripts)
-build-dll.bat text eol=crlf
-build-static.bat text eol=crlf
-check-env.bat text eol=crlf
-setup-luarocks.bat text eol=crlf
-use-lua.ps1 text eol=crlf
-clean.ps1 text eol=crlf
-
-# Force Python files to use LF (cross-platform compatibility)
-setup.py text eol=lf
-build.py text eol=lf
-setup_build.py text eol=lf
-download_lua_luarocks.py text eol=lf
-install_lua_dll.py text eol=lf
