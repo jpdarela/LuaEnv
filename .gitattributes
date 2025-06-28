@@ -5,7 +5,6 @@
 
 # Windows-specific files should have CRLF line endings
 *.bat text eol=crlf
-*.cmd text eol=crlf
 *.ps1 text eol=crlf
 
 # Python files should have LF line endings (Python convention)
@@ -16,82 +15,8 @@
 *.md text eol=lf
 *.rst text eol=lf
 
-# Configuration files
-*.ini text eol=crlf
-*.cfg text eol=lf
-*.conf text eol=lf
-*.json text eol=lf
-*.yaml text eol=lf
-*.yml text eol=lf
-*.xml text eol=lf
-
-# Source code files (cross-platform, use LF)
-*.c text eol=lf
-*.h text eol=lf
-*.cpp text eol=lf
-*.hpp text eol=lf
-*.cc text eol=lf
-*.cxx text eol=lf
-*.hxx text eol=lf
-*.lua text eol=lf
-*.js text eol=lf
-*.ts text eol=lf
-*.html text eol=lf
-*.css text eol=lf
-*.scss text eol=lf
-*.sass text eol=lf
-
-# Shell scripts (Unix/Linux)
-*.sh text eol=lf
-
-# Makefiles and build scripts
-Makefile text eol=lf
-makefile text eol=lf
-*.mk text eol=lf
-*.mak text eol=lf
-
-# Binary files (do not process)
-*.exe binary
-*.dll binary
-*.so binary
-*.dylib binary
-*.lib binary
-*.a binary
-*.obj binary
-*.o binary
-*.pdb binary
-*.exp binary
-
-# Archive files
-*.zip binary
-*.tar binary
-*.gz binary
-*.bz2 binary
-*.xz binary
-*.7z binary
-*.rar binary
-
-# Image files
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.bmp binary
-*.ico binary
-*.svg text eol=lf
-
-# Document files
-*.pdf binary
-*.doc binary
-*.docx binary
-*.xls binary
-*.xlsx binary
-*.ppt binary
-*.pptx binary
-
 # Special handling for specific files in this project
 README.md text eol=lf
-LICENSE text eol=lf
 .gitignore text eol=lf
 
 # Force specific files to use CRLF (Windows batch scripts)
@@ -100,6 +25,7 @@ build-static.bat text eol=crlf
 check-env.bat text eol=crlf
 setup-luarocks.bat text eol=crlf
 use-lua.ps1 text eol=crlf
+clean.ps1 text eol=crlf
 
 # Force Python files to use LF (cross-platform compatibility)
 setup.py text eol=lf

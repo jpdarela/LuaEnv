@@ -199,7 +199,7 @@ luarocks --version
 - **Package installation issues**: Ensure the custom tree directory is writable and the path is correctly specified
 
 ### After Installation
-Your Lua installation will be ready to use. For DLL builds, a detailed `USAGE.txt` file is included with comprehensive instructions. Here's a quick reference:
+Your Lua installation will be ready to use. Here's a quick reference:
 
 #### Running Lua
 ```bash
