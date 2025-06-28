@@ -18,8 +18,6 @@ I decided to learn Lua and am currently using Windows 11 with Visual Studio 2022
 
 ### Download the scripts
 
-TODO: Add a link to the GitHub repository
-
 Download the [zip file](https://github.com/jpdarela/lua_msvc_build/archive/refs/heads/main.zip) and unzip it.
 
 Or clone it using git:
@@ -27,7 +25,9 @@ Or clone it using git:
 ```Powershell
 # Clone the repository
 git clone https://github.com/jpdarela/lua_msvc_build.git
+```
 
+```Powershell
 # Change to the project directory
 cd lua_msvc_build
 ```
@@ -53,7 +53,7 @@ For a DLL build:
 python setup.py --dll
 ```
 
-Alternatively, you can set a custom installation directory. For instance, I install my stuff in a folder called opt in my home directory. This folder is already in my PATH, so I can just run:
+Alternatively, you can set a custom installation directory. For instance, I install my stuff in a folder called opt in my home directory. This folder is already in my PATH, so I can just run and then everthing will be installed there (and the [use-lua.ps1](#environment-setup-script-use-luaps1) script will be already on my PATH):
 
 ```powershell
 python setup.py  --dll --prefix C:\Users\darel\opt\lua
@@ -159,11 +159,11 @@ Release/
 
 ### Environment Setup Script (use-lua.ps1)
 
-The `use-lua.ps1` script provides a convenient way to configure your current PowerShell session to use any Lua installation, not just those built with this project. This versatile script can work with official Lua distributions, pre-compiled binaries, or any custom Lua installation, and can be used to set up the environment without modifying system-wide PATH settings.
+The `use-lua.ps1` script provides a convenient way to configure your current PowerShell session to use any Lua installation, not just those built with this project. This script can work with official Lua distributions, pre-compiled binaries, or any custom Lua installation, and can be used to set up the environment without modifying system-wide PATH settings.
 
 #### Quick Usage
 
-Note: If the prefix directory is on your PATH, you can run the script directly without specifying path to the use-lua.ps1 script. (e.g. `.\`)
+Note: If the prefix directory is on your PATH as it is for me, you can run the script directly without specifying path to the use-lua.ps1 script. (e.g. `.\`)
 
 ```powershell
 # Basic usage - automatically detects Lua installation from .lua_prefix.txt
