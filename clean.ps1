@@ -1,4 +1,7 @@
-# Get the directory where this script is located
+## Cleanup Script for Lua Build Environment
+# This script removes temporary files and directories created during the Lua build process.
+# Deletes downloaded files, the respective extracted folders.
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
 ## Remove downloads folder
@@ -28,13 +31,22 @@ if (Test-Path $luarocksPath) {
     Write-Host "No luarocks folder found at: $luarocksPath"
 }
 
-## remove the .lua_prefix.txt file if it exists
-$prefixFilePath = Join-Path $ScriptDir ".lua_prefix.txt"
-if (Test-Path $prefixFilePath) {
-    Write-Host "Removing prefix file: $prefixFilePath"
-    Remove-Item -Path $prefixFilePath -Force
+# Remove the lua-X.Y.Z-tests folder
+$luaTestsPath = Join-Path $ScriptDir "lua-5.4.8-tests"
+if (Test-Path $luaTestsPath) {
+    Write-Host "Removing Lua tests folder: $luaTestsPath"
+    Remove-Item -Path $luaTestsPath -Recurse -Force
 } else {
-    Write-Host "No prefix file found at: $prefixFilePath"
+    Write-Host "No Lua tests folder found at: $luaTestsPath"
 }
+
+# ## remove the .lua_prefix.txt file if it exists
+# $prefixFilePath = Join-Path $ScriptDir ".lua_prefix.txt"
+# if (Test-Path $prefixFilePath) {
+#     Write-Host "Removing prefix file: $prefixFilePath"
+#     Remove-Item -Path $prefixFilePath -Force
+# } else {
+#     Write-Host "No prefix file found at: $prefixFilePath"
+# }
 
 Write-Host "Cleanup completed."

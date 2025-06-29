@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 
 LUA_URL = "https://www.lua.org/ftp/lua-5.4.8.tar.gz"
+LUA_TESTS_URL = "https://www.lua.org/tests/lua-5.4.8-tests.tar.gz"
 LUAROCKS_URL = "https://luarocks.github.io/luarocks/releases/luarocks-3.12.2-windows-64.zip"
 
 
@@ -25,11 +26,14 @@ def download():
     # Define file paths
     lua_file = downloads_dir / "lua-5.4.8.tar.gz"
     luarocks_file = downloads_dir / "luarocks-3.12.2-windows-64.zip"
+    lua_tests_file = downloads_dir / "lua-5.4.8-tests.tar.gz"
 
     # Download Lua and LuaRocks
     download_file(LUA_URL, str(lua_file))
     download_file(LUAROCKS_URL, str(luarocks_file))
-    return str(lua_file), str(luarocks_file)
+    download_file(LUA_TESTS_URL, str(lua_tests_file))
+
+    return str(lua_file), str(luarocks_file), str(lua_tests_file)
 
 ## Extract files and move extracted folders to parent directory
 def extract_file(file_path):
@@ -43,16 +47,23 @@ def extract_file(file_path):
             tar.extractall(path=file_path.parent)
             print(f"Extracted {file_path} to {file_path.parent}")
 
-            # Move extracted folders to parent directory
+            # Get all top-level directories from tar archive
+            top_level_dirs = set()
             for member in tar.getnames():
-                if '/' not in member:  # Top-level directory
-                    source = file_path.parent / member
-                    dest = Path(member)
-                    if source.exists() and source.is_dir():
-                        if dest.exists():
-                            shutil.rmtree(dest)
-                        shutil.move(str(source), str(dest))
-                        print(f"Moved {source} to {dest}")
+                # Get the first component of the path (top-level directory)
+                top_dir = member.split('/')[0]
+                if top_dir:  # Make sure it's not empty
+                    top_level_dirs.add(top_dir)
+
+            # Move extracted folders to parent directory
+            for dir_name in top_level_dirs:
+                source = file_path.parent / dir_name
+                dest = Path(dir_name)
+                if source.exists() and source.is_dir():
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.move(str(source), str(dest))
+                    print(f"Moved {source} to {dest}")
 
     elif file_path.suffix == ".zip":
         import zipfile
