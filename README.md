@@ -124,21 +124,21 @@ python clean.py --help
 # Standard cleanup (removes downloads, extracted sources, cache)
 python clean.py
 
-# Clean everything including installation files (with safety checks)
+# Clean everything including installation files if they were installed in the project directory
+# (use with caution, as it will remove all Lua-related directories)
 python clean.py --all
-
-# Force removal of installation files (DANGEROUS)
-python clean.py --force
 
 # Clean only specific items
 python clean.py --downloads-only
 python clean.py --cache-only
 ```
 
-**Safety Features:**
-- Won't remove installation files if Lua is installed in the project directory (unless `--force`)
-- Only removes directories matching your current configuration
-- Provides clear feedback about what was removed and what was protected
+Note: To uninstall Lua (that was installed by these scripts) use the setup script with the `--uninstall` option, which will remove the Lua installation directory. This removes only the Lua and LuaRocks directories. Other files related to LuaRocks or Lua modules will not be removed, so you may need to clean them up manually if necessary. The setup.py script with the --uninstall flag will output some about the files that will not be removed so you can delete them manually if needed.
+
+```powershell
+# Uninstall Lua and LuaRocks
+python setup.py --uninstall
+```
 
 ## 🧪 Testing
 
