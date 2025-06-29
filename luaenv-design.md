@@ -130,3 +130,44 @@ luaenv/
 2. F# wrapper provides new interface
 3. Gradual feature migration to F#
 4. Eventually could replace Python backend
+
+## Implementation Options
+
+### Option 1: Start F# CLI Implementation
+- Create the actual F# project structure
+- Implement basic CLI commands (`luaenv versions`, `luaenv install`)
+- Wrap our existing Python scripts
+- Focus: Core functionality first
+
+### Option 2: Minimal Proof of Concept
+- Simple F# console app that calls our Python scripts
+- Demonstrate the wrapper concept
+- Test the integration approach
+- Focus: Validate architecture
+
+### Option 3: Configuration System First
+- Implement version discovery and listing
+- Create the configuration management system
+- Build the shims system
+- Focus: Foundation components
+
+### Option 4: GUI Prototype
+- Start with Avalonia UI mockup
+- Create basic version management interface
+- Visual installation progress
+- Focus: User experience
+
+## Next Steps Priority
+1. **Testing Framework**: Complete unit test suite for current Python build system
+2. **F# CLI Wrapper**: Basic command structure and Python integration
+3. **Configuration System**: JSON config and version management
+4. **GUI Implementation**: Avalonia interface with modern design
+5. **Shell Integration**: PowerShell/CMD shims and PATH management
+6. **Cross-Platform**: Linux/macOS support via Avalonia
+
+## Technical Decisions Made
+- **F# + Avalonia**: Functional programming + cross-platform GUI
+- **Wrapper Approach**: Reuse existing robust Python backend
+- **JSON Configuration**: Simple, readable config files
+- **Shims System**: pyenv-style executable routing
+- **Single Executable**: Self-contained deployment

@@ -100,9 +100,12 @@ def clean_cache_and_temp():
     script_dir = Path(__file__).parent
     success = True
 
-    # Remove Python cache
+    # Remove Python cache directories
     pycache_dir = script_dir / "__pycache__"
     success &= safe_remove_dir(pycache_dir, "Python cache directory")
+
+    tests_pycache_dir = script_dir / "tests" / "__pycache__"
+    success &= safe_remove_dir(tests_pycache_dir, "Tests Python cache directory")
 
     # Remove version cache
     cache_file = script_dir / "version_cache.json"
@@ -240,6 +243,7 @@ Note: This script only cleans the PROJECT DIRECTORY.
     print(f"  - {get_luarocks_dir_name()}/")
     print(f"  - {get_lua_tests_dir_name()}/")
     print(f"  - __pycache__/")
+    print(f"  - tests/__pycache__/")
     print(f"  - version_cache.json")
 
     if not args.downloads_only and not args.cache_only:

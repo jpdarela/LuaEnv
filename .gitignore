@@ -2,5 +2,8 @@ downloads
 rocks
 lua
 lua-*
+luarocks*
 .lua_prefix.txt
 .lua_install_info.txt
+tests/__pycache__
+__pycache__

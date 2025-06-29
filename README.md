@@ -140,6 +140,32 @@ python clean.py --cache-only
 - Only removes directories matching your current configuration
 - Provides clear feedback about what was removed and what was protected
 
+## 🧪 Testing
+
+The project includes a comprehensive test suite with an enhanced test runner:
+
+```powershell
+# Run all tests (default)
+python run_tests.py
+
+# Run specific test categories
+python run_tests.py --config        # All config tests
+python run_tests.py --config-basic  # Basic config tests only
+python run_tests.py --config-cache  # Config cache tests only
+python run_tests.py --config-cli    # Config CLI tests only
+python run_tests.py --download      # Download functionality tests
+python run_tests.py --setup-build   # Build setup tests
+
+# Get help with all options
+python run_tests.py --help
+```
+
+**Test Categories:**
+- **Config tests**: Configuration system validation and version discovery
+- **Download tests**: File download, extraction, and bootstrap functionality
+- **Setup build tests**: Build script setup and all build combinations (static/DLL, release/debug)
+- **Bootstrap integration**: Automatic dependency management between test categories
+
 
 ## 📁 Project Structure
 
@@ -153,12 +179,20 @@ lua_msvc_build/
 ├── setup_build.py                 # Prepares build environment
 ├── build.py                       # Main build script
 ├── clean.py                       # Smart cleanup script
-├── build-static.bat               # Static Lua library build script
-├── build-static-debug.bat         # Static Lua library build (with debug info) script
-├── build-dll.bat                  # Dynamic Lua library (DLL) build script
-├── build-dll-debug.bat            # Dynamic Lua library (DLL) build (with debug info) script
-├── install_lua_dll.py             # DLL build installer
-├── setup-luarocks.bat             # LuaRocks configuration script
+├── run_tests.py                   # Test runner with individual test options
+├── build_scripts/                 # Build scripts directory (organized)
+│   ├── build-static.bat           # Static Lua library build script
+│   ├── build-static-debug.bat     # Static Lua library build (with debug info) script
+│   ├── build-dll.bat              # Dynamic Lua library (DLL) build script
+│   ├── build-dll-debug.bat        # Dynamic Lua library (DLL) build (with debug info) script
+│   ├── install_lua_dll.py         # DLL build installer
+│   └── setup-luarocks.bat         # LuaRocks configuration script
+├── tests/                         # Test suite directory
+│   ├── test_config_basic.py       # Basic configuration tests
+│   ├── test_config_cache.py       # Configuration cache tests
+│   ├── test_config_cli.py         # Configuration CLI tests
+│   ├── test_download.py           # Download functionality tests
+│   └── test_setup_build.py        # Build setup tests
 ├── use-lua.ps1                    # PowerShell environment setup script
 ├── check-env.bat                  # Environment verification utility
 ├── version_cache.json             # Version discovery cache (auto-generated)
@@ -171,18 +205,15 @@ lua_msvc_build/
 **NOTES:**
 - **`build_config.txt`**: The main configuration file - edit this to change versions
 - **`version_cache.json`**: Automatically managed cache file - don't edit manually
+- **`build_scripts/`**: Organized directory containing all build scripts and installers
+- **`tests/`**: Comprehensive test suite with individual test categories
+- **`run_tests.py`**: Enhanced test runner with options for individual test categories
 - **`use-lua.ps1`**: PowerShell script to set up the environment for Lua and LuaRocks
-- **`debug builds`**: The batch scripts to build Lua with debug info are not included for setup. If you want to build Lua with debug info, place one of these into the src directory of the Lua source directory and run it.
+- **`debug builds`**: The debug build scripts are in `build_scripts/` directory and are automatically copied when needed
 
 ### After Installation
 Your Lua installation will have this structure:
-```
-installation-directory/     # e.g., ./lua, C:\lua, etc.
-├── bin/                   # Lua executables
-├── include/               # Lua headers
-├── lib/                   # Lua libraries
-├── luarocks/              # LuaRocks installation
-└── use-lua.ps1            # Environment setup script
+
 ```
 ├── .lua_prefix.txt  # Installation path reference (auto-generated)
 ├── your-install-dir/# Example: ./lua
@@ -371,7 +402,7 @@ Lua and LuaRocks are distributed under their respective licenses.
 ---
 
 **Current supported Versions:**
-- Lua: 5.4.8 (Release build)
-- LuaRocks: 3.12.2 (Downloaded binaries)
+- Lua: 5.4.X (Release build)
+- LuaRocks: >= 3.9.1 (Downloaded binaries)
 - VS: Visual Studio 2022 (Community, Professional, or Enterprise)
 ---

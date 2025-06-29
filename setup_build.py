@@ -25,6 +25,7 @@ BUILD_DEBUG = 0
 def copy_build_scripts():
     """Copy build scripts to the lua and luarocks directories."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    build_scripts_dir = os.path.join(current_dir, "build_scripts")
 
     # Use configuration to get correct directory names
     lua_dir_name = get_lua_dir_name()
@@ -49,7 +50,13 @@ def copy_build_scripts():
     print(f"  Build type: {build_type}")
     print()
 
-    # Ensure the directories exist
+    # Ensure the build scripts directory exists
+    if not os.path.exists(build_scripts_dir):
+        print(f"[ERROR] Build scripts directory does not exist: {build_scripts_dir}")
+        print("        Make sure the build_scripts folder exists in the project root.")
+        return False
+
+    # Ensure the target directories exist
     if not os.path.exists(lua_dir):
         print(f"[ERROR] Lua source directory does not exist: {lua_dir}")
         print(f"        Expected directory: {lua_dir_name}")
@@ -68,27 +75,27 @@ def copy_build_scripts():
     try:
         if BUILD_DLL and BUILD_DEBUG:
             print("Copying DLL debug build scripts...")
-            shutil.copy(os.path.join(current_dir, "build-dll-debug.bat"), lua_dir)
-            shutil.copy(os.path.join(current_dir, "install_lua_dll.py"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-dll-debug.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), lua_dir)
             print(f"  build-dll-debug.bat -> {lua_dir}")
             print(f"  install_lua_dll.py -> {lua_dir}")
         elif BUILD_DLL:
             print("Copying DLL build scripts...")
-            shutil.copy(os.path.join(current_dir, "build-dll.bat"), lua_dir)
-            shutil.copy(os.path.join(current_dir, "install_lua_dll.py"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-dll.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), lua_dir)
             print(f"  build-dll.bat -> {lua_dir}")
             print(f"  install_lua_dll.py -> {lua_dir}")
         elif BUILD_DEBUG:
             print("Copying static debug build scripts...")
-            shutil.copy(os.path.join(current_dir, "build-static-debug.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-static-debug.bat"), lua_dir)
             print(f"  build-static-debug.bat -> {lua_dir}")
         else:
             print("Copying static build scripts...")
-            shutil.copy(os.path.join(current_dir, "build-static.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-static.bat"), lua_dir)
             print(f"  build-static.bat -> {lua_dir}")
 
         print("Copying LuaRocks setup script...")
-        shutil.copy(os.path.join(current_dir, "setup-luarocks.bat"), luarocks_dir)
+        shutil.copy(os.path.join(build_scripts_dir, "setup-luarocks.bat"), luarocks_dir)
         print(f"  setup-luarocks.bat -> {luarocks_dir}")
 
         print("Build scripts copied successfully.")
