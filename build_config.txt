@@ -1,0 +1,36 @@
+# Lua MSVC Build System Configuration
+#
+# This file contains version settings for Lua and LuaRocks downloads.
+# Edit the values below to use different versions.
+#
+# Lines starting with # are comments and are ignored.
+# Format: SETTING_NAME=value (no spaces around the = sign)
+#
+# EXAMPLES:
+# - For Lua 5.4.7 with LuaRocks 3.11.1:
+#   LUA_VERSION=5.4.7
+#   LUAROCKS_VERSION=3.11.1
+#
+# - For Lua 5.3.6 with LuaRocks 3.10.0:
+#   LUA_VERSION=5.3.6
+#   LUAROCKS_VERSION=3.10.0
+#
+# NOTE: Not all version combinations may be available for download.
+# The script will show you the URLs it's trying to download.
+#
+# To discover available versions, run: python config.py --discover
+# To validate your configuration, run: python config.py --check
+#
+# PERFORMANCE NOTES:
+# - Version discovery results are cached for 240 hours to reduce server load
+# - Use --refresh flag to force cache update: python config.py --discover --refresh
+# - Use --cache-info to see cache status: python config.py --cache-info
+
+# Lua Configuration
+LUA_VERSION=5.4.8
+LUA_MAJOR_MINOR=5.4
+
+# LuaRocks Configuration
+LUAROCKS_VERSION=3.12.2
+LUAROCKS_PLATFORM=windows-64
+

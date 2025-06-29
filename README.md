@@ -1,7 +1,22 @@
-# Lua MSVC 2022 Build Scripts
+# Lua MSVC 2022 Build
 
-A set of build scripts for compiling Lua 5.4.8 and configuring LuaRocks 3.12.2 on Windows using Microsoft Visual Studio C++ (MSVC) 2022.
+A set of build scripts for compiling Lua and configuring LuaRocks on Windows using Microsoft Visual Studio C++ (MSVC) 2022 (x86 and amd64).
+
 I decided to learn Lua and am currently using Windows 11 with Visual Studio 2022. The options for building Lua on Windows are somewhat limited, so I created this set of scripts to automate the process of downloading, building, and configuring Lua (with LuaRocks) for my use. This project can be adapted for future Lua releases and can be used as a reference for building Lua on Windows with MSVC. Feel free to adapt, use, and contribute to this project!
+
+### 📦 Available Versions
+
+**Lua 5.4.x versions:**
+- 5.4.8, 5.4.7, 5.4.6, 5.4.5, 5.4.4, 5.4.3, 5.4.2, 5.4.1, 5.4.0
+
+**LuaRocks versions (≥3.9.1):**
+- 3.12.2, 3.12.1, 3.12.0, 3.11.1, 3.11.0, 3.10.0, 3.9.2, 3.9.1
+
+**Platforms for luarocks:**
+- `windows-64`
+- `windows-32`
+
+See `build_config.txt` for configuration options.
 
 ## 🚀 Quick Start
 
@@ -11,12 +26,32 @@ I decided to learn Lua and am currently using Windows 11 with Visual Studio 2022
 - **Python 3.x** for automation scripts
 - **Internet connection** for downloading Lua and LuaRocks
 
+## 📝 Configuration
+
+The system uses `build_config.txt` to manage versions. Edit this file to use different versions:
+
+```ini
+# Lua Configuration
+LUA_VERSION=5.4.8
+LUA_MAJOR_MINOR=5.4
+
+# LuaRocks Configuration
+LUAROCKS_VERSION=3.12.2
+LUAROCKS_PLATFORM=windows-64
+```
+
+**Examples:**
+- For Lua 5.4.7 with LuaRocks 3.11.1: Change `LUA_VERSION=5.4.7` and `LUAROCKS_VERSION=3.11.1`
+- For Lua 5.3.6 with LuaRocks 3.10.0: Change `LUA_VERSION=5.3.6` and `LUAROCKS_VERSION=3.10.0`
+
+Use `python config.py --discover` to see available versions, or `python config.py --check` to validate your configuration.
+
 ## 🛠️ Environment Setup
 
 ### Visual Studio Developer Command Prompt
 **Critical:** All build commands must be run from a **Visual Studio Developer Command Prompt** or **Developer PowerShell**.
 
-### Download the scripts
+### Download the Scripts
 
 Download the [zip file](https://github.com/jpdarela/lua_msvc_build/archive/refs/heads/main.zip) and unzip it.
 
@@ -25,9 +60,6 @@ Or clone it using git:
 ```Powershell
 # Clone the repository
 git clone https://github.com/jpdarela/lua_msvc_build.git
-```
-
-```Powershell
 # Change to the project directory
 cd lua_msvc_build
 ```
@@ -38,66 +70,120 @@ cd lua_msvc_build
 # Set the environment. Adjust path to your Visual Studio installation
 &"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch "amd64" -SkipAutomaticLocation
 ```
+Swich -Arch to the appropriate architecture if needed (e.g., `-Arch "x86"` for 32-bit builds).
 
-Then proceed with the setup command. This will build lua and install it to the directory (C:\lua_msvc_build\lua).
+## 🔨 Build Process
+
+The download and build process is simple. You can use the all-in-one `setup.py` command or run individual steps.
+
+### Option 1: All-in-One Build (Recommended)
 
 For a static build:
-
 ```powershell
 python setup.py
 ```
 
 For a DLL build:
-
 ```powershell
 python setup.py --dll
 ```
 
-Alternatively, you can set a custom installation directory. For instance, I install my stuff in a folder called opt in my home directory. This folder is already in my PATH, so I can just run and then everthing will be installed there (and the [use-lua.ps1](#environment-setup-script-use-luaps1) script will be already on my PATH):
-
+With custom installation directory:
 ```powershell
-python setup.py  --dll --prefix C:\Users\darel\opt\lua
+python setup.py --dll --prefix C:\Users\Corisco\opt\lua
 ```
 
-This single command will:
-1. **Download** Lua 5.4.8 and LuaRocks 3.12.2 automatically
-2. **Extract** archives and organize project structure
-3. **Check** environment for Visual Studio and required tools
-4. **Setup** build environment (copies scripts to appropriate directories)
-5. **Compile** Lua with MSVC (static or DLL)
-6. **Install** Lua to specified directory with proper structure
-7. **Configure** LuaRocks to work with your Lua build
-8. **Copy** `use-lua.ps1` environment setup script to the installation directory if you set `--prefix` option
+### Version Management
 
-Note: Using `setup.py` is the recommended approach as it automates the entire process from downloading Lua and LuaRocks to configuring your environment.
+```powershell
+# Check current configuration and validate URLs
+python config.py --check
+
+# Discover available versions (with caching)
+python config.py --discover
+
+# Force refresh version cache
+python config.py --discover --refresh
+
+# View cache information
+python config.py --cache-info
+
+# Clear version cache
+python config.py --clear-cache
+```
+
+## 🧹 Cleanup
+
+The system includes a cleanup script that respects your configuration and protects installations:
+
+```powershell
+
+# Print help and usage information
+python clean.py --help
+
+# Standard cleanup (removes downloads, extracted sources, cache)
+python clean.py
+
+# Clean everything including installation files (with safety checks)
+python clean.py --all
+
+# Force removal of installation files (DANGEROUS)
+python clean.py --force
+
+# Clean only specific items
+python clean.py --downloads-only
+python clean.py --cache-only
+```
+
+**Safety Features:**
+- Won't remove installation files if Lua is installed in the project directory (unless `--force`)
+- Only removes directories matching your current configuration
+- Provides clear feedback about what was removed and what was protected
 
 
 ## 📁 Project Structure
 
 ```
 lua_msvc_build/
-├── README.md                    # This file
-├── setup.py                     # Master setup script (recommended)
-├── download_lua_luarocks.py     # Downloads and extracts Lua/LuaRocks
-├── setup_build.py               # Prepares build environment
-├── build.py                     # Main automated build script
-├── build-static.bat             # Static Lua library build script with auto-install
-├── build-dll.bat                # Dynamic Lua library (DLL) build script
-├── install_lua_dll.py           # DLL build installer
-├── setup-luarocks.bat           # LuaRocks configuration script
-├── use-lua.ps1                  # PowerShell environment setup script
-├── check-env.bat                # Environment verification utility
-├── downloads/                   # Downloaded archives (created automatically)
-├── lua-5.4.8/                   # Extracted Lua source (auto-extracted)
-├── luarocks-3.12.2-windows-64/  # Extracted LuaRocks (auto-extracted)
-└── [installation directories]   # Your Lua installations (e.g., ./lua)
+├── README.md                      # This file
+├── build_config.txt               # 🔧 User configuration file (EDIT THIS)
+├── config.py                      # Configuration system and URL validation
+├── setup.py                       # Master setup script (all-in-one)
+├── download_lua_luarocks.py       # Downloads and extracts Lua/LuaRocks
+├── setup_build.py                 # Prepares build environment
+├── build.py                       # Main build script
+├── clean.py                       # Smart cleanup script
+├── build-static.bat               # Static Lua library build script
+├── build-static-debug.bat         # Static Lua library build (with debug info) script
+├── build-dll.bat                  # Dynamic Lua library (DLL) build script
+├── build-dll-debug.bat            # Dynamic Lua library (DLL) build (with debug info) script
+├── install_lua_dll.py             # DLL build installer
+├── setup-luarocks.bat             # LuaRocks configuration script
+├── use-lua.ps1                    # PowerShell environment setup script
+├── check-env.bat                  # Environment verification utility
+├── version_cache.json             # Version discovery cache (auto-generated)
+├── downloads/                     # Downloaded archives (auto-created)
+├── lua-{VERSION}/                 # Extracted Lua source (auto-extracted)
+├── luarocks-{VERSION}-{PLATFORM}/ # Extracted LuaRocks (auto-extracted)
+└── [installation directories]     # Your Lua installations (e.g., ./lua)
 ```
+
+**NOTES:**
+- **`build_config.txt`**: The main configuration file - edit this to change versions
+- **`version_cache.json`**: Automatically managed cache file - don't edit manually
+- **`use-lua.ps1`**: PowerShell script to set up the environment for Lua and LuaRocks
+- **`debug builds`**: The batch scripts to build Lua with debug info are not included for setup. If you want to build Lua with debug info, place one of these into the src directory of the Lua source directory and run it.
 
 ### After Installation
 Your Lua installation will have this structure:
 ```
-project-root/        # Your build directory
-├── use-lua.ps1      # PowerShell environment setup script
+installation-directory/     # e.g., ./lua, C:\lua, etc.
+├── bin/                   # Lua executables
+├── include/               # Lua headers
+├── lib/                   # Lua libraries
+├── luarocks/              # LuaRocks installation
+└── use-lua.ps1            # Environment setup script
+```
 ├── .lua_prefix.txt  # Installation path reference (auto-generated)
 ├── your-install-dir/# Example: ./lua
 │   ├── bin/         # Executables (lua.exe, luac.exe, lua54.dll if DLL build)

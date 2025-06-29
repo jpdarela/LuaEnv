@@ -1,6 +1,8 @@
 """
-SETUP script
+Master Setup Script for Lua MSVC Build System
 
+This script orchestrates the entire build process using the configuration system.
+It works with any Lua/LuaRocks versions specified in build_config.txt.
 """
 
 import os
@@ -8,6 +10,17 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# Import configuration system
+try:
+    from config import (
+        get_lua_dir_name, get_luarocks_dir_name, get_lua_tests_dir_name,
+        LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+    )
+except ImportError as e:
+    print(f"Error importing configuration: {e}")
+    print("Make sure config.py is in the same directory as this script.")
+    sys.exit(1)
 
 # Default installation directory
 default_install_dir = Path("./lua").resolve()
@@ -79,12 +92,30 @@ def call_check_env_bat_script():
         return True
 
 
-def run_setup(with_dll=False, prefix=install_dir, skip_env_check=False):
+def run_setup(with_dll=False, with_debug=False, prefix=install_dir, skip_env_check=False):
     """Run the download setup build and build python scripts."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Convert prefix to absolute path to avoid issues with relative paths
     prefix = os.path.abspath(prefix)
+
+    print(f"Lua MSVC Build System - Master Setup")
+    print("=" * 50)
+    print(f"Configuration: Lua {LUA_VERSION}, LuaRocks {LUAROCKS_VERSION}")
+
+    # Determine build type for display
+    if with_dll and with_debug:
+        build_type = "DLL Debug"
+    elif with_dll:
+        build_type = "DLL Release"
+    elif with_debug:
+        build_type = "Static Debug"
+    else:
+        build_type = "Static Release"
+
+    print(f"Build type: {build_type}")
+    print(f"Install directory: {prefix}")
+    print()
 
     # Check environment unless explicitly skipped
     if not skip_env_check:
@@ -97,45 +128,53 @@ def run_setup(with_dll=False, prefix=install_dir, skip_env_check=False):
                 return False
             print("Continuing with potentially problematic environment...")
 
+    print("Step 1: Downloading sources...")
     # Run download script
     download_script = os.path.join(current_dir, "download_lua_luarocks.py")
     subprocess.run([sys.executable, download_script], check=True)
 
-    if not with_dll:
-        print(f"Setting up for static build to {prefix}...")
+    print(f"\nStep 2: Setting up build scripts...")
+    # Run setup build scripts with appropriate flags
+    setup_build_script = os.path.join(current_dir, "setup_build.py")
+    setup_build_args = [sys.executable, setup_build_script]
+    if with_dll:
+        setup_build_args.append("--dll")
+    if with_debug:
+        setup_build_args.append("--debug")
+    subprocess.run(setup_build_args, check=True)
 
-        # Run setup build scrips
-        setup_build_script = os.path.join(current_dir, "setup_build.py")
-        subprocess.run([sys.executable, setup_build_script], check=True)
+    print(f"\nStep 3: Building and installing...")
+    # Run build script with appropriate flags and prefix
+    build_script = os.path.join(current_dir, "build.py")
+    build_args = [sys.executable, build_script, "--prefix", prefix]
+    if with_dll:
+        build_args.append("--dll")
+    if with_debug:
+        build_args.append("--debug")
+    subprocess.run(build_args, check=True)
 
-        # Run build script with prefix
-        build_script = os.path.join(current_dir, "build.py")
-        subprocess.run([sys.executable, build_script, "--prefix", prefix], check=True)
-    else:
-        print(f"Setting up for DLL build to {prefix}...")
-
-        # Run setup build scrips with DLL option
-        setup_build_script = os.path.join(current_dir, "setup_build.py")
-        subprocess.run([sys.executable, setup_build_script, "--dll"], check=True)
-
-        # Run build script with DLL option and prefix
-        build_script = os.path.join(current_dir, "build.py")
-        subprocess.run([sys.executable, build_script, "--dll", "--prefix", prefix], check=True)
-
+    print(f"\nStep 4: Finalizing installation...")
     # Copy the use-lua.ps1 script to the installation directory, pass if the path is the same
     use_lua_script = Path(current_dir) / "use-lua.ps1"
     dest_use_lua_script = Path(prefix).parent / "use-lua.ps1"
-    if use_lua_script != dest_use_lua_script:
+    use_lua_script_copied = False
+
+    if use_lua_script.resolve() != dest_use_lua_script.resolve():
         shutil.copy(use_lua_script, dest_use_lua_script)
+        print(f"  Copied use-lua.ps1 to {dest_use_lua_script}")
+        use_lua_script_copied = True
     else:
-        pass
+        print(f"  use-lua.ps1 already in correct location (project folder installation)")
+        use_lua_script_copied = False
+
     # Save the lua_prefix.txt file in the parent directory of the prefix
     dest_prefix_fir_file = Path(prefix).parent / ".lua_prefix.txt"
     with open(dest_prefix_fir_file, 'w') as f:
         f.write(prefix)
+    print(f"  Created prefix file: {dest_prefix_fir_file}")
 
     # Save installation information for uninstall
-    save_installation_info(prefix, with_dll)
+    save_installation_info(prefix, with_dll, with_debug, use_lua_script_copied)
 
     return True
 
@@ -147,7 +186,7 @@ def test_lua_build(lua_install_dir, run_tests=True):
         print(f"[ERROR] lua.exe not found at {lua_exe}")
         return False
 
-    print(f"[TEST] Testing Lua installation at {lua_install_dir}...")
+    print(f"[TEST] Testing Lua {LUA_VERSION} installation at {lua_install_dir}...")
 
     try:
         # Test 1: Check Lua version
@@ -164,9 +203,10 @@ def test_lua_build(lua_install_dir, run_tests=True):
 
         # Test 3: Check if tests directory exists and run tests if requested
         if run_tests:
-            tests_dir = Path("lua-5.4.8-tests")
+            # Use configuration system to get correct test directory name
+            tests_dir = Path(get_lua_tests_dir_name())
             if tests_dir.exists():
-                print(f"  [TEST] Running Lua basic test suite from {tests_dir}...")
+                print(f"  [TEST] Running Lua {LUA_VERSION} basic test suite from {tests_dir}...")
                 print("     Note: Running basic tests (_U=true flag) - some warnings are normal.")
 
                 # Change to tests directory and run tests
@@ -181,7 +221,7 @@ def test_lua_build(lua_install_dir, run_tests=True):
                     # Use absolute path to lua.exe since we changed directories
                     print("     Running: lua.exe -e \"_U=true\" all.lua (Basic Test Suite)")
                     result = subprocess.run([abs_lua_exe, "-e", "_U=true", "all.lua"],
-                                          capture_output=True, text=True, timeout=3000)
+                                          capture_output=True, text=True, timeout=300)
 
                     if result.returncode == 0:
                         print("  [PASS] Basic test suite completed successfully!")
@@ -203,7 +243,7 @@ def test_lua_build(lua_install_dir, run_tests=True):
 
                         # Common issues and solutions
                         if "attempt to index a nil value" in result.stdout:
-                            print("\n  [TIP] The 'main.lua' test failure is common on Windows.")
+                            print(f"\n  [TIP] Some test failures are common on Windows for Lua {LUA_VERSION}.")
                             print("     This usually relates to file permissions or temp directory access.")
                             print("     Your Lua build is likely fine for normal use.")
 
@@ -236,16 +276,32 @@ def test_lua_build(lua_install_dir, run_tests=True):
         print(f"  [ERROR] Unexpected error testing Lua: {e}")
         return False
 
-def save_installation_info(prefix, with_dll):
+def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_copied=False):
     """Save installation information for later uninstall."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     install_info_file = Path(current_dir) / ".lua_install_info.txt"
 
+    # Determine build type
+    if with_dll and with_debug:
+        build_type = "dll_debug"
+    elif with_dll:
+        build_type = "dll"
+    elif with_debug:
+        build_type = "static_debug"
+    else:
+        build_type = "static"
+
+    # Only save use-lua.ps1 path if it was actually copied (not project folder installation)
+    use_lua_script_path = str(Path(prefix).parent / "use-lua.ps1") if use_lua_script_copied else ""
+
     # Collect installation information
     install_info = {
         'install_directory': prefix,
-        'build_type': 'dll' if with_dll else 'static',
-        'use_lua_script': str(Path(prefix).parent / "use-lua.ps1"),
+        'build_type': build_type,
+        'lua_version': LUA_VERSION,
+        'luarocks_version': LUAROCKS_VERSION,
+        'luarocks_platform': LUAROCKS_PLATFORM,
+        'use_lua_script': use_lua_script_path,
         'prefix_file': str(Path(prefix).parent / ".lua_prefix.txt"),
         'timestamp': subprocess.run(['date', '/t'], capture_output=True, text=True, shell=True).stdout.strip()
     }
@@ -256,11 +312,15 @@ def save_installation_info(prefix, with_dll):
         f.write("# This file is used by the uninstall process\n")
         f.write(f"INSTALL_DIRECTORY={install_info['install_directory']}\n")
         f.write(f"BUILD_TYPE={install_info['build_type']}\n")
+        f.write(f"LUA_VERSION={install_info['lua_version']}\n")
+        f.write(f"LUAROCKS_VERSION={install_info['luarocks_version']}\n")
+        f.write(f"LUAROCKS_PLATFORM={install_info['luarocks_platform']}\n")
         f.write(f"USE_LUA_SCRIPT={install_info['use_lua_script']}\n")
         f.write(f"PREFIX_FILE={install_info['prefix_file']}\n")
         f.write(f"INSTALL_DATE={install_info['timestamp']}\n")
 
     print(f"[INFO] Installation information saved to {install_info_file}")
+    print(f"       Lua {LUA_VERSION} ({install_info['build_type']}) -> {prefix}")
 
 
 def uninstall_lua():
@@ -292,6 +352,9 @@ def uninstall_lua():
 
     install_dir = Path(install_info['INSTALL_DIRECTORY'])
     build_type = install_info.get('BUILD_TYPE', 'unknown')
+    lua_version = install_info.get('LUA_VERSION', 'unknown')
+    luarocks_version = install_info.get('LUAROCKS_VERSION', 'unknown')
+    luarocks_platform = install_info.get('LUAROCKS_PLATFORM', 'unknown')
     use_lua_script = install_info.get('USE_LUA_SCRIPT')
     prefix_file = install_info.get('PREFIX_FILE')
     install_date = install_info.get('INSTALL_DATE', 'unknown')
@@ -299,6 +362,8 @@ def uninstall_lua():
     print(f"[UNINSTALL] Lua MSVC Build Uninstaller")
     print(f"============================================")
     print(f"Installation directory: {install_dir}")
+    print(f"Lua version: {lua_version}")
+    print(f"LuaRocks: {luarocks_version} ({luarocks_platform})")
     print(f"Build type: {build_type}")
     print(f"Installation date: {install_date}")
     print()
@@ -323,14 +388,18 @@ def uninstall_lua():
     else:
         print(f"  [SKIP] Installation directory not found: {install_dir}")
 
-    # Remove use-lua.ps1 script
-    if use_lua_script and Path(use_lua_script).exists():
+    # Remove use-lua.ps1 script (only if it was copied during installation)
+    if use_lua_script and use_lua_script.strip() and Path(use_lua_script).exists():
         print(f"  [REMOVE] Removing use-lua.ps1 script: {use_lua_script}")
         try:
             Path(use_lua_script).unlink()
             print(f"  [OK] Successfully removed {use_lua_script}")
         except Exception as e:
             print(f"  [ERROR] Failed to remove {use_lua_script}: {e}")
+    elif use_lua_script and use_lua_script.strip():
+        print(f"  [SKIP] use-lua.ps1 script not found: {use_lua_script}")
+    else:
+        print(f"  [SKIP] use-lua.ps1 was not copied during installation (project folder installation)")
 
     # Remove prefix file
     if prefix_file and Path(prefix_file).exists():
@@ -377,18 +446,37 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Master setup script for Lua and LuaRocks.",
+        description="Master setup script for Lua and LuaRocks using the configuration system.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
+Current Configuration (from build_config.txt):
+  Lua: {LUA_VERSION}
+  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})
+
 Examples:
-  python setup.py                                      # Static build to ./lua (with basic tests)
-  python setup.py --dll                                # DLL build to ./lua (with basic tests)
-  python setup.py --prefix C:\lua                      # Static build to C:\\lua (with basic tests)
-  python setup.py --dll --prefix C:\Development\Lua    # DLL build to C:\\Development\\Lua (with basic tests)
+  python setup.py                                      # Static release build to ./lua (with basic tests)
+  python setup.py --dll                                # DLL release build to ./lua (with basic tests)
+  python setup.py --debug                              # Static debug build to ./lua (with basic tests)
+  python setup.py --dll --debug                        # DLL debug build to ./lua (with basic tests)
+  python setup.py --prefix C:\\lua                      # Static release build to C:\\lua (with basic tests)
+  python setup.py --dll --debug --prefix C:\\Dev\\Lua    # DLL debug build to C:\\Dev\\Lua (with basic tests)
   python setup.py --skip-tests                         # Build without running basic test suite
   python setup.py --skip-env-check                     # Build without Visual Studio environment check
-  python setup.py --dll --skip-tests --skip-env-check  # DLL build skipping both tests and env check
+  python setup.py --dll --debug --skip-tests --skip-env-check  # DLL debug build skipping both tests and env check
   python setup.py --uninstall                          # Uninstall Lua and remove all files
+
+Build Types:
+  Static Release:  Optimized static library build (default)
+  DLL Release:     Optimized DLL build
+  Static Debug:    Unoptimized static build with debug symbols
+  DLL Debug:       Unoptimized DLL build with debug symbols
+
+Prerequisites:
+  1. Visual Studio 2022 with C++ build tools
+  2. Run from a Visual Studio Developer Command Prompt (unless --skip-env-check)
+  3. Internet connection for downloading sources
+
+To use different versions, edit build_config.txt and re-run this script.
         """
     )
 
@@ -396,6 +484,12 @@ Examples:
         "--dll",
         action="store_true",
         help="Set up for DLL build instead of static build"
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Set up for debug build with debug symbols and unoptimized code"
     )
 
     parser.add_argument(
@@ -431,18 +525,31 @@ Examples:
         success = uninstall_lua()
         exit(0 if success else 1)
 
-    print(f"Master setup with the following options:")
-    print(f"  Build type: {'DLL' if args.dll else 'Static'}")
-    print(f"  Install directory: {args.prefix}")
-    if args.skip_env_check:
-        print(f"  Environment check: Skipped")
-    if args.skip_tests:
-        print(f"  Test suite: Skipped")
+    print(f"Lua MSVC Build System - Master Setup")
+    print("="*50)
+    print(f"Configuration: Lua {LUA_VERSION}, LuaRocks {LUAROCKS_VERSION}")
+
+    # Determine build type for display
+    if args.dll and args.debug:
+        build_type = "DLL Debug"
+    elif args.dll:
+        build_type = "DLL Release"
+    elif args.debug:
+        build_type = "Static Debug"
     else:
-        print(f"  Test suite: Will run basic tests after build")
+        build_type = "Static Release"
+
+    print(f"Build type: {build_type}")
+    print(f"Install directory: {args.prefix}")
+    if args.skip_env_check:
+        print(f"Environment check: Skipped")
+    if args.skip_tests:
+        print(f"Test suite: Skipped")
+    else:
+        print(f"Test suite: Will run basic tests after build")
     print()
 
-    success = run_setup(with_dll=args.dll, prefix=args.prefix, skip_env_check=args.skip_env_check)
+    success = run_setup(with_dll=args.dll, with_debug=args.debug, prefix=args.prefix, skip_env_check=args.skip_env_check)
     if not success:
         exit(1)
 
@@ -457,6 +564,9 @@ Examples:
             print("   Try running: lua -e \"print('Hello, Lua!')\" to verify basic functionality.")
         else:
             print("\n[SUCCESS] All basic tests passed! Your Lua installation is ready to use.")
+        print(f"\nLua {LUA_VERSION} is now installed and ready to use!")
+        print(f"Installation directory: {args.prefix}")
+        print(f"To use Lua, add {args.prefix}\\bin to your PATH environment variable.")
     else:
         # Run only minimal functionality test when tests are skipped
         print("\n" + "="*60)
@@ -466,6 +576,9 @@ Examples:
         if test_success:
             print("\n[PASS] Basic functionality test passed!")
             print("   Remove --skip-tests flag to run the basic test suite.")
+            print(f"\nLua {LUA_VERSION} is now installed and ready to use!")
+            print(f"Installation directory: {args.prefix}")
+            print(f"To use Lua, add {args.prefix}\\bin to your PATH environment variable.")
         else:
             print("\n[FAIL] Basic test failed. Check the installation.")
             exit(1)

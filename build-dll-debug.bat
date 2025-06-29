@@ -22,7 +22,7 @@ REM automatically install Lua to the specified directory.
 REM ====================================================================
 
 echo ====================================================================
-echo Building Lua 5.4.8 - DLL Debug Build with Auto-Install
+echo Building Lua 5.4.X - DLL Debug Build with Auto-Install
 echo ====================================================================
 echo.
 
@@ -115,17 +115,17 @@ cl /c %CFLAGS% /FoDebug\linit.obj linit.c
 
 echo.
 echo Creating debug DLL...
-link /OUT:Debug\lua54d.dll %LINKFLAGS% /IMPLIB:Debug\lua54d.lib Debug\lapi.obj Debug\lcode.obj Debug\lctype.obj Debug\ldebug.obj Debug\ldo.obj Debug\ldump.obj Debug\lfunc.obj Debug\lgc.obj Debug\llex.obj Debug\lmem.obj Debug\lobject.obj Debug\lopcodes.obj Debug\lparser.obj Debug\lstate.obj Debug\lstring.obj Debug\ltable.obj Debug\ltm.obj Debug\lundump.obj Debug\lvm.obj Debug\lzio.obj Debug\lauxlib.obj Debug\lbaselib.obj Debug\lcorolib.obj Debug\ldblib.obj Debug\liolib.obj Debug\lmathlib.obj Debug\loadlib.obj Debug\loslib.obj Debug\lstrlib.obj Debug\ltablib.obj Debug\lutf8lib.obj Debug\linit.obj
+link /OUT:Debug\lua54.dll %LINKFLAGS% /IMPLIB:Debug\lua54.lib Debug\lapi.obj Debug\lcode.obj Debug\lctype.obj Debug\ldebug.obj Debug\ldo.obj Debug\ldump.obj Debug\lfunc.obj Debug\lgc.obj Debug\llex.obj Debug\lmem.obj Debug\lobject.obj Debug\lopcodes.obj Debug\lparser.obj Debug\lstate.obj Debug\lstring.obj Debug\ltable.obj Debug\ltm.obj Debug\lundump.obj Debug\lvm.obj Debug\lzio.obj Debug\lauxlib.obj Debug\lbaselib.obj Debug\lcorolib.obj Debug\ldblib.obj Debug\liolib.obj Debug\lmathlib.obj Debug\loadlib.obj Debug\loslib.obj Debug\lstrlib.obj Debug\ltablib.obj Debug\lutf8lib.obj Debug\linit.obj
 
 echo.
 echo Compiling and linking debug executables...
-echo   lua_debug.exe...
+echo   lua.exe...
 cl /c %CFLAGS% /FoDebug\lua.obj lua.c
-link /OUT:Debug\lua_debug.exe /DEBUG /INCREMENTAL:NO Debug\lua.obj Debug\lua54d.lib
+link /OUT:Debug\lua.exe /DEBUG /INCREMENTAL:NO Debug\lua.obj Debug\lua54.lib
 
-echo   luac_debug.exe...
+echo   luac.exe...
 cl /c %CFLAGS% /FoDebug\luac.obj luac.c
-link /OUT:Debug\luac_debug.exe /DEBUG /INCREMENTAL:NO Debug\luac.obj Debug\lapi.obj Debug\lcode.obj Debug\lctype.obj Debug\ldebug.obj Debug\ldo.obj Debug\ldump.obj Debug\lfunc.obj Debug\lgc.obj Debug\llex.obj Debug\lmem.obj Debug\lobject.obj Debug\lopcodes.obj Debug\lparser.obj Debug\lstate.obj Debug\lstring.obj Debug\ltable.obj Debug\ltm.obj Debug\lundump.obj Debug\lvm.obj Debug\lzio.obj Debug\lauxlib.obj Debug\lbaselib.obj Debug\lcorolib.obj Debug\ldblib.obj Debug\liolib.obj Debug\lmathlib.obj Debug\loadlib.obj Debug\loslib.obj Debug\lstrlib.obj Debug\ltablib.obj Debug\lutf8lib.obj Debug\linit.obj
+link /OUT:Debug\luac.exe /DEBUG /INCREMENTAL:NO Debug\luac.obj Debug\lapi.obj Debug\lcode.obj Debug\lctype.obj Debug\ldebug.obj Debug\ldo.obj Debug\ldump.obj Debug\lfunc.obj Debug\lgc.obj Debug\llex.obj Debug\lmem.obj Debug\lobject.obj Debug\lopcodes.obj Debug\lparser.obj Debug\lstate.obj Debug\lstring.obj Debug\ltable.obj Debug\ltm.obj Debug\lundump.obj Debug\lvm.obj Debug\lzio.obj Debug\lauxlib.obj Debug\lbaselib.obj Debug\lcorolib.obj Debug\ldblib.obj Debug\liolib.obj Debug\lmathlib.obj Debug\loadlib.obj Debug\loslib.obj Debug\lstrlib.obj Debug\ltablib.obj Debug\lutf8lib.obj Debug\linit.obj
 
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -141,16 +141,16 @@ echo ====================================================================
 echo.
 echo Debug DLL build completed successfully!
 echo Built files:
-echo   Debug\lua_debug.exe  - Lua interpreter with debug symbols
-echo   Debug\luac_debug.exe - Lua compiler with debug symbols
-echo   Debug\lua54d.dll     - Lua debug DLL
-echo   Debug\lua54d.lib     - Import library for debug DLL
-echo   Debug\*.pdb          - Program database files (debug symbols)
+echo   Debug\lua.exe     - Lua interpreter with debug symbols
+echo   Debug\luac.exe    - Lua compiler with debug symbols
+echo   Debug\lua54.dll   - Lua debug DLL
+echo   Debug\lua54.lib   - Import library for debug DLL
+echo   Debug\*.pdb       - Program database files (debug symbols)
 echo.
 
 echo Testing debug executables...
-Debug\lua_debug.exe -v
-Debug\luac_debug.exe -v
+Debug\lua.exe -v
+Debug\luac.exe -v
 
 echo.
 echo All tests passed! Debug DLL build is ready for debugging.
@@ -169,10 +169,10 @@ if not exist "!INSTALL_DIR!\include" mkdir "!INSTALL_DIR!\include"
 if not exist "!INSTALL_DIR!\lib" mkdir "!INSTALL_DIR!\lib"
 if not exist "!INSTALL_DIR!\doc" mkdir "!INSTALL_DIR!\doc"
 
-copy "Debug\lua_debug.exe" "!INSTALL_DIR!\bin\"
-copy "Debug\luac_debug.exe" "!INSTALL_DIR!\bin\"
-copy "Debug\lua54d.dll" "!INSTALL_DIR!\bin\"
-copy "Debug\lua54d.lib" "!INSTALL_DIR!\lib\"
+copy "Debug\lua.exe" "!INSTALL_DIR!\bin\"
+copy "Debug\luac.exe" "!INSTALL_DIR!\bin\"
+copy "Debug\lua54.dll" "!INSTALL_DIR!\bin\"
+copy "Debug\lua54.lib" "!INSTALL_DIR!\lib\"
 copy "Debug\*.pdb" "!INSTALL_DIR!\bin\"
 
 copy "lua.h" "!INSTALL_DIR!\include\"
@@ -206,26 +206,26 @@ echo Build Date: %DATE% %TIME%
 echo Build Type: DEBUG DLL (with debug symbols)
 echo.
 echo Directory Structure:
-echo   bin/        - Executable and DLL files ^(lua_debug.exe, luac_debug.exe, lua54d.dll^) + PDB files
+echo   bin/        - Executable and DLL files ^(lua.exe, luac.exe, lua54.dll^) + PDB files
 echo   include/    - Header files for C/C++ development
-echo   lib/        - Import library ^(lua54d.lib^)
+echo   lib/        - Import library ^(lua54.lib^)
 echo   doc/        - Documentation
 echo.
 echo Usage:
 echo   1. Add !INSTALL_DIR!\bin to your PATH environment variable
-echo   2. Run 'lua_debug' to start the Lua interpreter with debug symbols
-echo   3. Run 'luac_debug' to compile Lua scripts with debug info
+echo   2. Run 'lua' to start the Lua interpreter with debug symbols
+echo   3. Run 'luac' to compile Lua scripts with debug info
 echo.
 echo For C/C++ Development:
 echo   - Include headers from: !INSTALL_DIR!\include
-echo   - Link against: !INSTALL_DIR!\lib\lua54d.lib ^(debug import library^)
-echo   - Ensure lua54d.dll is in PATH or same directory as your executable
+echo   - Link against: !INSTALL_DIR!\lib\lua54.lib ^(debug import library^)
+echo   - Ensure lua54.dll is in PATH or same directory as your executable
 echo   - Use with debugger: PDB files are available in bin/
 echo.
 echo Examples:
-echo   lua_debug script.lua                     # Run a Lua script ^(debuggable^)
-echo   luac_debug -o script.luac script.lua     # Compile with debug info
-echo   lua_debug -i                             # Interactive mode ^(debuggable^)
+echo   lua script.lua                     # Run a Lua script ^(debuggable^)
+echo   luac -o script.luac script.lua     # Compile with debug info
+echo   lua -i                             # Interactive mode ^(debuggable^)
 echo.
 echo Debugging Features:
 echo   - Full debug symbols ^(.pdb files^)
@@ -234,7 +234,7 @@ echo   - Debug runtime ^(/MDd^) for memory debugging
 echo   - _DEBUG preprocessor definition
 echo   - DLL build for easier debugging and smaller executables
 echo.
-echo The debug DLL ^(lua54d.dll^) and import library ^(lua54d.lib^) should be used
+echo The debug DLL ^(lua54.dll^) and import library ^(lua54.lib^) should be used
 echo when developing and debugging C applications that embed Lua. Switch to the
 echo release version for production builds.
 echo.

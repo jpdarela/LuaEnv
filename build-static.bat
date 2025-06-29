@@ -21,7 +21,7 @@ REM If the build is successful, it will automatically install Lua to the specifi
 REM ====================================================================
 
 echo ====================================================================
-echo Building Lua 5.4.8 - Static Build with Auto-Install
+echo Building Lua 5.4.X - Static Build with Auto-Install
 echo ====================================================================
 echo.
 
