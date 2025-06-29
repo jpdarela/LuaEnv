@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -19,6 +20,9 @@ def run_build_scripts(build_dll=False, install_dir=INSTALL_DIR):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     lua_dir = os.path.join(current_dir, "lua-5.4.8/src")
     luarocks_dir = os.path.join(current_dir, "luarocks-3.12.2-windows-64")
+
+    # Convert install_dir to absolute path to avoid issues when changing directories
+    install_dir = os.path.abspath(install_dir)
 
     # Ensure the directories exist
     if not os.path.exists(lua_dir):
@@ -32,7 +36,7 @@ def run_build_scripts(build_dll=False, install_dir=INSTALL_DIR):
     os.chdir(lua_dir)
     if build_dll:
         subprocess.run(["build-dll.bat"], check=True, shell=True)
-        os.system(f"python install_lua_dll.py {install_dir}")
+        subprocess.run([sys.executable, "install_lua_dll.py", install_dir], check=True)
     else:
         subprocess.run(["build-static.bat", install_dir], check=True, shell=True)
 

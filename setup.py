@@ -6,6 +6,7 @@ SETUP script
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 # Default installation directory
@@ -82,6 +83,9 @@ def run_setup(with_dll=False, prefix=install_dir, skip_env_check=False):
     """Run the download setup build and build python scripts."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # Convert prefix to absolute path to avoid issues with relative paths
+    prefix = os.path.abspath(prefix)
+
     # Check environment unless explicitly skipped
     if not skip_env_check:
         env_ok = call_check_env_bat_script()
@@ -95,28 +99,28 @@ def run_setup(with_dll=False, prefix=install_dir, skip_env_check=False):
 
     # Run download script
     download_script = os.path.join(current_dir, "download_lua_luarocks.py")
-    subprocess.run(["python", download_script], check=True)
+    subprocess.run([sys.executable, download_script], check=True)
 
     if not with_dll:
         print(f"Setting up for static build to {prefix}...")
 
         # Run setup build scrips
         setup_build_script = os.path.join(current_dir, "setup_build.py")
-        subprocess.run(["python", setup_build_script], check=True)
+        subprocess.run([sys.executable, setup_build_script], check=True)
 
         # Run build script with prefix
         build_script = os.path.join(current_dir, "build.py")
-        subprocess.run(["python", build_script, "--prefix", prefix], check=True)
+        subprocess.run([sys.executable, build_script, "--prefix", prefix], check=True)
     else:
         print(f"Setting up for DLL build to {prefix}...")
 
         # Run setup build scrips with DLL option
         setup_build_script = os.path.join(current_dir, "setup_build.py")
-        subprocess.run(["python", setup_build_script, "--dll"], check=True)
+        subprocess.run([sys.executable, setup_build_script, "--dll"], check=True)
 
         # Run build script with DLL option and prefix
         build_script = os.path.join(current_dir, "build.py")
-        subprocess.run(["python", build_script, "--dll", "--prefix", prefix], check=True)
+        subprocess.run([sys.executable, build_script, "--dll", "--prefix", prefix], check=True)
 
     # Copy the use-lua.ps1 script to the installation directory, pass if the path is the same
     use_lua_script = Path(current_dir) / "use-lua.ps1"
@@ -167,12 +171,16 @@ def test_lua_build(lua_install_dir, run_tests=True):
 
                 # Change to tests directory and run tests
                 original_cwd = os.getcwd()
+                # Calculate absolute path to lua.exe BEFORE changing directories
+                abs_lua_exe = os.path.abspath(lua_exe)
+
                 try:
                     os.chdir(tests_dir)
 
                     # Run basic tests with _U=true flag (for UTF-8 support and basic test mode)
+                    # Use absolute path to lua.exe since we changed directories
                     print("     Running: lua.exe -e \"_U=true\" all.lua (Basic Test Suite)")
-                    result = subprocess.run([str(lua_exe), "-e", "_U=true", "all.lua"],
+                    result = subprocess.run([abs_lua_exe, "-e", "_U=true", "all.lua"],
                                           capture_output=True, text=True, timeout=3000)
 
                     if result.returncode == 0:
@@ -207,7 +215,7 @@ def test_lua_build(lua_install_dir, run_tests=True):
                 print(f"  [WARN] Tests directory {tests_dir} not found. Download may have failed.")
                 return False
         else:
-            print("  [INFO] Skipping basic test suite (use --skip-tests to disable)")
+            print("  [INFO] Skipping basic test suite (remove --skip-tests flag to enable)")
 
         print("  [PASS] Basic Lua functionality test passed!")
         return True
