@@ -27,6 +27,33 @@ default_install_dir = Path("./lua").resolve()
 
 install_dir = str(default_install_dir)
 
+def setenv():
+    # Set vs environment if setenv.ps1 exists
+    if os.path.exists("setenv.ps1"):
+        try:
+            # Run setenv.ps1 and capture environment variables
+            result = subprocess.run([
+                "powershell", "-ExecutionPolicy", "Bypass", "-Command",
+                ". .\\setenv.ps1; Get-ChildItem Env: | ForEach-Object { \"$($_.Name)=$($_.Value)\" }"
+            ], capture_output=True, text=True, check=False)
+
+            if result.returncode == 0:
+                # Apply environment variables to current process
+                for line in result.stdout.strip().split('\n'):
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ[key] = value
+                print("Environment variables applied from setenv.ps1")
+                return True
+            else:
+                print("Warning: setenv.ps1 execution failed")
+        except Exception as e:
+            return False
+    else:
+        print("setenv.ps1 not found, skipping environment setup")
+        return False
+
+
 def call_check_env_bat_script():
     """Call the check_env.bat script to verify the environment."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -119,6 +146,10 @@ def run_setup(with_dll=False, with_debug=False, prefix=install_dir, skip_env_che
 
     # Check environment unless explicitly skipped
     if not skip_env_check:
+        env_set = setenv()
+        if not env_set:
+            print("Failed to set environment variables from setenv.ps1.")
+        print("Checking Visual Studio environment...")
         env_ok = call_check_env_bat_script()
         if not env_ok:
             print("\nEnvironment check failed. Build may not succeed.")

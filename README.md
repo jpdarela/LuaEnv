@@ -74,23 +74,23 @@ Swich -Arch to the appropriate architecture if needed (e.g., `-Arch "x86"` for 3
 
 ## 🔨 Build Process
 
-The download and build process is simple. You can use the all-in-one `setup.py` command or run individual steps.
+The download and build process is simple. You can use the all-in-one `setup_lua.py` command or run individual steps.
 
 ### Option 1: All-in-One Build (Recommended)
 
 For a static build:
 ```powershell
-python setup.py
+python setup_lua.py
 ```
 
 For a DLL build:
 ```powershell
-python setup.py --dll
+python setup_lua.py --dll
 ```
 
 With custom installation directory:
 ```powershell
-python setup.py --dll --prefix C:\Users\Corisco\opt\lua
+python setup_lua.py --dll --prefix C:\Users\Corisco\opt\lua
 ```
 
 ### Version Management
@@ -133,11 +133,11 @@ python clean.py --downloads-only
 python clean.py --cache-only
 ```
 
-Note: To uninstall Lua (that was installed by these scripts) use the setup script with the `--uninstall` option, which will remove the Lua installation directory. This removes only the Lua and LuaRocks directories. Other files related to LuaRocks or Lua modules will not be removed, so you may need to clean them up manually if necessary. The setup.py script with the --uninstall flag will output some about the files that will not be removed so you can delete them manually if needed.
+Note: To uninstall Lua (that was installed by these scripts) use the setup script with the `--uninstall` option, which will remove the Lua installation directory. This removes only the Lua and LuaRocks directories. Other files related to LuaRocks or Lua modules will not be removed, so you may need to clean them up manually if necessary. The setup_lua.py script with the --uninstall flag will output some about the files that will not be removed so you can delete them manually if needed.
 
 ```powershell
 # Uninstall Lua and LuaRocks
-python setup.py --uninstall
+python setup_lua.py --uninstall
 ```
 
 ## 🧪 Testing
@@ -174,7 +174,7 @@ lua_msvc_build/
 ├── README.md                      # This file
 ├── build_config.txt               # 🔧 User configuration file (EDIT THIS)
 ├── config.py                      # Configuration system and URL validation
-├── setup.py                       # Master setup script (all-in-one)
+├── setup_lua.py                       # Master setup script (all-in-one)
 ├── download_lua_luarocks.py       # Downloads and extracts Lua/LuaRocks
 ├── setup_build.py                 # Prepares build environment
 ├── build.py                       # Main build script
