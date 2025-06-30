@@ -8,7 +8,6 @@ testing the actual workflow that users would follow.
 import unittest
 import sys
 import os
-import shutil
 import subprocess
 from pathlib import Path
 

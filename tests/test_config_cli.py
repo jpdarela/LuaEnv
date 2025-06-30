@@ -9,7 +9,6 @@ import unittest
 import sys
 import os
 import subprocess
-import tempfile
 import json
 from pathlib import Path
 from datetime import datetime, timedelta

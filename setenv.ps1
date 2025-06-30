@@ -3,12 +3,35 @@ param(
     [Alias("h")]
     [switch]$Help,
 
+    [Alias("platform", "a")]
     [ValidateSet("amd64", "x86")]
     [string]$Arch = "amd64",
 
+    [Alias("env")]
     [switch]$Current,
 
-    [string]$Path
+    [Alias("p")]
+    [ValidateScript({
+        if ($_) {
+            # Check if path exists
+            if (-not (Test-Path $_)) {
+                throw "Specified path does not exist: $_"
+            }
+
+            # Check if it's a valid Visual Studio installation
+            $vsDevShellPath = Join-Path $_ "Common7\Tools\Launch-VsDevShell.ps1"
+            $vsDevCmdPath = Join-Path $_ "Common7\Tools\VsDevCmd.bat"
+
+            if (-not (Test-Path $vsDevShellPath) -and -not (Test-Path $vsDevCmdPath)) {
+                throw "Specified path does not appear to be a valid Visual Studio installation. Expected to find either 'Common7\Tools\Launch-VsDevShell.ps1' or 'Common7\Tools\VsDevCmd.bat' in: $_"
+            }
+        }
+        return $true
+    })]
+    [string]$Path,
+
+    [Alias("dry-run")]
+    [switch]$DryRun
 
 )
 
@@ -25,26 +48,31 @@ if ($Help) {
     Write-Host "  compilation using MSVC compiler toolchain." -ForegroundColor White
     Write-Host ""
     Write-Host "USAGE:" -ForegroundColor Yellow
-    Write-Host "  .\setenv.ps1 [[-Arch] <String>] [-Current] [-Path <String>] [-Help]" -ForegroundColor White
+    Write-Host "  .\setenv.ps1 [[-Arch] <String>] [-Current] [-Path <String>] [-DryRun] [-Help]" -ForegroundColor White
     Write-Host ""
     Write-Host "PARAMETERS:" -ForegroundColor Yellow
-    Write-Host "  -Arch <String>" -ForegroundColor Green
+    Write-Host "  -Arch <String> (aliases: -platform, -a)" -ForegroundColor Green
     Write-Host "      Target architecture for the build environment." -ForegroundColor White
     Write-Host "      Valid values: 'amd64' (64-bit), 'x86' (32-bit)" -ForegroundColor White
     Write-Host "      Default: 'amd64'" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  -Current [<SwitchParameter>]" -ForegroundColor Green
+    Write-Host "  -Current [<SwitchParameter>] (alias: -env)" -ForegroundColor Green
     Write-Host "      Configure the Visual Studio environment in the current PowerShell session" -ForegroundColor White
     Write-Host "      instead of launching a new Developer Shell window." -ForegroundColor White
     Write-Host "      This allows you to continue using the same terminal with VS tools available." -ForegroundColor White
     Write-Host ""
-    Write-Host "  -Path <String>" -ForegroundColor Green
+    Write-Host "  -Path <String> (alias: -p)" -ForegroundColor Green
     Write-Host "      Absolute path to the Visual Studio installation directory." -ForegroundColor White
     Write-Host "      Example: 'C:\Program Files\Microsoft Visual Studio\2022\Community'" -ForegroundColor White
     Write-Host "      This path will be saved to '.vs_install_path.txt' for future use." -ForegroundColor White
     Write-Host "      Takes precedence over automatic detection methods." -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  -Help [<SwitchParameter>] (aliases: -h, -H)" -ForegroundColor Green
+    Write-Host "  -DryRun [<SwitchParameter>] (alias: -dry-run)" -ForegroundColor Green
+    Write-Host "      Show what would be configured without actually changing environment variables." -ForegroundColor White
+    Write-Host "      Config file will still be updated when -Path is specified." -ForegroundColor White
+    Write-Host "      Useful for testing and verification before making changes." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  -Help [<SwitchParameter>] (alias: -h)" -ForegroundColor Green
     Write-Host "      Display this help message and exit." -ForegroundColor White
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
@@ -63,6 +91,12 @@ if ($Help) {
     Write-Host "  .\setenv.ps1 -Path 'C:\Program Files\Microsoft Visual Studio\2022\Community'" -ForegroundColor White
     Write-Host "      Use a specific Visual Studio installation path" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  .\setenv.ps1 -DryRun" -ForegroundColor White
+    Write-Host "      Show what would be configured without making changes" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  .\setenv.ps1 -Path 'C:\MyVS' -DryRun" -ForegroundColor White
+    Write-Host "      Save custom path to config file but don't change environment" -ForegroundColor Gray
+    Write-Host ""
     Write-Host "NOTES:" -ForegroundColor Yellow
     Write-Host "  - The script automatically searches for Visual Studio installations using vswhere" -ForegroundColor White
     Write-Host "  - Supports Visual Studio 2017, 2019, and 2022 (Community, Professional, Enterprise)" -ForegroundColor White
@@ -78,6 +112,9 @@ if ($Current) {
     Write-Host "Mode: Configure current PowerShell session" -ForegroundColor DarkYellow
 } else {
     Write-Host "Mode: Launch new Developer Shell" -ForegroundColor DarkYellow
+}
+if ($DryRun) {
+    Write-Host "Mode: DRY RUN - No environment changes will be made" -ForegroundColor Magenta
 }
 Write-Host ""
 
@@ -146,25 +183,44 @@ set
                 $envVars = & cmd /c $tempFile
                 Remove-Item $tempFile -Force
 
-                foreach ($line in $envVars) {
-                    if ($line -match '^([^=]+)=(.*)$') {
-                        [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                if ($DryRun) {
+                    Write-Host "[DRY RUN] Would set the following environment variables:" -ForegroundColor Magenta
+                    foreach ($line in $envVars) {
+                        if ($line -match '^([^=]+)=(.*)$') {
+                            Write-Host "  $($matches[1]) = $($matches[2])" -ForegroundColor Gray
+                        }
                     }
+                    Write-Host "[DRY RUN] Visual Studio Developer Environment would be configured in current session!" -ForegroundColor Magenta
+                } else {
+                    foreach ($line in $envVars) {
+                        if ($line -match '^([^=]+)=(.*)$') {
+                            [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                        }
+                    }
+                    Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                 }
 
                 $VsDevShellFound = $true
-                Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                 Write-Host "  -> PATH, INCLUDE, LIB, and other VS variables are now available" -ForegroundColor Gray
             }
             catch {
-                Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
-                & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                if ($DryRun) {
+                    Write-Host "  [DRY RUN] Would try Launch-VsDevShell as fallback..." -ForegroundColor Magenta
+                } else {
+                    Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
+                    & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                }
                 $VsDevShellFound = $true
                 Write-Host "[SUCCESS] Visual Studio Developer Environment successfully configured!" -ForegroundColor Green
             }
         } else {
             # Default behavior: Launch new shell
-            & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+            if ($DryRun) {
+                Write-Host "[DRY RUN] Would launch new Developer Shell with command:" -ForegroundColor Magenta
+                Write-Host "  & `"$VsDevShellPath`" -Arch $Arch -SkipAutomaticLocation" -ForegroundColor Gray
+            } else {
+                & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+            }
             $VsDevShellFound = $true
             Write-Host "[SUCCESS] Visual Studio Developer Shell launched!" -ForegroundColor Green
         }
@@ -216,25 +272,44 @@ set
                         $envVars = & cmd /c $tempFile
                         Remove-Item $tempFile -Force
 
-                        foreach ($line in $envVars) {
-                            if ($line -match '^([^=]+)=(.*)$') {
-                                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                        if ($DryRun) {
+                            Write-Host "[DRY RUN] Would set the following environment variables:" -ForegroundColor Magenta
+                            foreach ($line in $envVars) {
+                                if ($line -match '^([^=]+)=(.*)$') {
+                                    Write-Host "  $($matches[1]) = $($matches[2])" -ForegroundColor Gray
+                                }
                             }
+                            Write-Host "[DRY RUN] Visual Studio Developer Environment would be configured in current session!" -ForegroundColor Magenta
+                        } else {
+                            foreach ($line in $envVars) {
+                                if ($line -match '^([^=]+)=(.*)$') {
+                                    [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                                }
+                            }
+                            Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                         }
 
                         $VsDevShellFound = $true
-                        Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                         Write-Host "  -> PATH, INCLUDE, LIB, and other VS variables are now available" -ForegroundColor Gray
                     }
                     catch {
-                        Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
-                        & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                        if ($DryRun) {
+                            Write-Host "  [DRY RUN] Would try Launch-VsDevShell as fallback..." -ForegroundColor Magenta
+                        } else {
+                            Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
+                            & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                        }
                         $VsDevShellFound = $true
                         Write-Host "[SUCCESS] Visual Studio Developer Environment successfully configured!" -ForegroundColor Green
                     }
                 } else {
                     # Default behavior: Launch new shell
-                    & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                    if ($DryRun) {
+                        Write-Host "[DRY RUN] Would launch new Developer Shell with command:" -ForegroundColor Magenta
+                        Write-Host "  & `"$VsDevShellPath`" -Arch $Arch -SkipAutomaticLocation" -ForegroundColor Gray
+                    } else {
+                        & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                    }
                     $VsDevShellFound = $true
                     Write-Host "[SUCCESS] Visual Studio Developer Shell launched!" -ForegroundColor Green
                 }
@@ -305,26 +380,45 @@ set
                     $envVars = & cmd /c $tempFile
                     Remove-Item $tempFile -Force
 
-                    foreach ($line in $envVars) {
-                        if ($line -match '^([^=]+)=(.*)$') {
-                            [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                    if ($DryRun) {
+                        Write-Host "[DRY RUN] Would set the following environment variables:" -ForegroundColor Magenta
+                        foreach ($line in $envVars) {
+                            if ($line -match '^([^=]+)=(.*)$') {
+                                Write-Host "  $($matches[1]) = $($matches[2])" -ForegroundColor Gray
+                            }
                         }
+                        Write-Host "[DRY RUN] Visual Studio Developer Environment would be configured in current session!" -ForegroundColor Magenta
+                    } else {
+                        foreach ($line in $envVars) {
+                            if ($line -match '^([^=]+)=(.*)$') {
+                                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                            }
+                        }
+                        Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                     }
 
                     $VsDevShellFound = $true
-                    Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                     break
                 }
                 catch {
-                    Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
-                    & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                    if ($DryRun) {
+                        Write-Host "  [DRY RUN] Would try Launch-VsDevShell as fallback..." -ForegroundColor Magenta
+                    } else {
+                        Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
+                        & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                    }
                     $VsDevShellFound = $true
                     Write-Host "[SUCCESS] Visual Studio Developer Environment successfully configured!" -ForegroundColor Green
                     break
                 }
             } else {
                 # Default behavior: Launch new shell
-                & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                if ($DryRun) {
+                    Write-Host "[DRY RUN] Would launch new Developer Shell with command:" -ForegroundColor Magenta
+                    Write-Host "  & `"$VsDevShellPath`" -Arch $Arch -SkipAutomaticLocation" -ForegroundColor Gray
+                } else {
+                    & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                }
                 $VsDevShellFound = $true
                 Write-Host "[SUCCESS] Visual Studio Developer Shell launched!" -ForegroundColor Green
                 break
@@ -355,24 +449,43 @@ set
                 $envVars = & cmd /c $tempFile
                 Remove-Item $tempFile -Force
 
-                foreach ($line in $envVars) {
-                    if ($line -match '^([^=]+)=(.*)$') {
-                        [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                if ($DryRun) {
+                    Write-Host "[DRY RUN] Would set the following environment variables:" -ForegroundColor Magenta
+                    foreach ($line in $envVars) {
+                        if ($line -match '^([^=]+)=(.*)$') {
+                            Write-Host "  $($matches[1]) = $($matches[2])" -ForegroundColor Gray
+                        }
                     }
+                    Write-Host "[DRY RUN] Visual Studio Developer Environment would be configured in current session!" -ForegroundColor Magenta
+                } else {
+                    foreach ($line in $envVars) {
+                        if ($line -match '^([^=]+)=(.*)$') {
+                            [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+                        }
+                    }
+                    Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
                 }
 
                 $VsDevShellFound = $true
-                Write-Host "[SUCCESS] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
             }
             catch {
-                Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
-                & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                if ($DryRun) {
+                    Write-Host "  [DRY RUN] Would try Launch-VsDevShell as fallback..." -ForegroundColor Magenta
+                } else {
+                    Write-Host "  [WARN] Failed to configure environment in current session, trying Launch-VsDevShell..." -ForegroundColor Yellow
+                    & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+                }
                 $VsDevShellFound = $true
                 Write-Host "[SUCCESS] Visual Studio Developer Environment successfully configured!" -ForegroundColor Green
             }
         } else {
             # Default behavior: Launch new shell
-            & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+            if ($DryRun) {
+                Write-Host "[DRY RUN] Would launch new Developer Shell with command:" -ForegroundColor Magenta
+                Write-Host "  & `"$VsDevShellPath`" -Arch $Arch -SkipAutomaticLocation" -ForegroundColor Gray
+            } else {
+                & $VsDevShellPath -Arch $Arch -SkipAutomaticLocation
+            }
             $VsDevShellFound = $true
             Write-Host "[SUCCESS] Visual Studio Developer Shell launched!" -ForegroundColor Green
         }

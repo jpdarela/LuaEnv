@@ -1,5 +1,7 @@
 # Lua MSVC 2022 Build
 
+Work in progress! Keep an eye on this project for updates.
+
 A set of build scripts for compiling Lua and configuring LuaRocks on Windows using Microsoft Visual Studio C++ (MSVC) 2022 (x86 and amd64).
 
 I decided to learn Lua and am currently using Windows 11 with Visual Studio 2022. The options for building Lua on Windows are somewhat limited, so I created this set of scripts to automate the process of downloading, building, and configuring Lua (with LuaRocks) for my use. This project can be adapted for future Lua releases and can be used as a reference for building Lua on Windows with MSVC. Feel free to adapt, use, and contribute to this project!
@@ -22,7 +24,7 @@ See `build_config.txt` for configuration options.
 
 ### Prerequisites
 
-- **Visual Studio 2022** with C++ build tools installed (Community, Professional, or Enterprise)
+- **Visual Studio** (Tested with 2022 Community edition) with C++ build tools installed (Community, Professional, or Enterprise)
 - **Python 3.x** for automation scripts
 - **Internet connection** for downloading Lua and LuaRocks
 
@@ -51,6 +53,8 @@ Use `python config.py --discover` to see available versions, or `python config.p
 ### Visual Studio Developer Command Prompt
 **Critical:** All build commands must be run from a **Visual Studio Developer Command Prompt** or **Developer PowerShell**.
 
+**Automatic Search of DEveloment tools:** The scripts will automatically search for the Visual Studio Developer Shell and set up the environment. If it cannot find it, you can manually run the `setenv.ps1` script to set up the environment. See the [setenv.ps1](setenv.ps1) script for details. Use the -Path option to specify the path to your Visual Studio installation if needed.
+
 ### Download the Scripts
 
 Download the [zip file](https://github.com/jpdarela/lua_msvc_build/archive/refs/heads/main.zip) and unzip it.
@@ -66,11 +70,21 @@ cd lua_msvc_build
 
 ### Environment Setup:
 
+If you have Visual Studio installed in in the default location, then the scripts will automatically find it. If you have installed Visual Studio in a custom location, you can run the `setenv.ps1` script with the `-Path` option to specify the path to your Visual Studio installation:
+
 ```powershell
-# Set the environment. Adjust path to your Visual Studio installation
-&"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch "amd64" -SkipAutomaticLocation
+./setenv.ps1 -Path "C:\CustomPath\to\VS\2022\Community" -DryRun
+
+# After that, re run the setenv.ps1 script without the -DryRun option to set up the environment variables.
+./setenv.ps1 -Arch "amd64" # or "x86" for 32-bit builds
 ```
 Swich -Arch to the appropriate architecture if needed (e.g., `-Arch "x86"` for 32-bit builds).
+
+Run the -Help option to see all available options:
+
+```powershell
+./setenv.ps1 -Help
+```
 
 ## 🔨 Build Process
 
@@ -91,6 +105,11 @@ python setup_lua.py --dll
 With custom installation directory:
 ```powershell
 python setup_lua.py --dll --prefix C:\Users\Corisco\opt\lua
+```
+
+Debug build (DLL or static[default]):
+```powershell
+python setup_lua.py --debug (--dll)
 ```
 
 ### Version Management
@@ -142,7 +161,12 @@ python setup_lua.py --uninstall
 
 ## 🧪 Testing
 
-The project includes a comprehensive test suite with an enhanced test runner:
+
+## Lua build automated test
+
+We use the tests provided by the lua team to test the lua build. The tests are run automatically after the build is completed. In general it fails with builds for x86 and with debug builds, but it is a good way to test the build process and the Lua installation.
+
+The project includes test suite (incomplete) for internal fucntionality with an test runner (Not related to the lua distribution):
 
 ```powershell
 # Run all tests (default)
@@ -193,7 +217,8 @@ lua_msvc_build/
 │   ├── test_config_cli.py         # Configuration CLI tests
 │   ├── test_download.py           # Download functionality tests
 │   └── test_setup_build.py        # Build setup tests
-├── use-lua.ps1                    # PowerShell environment setup script
+├── use-lua.ps1                    # PowerShell environment LUA/MSVC setup script
+├── setenv.ps1                     # PowerShell script to set up MSVC environment variables
 ├── check-env.bat                  # Environment verification utility
 ├── version_cache.json             # Version discovery cache (auto-generated)
 ├── downloads/                     # Downloaded archives (auto-created)

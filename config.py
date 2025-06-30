@@ -124,8 +124,13 @@ def get_download_filenames():
 CACHE_FILE = Path(__file__).parent / "version_cache.json"
 CACHE_EXPIRY_HOURS = 240  # Cache expires after 240 hours
 
-def load_version_cache():
+# Global flag to track if we've already shown the cache message
+_cache_message_shown = False
+
+def load_version_cache(show_message=True):
     """Load cached version information."""
+    global _cache_message_shown
+
     if not CACHE_FILE.exists():
         return {}
 
@@ -138,14 +143,20 @@ def load_version_cache():
         expiry_time = cache_time + timedelta(hours=CACHE_EXPIRY_HOURS)
 
         if datetime.now() > expiry_time:
-            print(f"[INFO] Version cache expired (older than {CACHE_EXPIRY_HOURS} hours)")
+            if show_message and not _cache_message_shown:
+                print(f"[INFO] Version cache expired (older than {CACHE_EXPIRY_HOURS} hours)")
+                _cache_message_shown = True
             return {}
 
-        print(f"[INFO] Using cached version data from {cache_time.strftime('%Y-%m-%d %H:%M')}")
+        if show_message and not _cache_message_shown:
+            print(f"[INFO] Using cached version data from {cache_time.strftime('%Y-%m-%d %H:%M')}")
+            _cache_message_shown = True
         return cache
 
     except Exception as e:
-        print(f"[WARNING] Failed to load version cache: {e}")
+        if show_message and not _cache_message_shown:
+            print(f"[WARNING] Failed to load version cache: {e}")
+            _cache_message_shown = True
         return {}
 
 def save_version_cache(lua_versions, luarocks_versions):
@@ -422,9 +433,9 @@ if __name__ == "__main__":
             if not force_refresh:
                 cached_lua, cached_luarocks, is_cached = get_cached_versions()
                 if is_cached:
-                    cache_age = datetime.now() - datetime.fromisoformat(load_version_cache().get('timestamp', '1970-01-01T00:00:00'))
+                    cache_age = datetime.now() - datetime.fromisoformat(load_version_cache(show_message=False).get('timestamp', '1970-01-01T00:00:00'))
                     print(f"[INFO] Using cached data (age: {cache_age.total_seconds()/3600:.1f} hours)")
-                    print("       Use --refresh flag to update cache")
+                    print("       Use --discover --refresh flags combined to update cache")
                     print()
 
             # Discover versions (using cache if available)

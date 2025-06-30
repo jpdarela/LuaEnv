@@ -8,6 +8,7 @@ Can also run individual test categories using command-line options.
 
 import unittest
 import sys
+import subprocess
 import argparse
 from pathlib import Path
 
@@ -97,6 +98,22 @@ def run_setup_build_tests():
     print("[*] Running setup_build tests...")
     suite = load_specific_test_classes('test_setup_build', ['TestSetupBuildReal', 'TestSetupBuildMissingDirectories'])
     return suite
+
+def call_cleanup():
+    try:
+        print("[*] Running clean script...")
+        subprocess.run([sys.executable, 'clean.py', '--all'], check=True)
+        print("[+] Clean script completed successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Clean script failed: {e}")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("[ERROR] clean.py script not found. Ensure it exists in the current directory.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] An unexpected error occurred while running clean.py: {e}")
+        sys.exit(1)
+    print("[*] All tests and cleanup completed.")
 
 def run_all_tests():
     """Run all tests with bootstrap first."""
@@ -201,19 +218,19 @@ Note: The bootstrap test will always run first when needed.
     if args.config_basic:
         print("Running basic config tests only.")
         suite = run_config_basic_tests()
-        needs_bootstrap = False
+
     elif args.config_cache:
         print("Running config cache tests only.")
         suite = run_config_cache_tests()
-        needs_bootstrap = False
+
     elif args.config_cli:
         print("Running config CLI tests only.")
         suite = run_config_cli_tests()
-        needs_bootstrap = False
+
     elif args.config:
         print("Running all config tests.")
         suite = run_config_tests()
-        needs_bootstrap = False
+
     elif args.download:
         print("Running download tests only.")
         print("Note: Bootstrap test will run first to ensure required files are available.")
@@ -221,7 +238,7 @@ Note: The bootstrap test will always run first when needed.
             print("[ERROR] Bootstrap test failed, aborting download tests")
             sys.exit(1)
         suite = run_download_tests()
-        needs_bootstrap = False
+
     elif args.setup_build:
         print("Running setup_build tests only.")
         print("Note: Bootstrap test will run first to ensure required files are available.")
@@ -229,7 +246,7 @@ Note: The bootstrap test will always run first when needed.
             print("[ERROR] Bootstrap test failed, aborting setup_build tests")
             sys.exit(1)
         suite = run_setup_build_tests()
-        needs_bootstrap = False
+
     else:
         # Default: run all tests
         print("Running all tests.")
@@ -241,6 +258,7 @@ Note: The bootstrap test will always run first when needed.
         else:
             print("\n" + "=" * 40)
             print("[X] Some tests failed!")
+        call_cleanup()
         sys.exit(0 if success else 1)
 
     # Run the selected test suite
@@ -264,18 +282,25 @@ Note: The bootstrap test will always run first when needed.
             if result.failures:
                 print("\n[!] Failed tests:")
                 for test, traceback in result.failures:
-                    print(f"  - {test}")
+                    print(f"  - {test}: {traceback}")
 
             if result.errors:
                 print("\n[!] Error tests:")
                 for test, traceback in result.errors:
-                    print(f"  - {test}")
+                    print(f"  - {test}: {traceback}")
 
         # Exit with error code if tests failed
+        call_cleanup()
         sys.exit(0 if result.wasSuccessful() else 1)
     else:
         print("[ERROR] No tests found or failed to load test suite")
+        call_cleanup()
         sys.exit(1)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+

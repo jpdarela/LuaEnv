@@ -126,30 +126,11 @@ def run_setup(with_dll=False, with_debug=False, prefix=install_dir, skip_env_che
     # Convert prefix to absolute path to avoid issues with relative paths
     prefix = os.path.abspath(prefix)
 
-    print(f"Lua MSVC Build System - Master Setup")
-    print("=" * 50)
-    print(f"Configuration: Lua {LUA_VERSION}, LuaRocks {LUAROCKS_VERSION}")
-
-    # Determine build type for display
-    if with_dll and with_debug:
-        build_type = "DLL Debug"
-    elif with_dll:
-        build_type = "DLL Release"
-    elif with_debug:
-        build_type = "Static Debug"
-    else:
-        build_type = "Static Release"
-
-    print(f"Build type: {build_type}")
-    print(f"Install directory: {prefix}")
-    print()
-
     # Check environment unless explicitly skipped
     if not skip_env_check:
         env_set = setenv()
         if not env_set:
             print("Failed to set environment variables from setenv.ps1.")
-        print("Checking Visual Studio environment...")
         env_ok = call_check_env_bat_script()
         if not env_ok:
             print("\nEnvironment check failed. Build may not succeed.")
@@ -198,6 +179,23 @@ def run_setup(with_dll=False, with_debug=False, prefix=install_dir, skip_env_che
         print(f"  use-lua.ps1 already in correct location (project folder installation)")
         use_lua_script_copied = False
 
+    # Copy the setenv.ps1 script to the installation directory, pass if the path is the same
+    setenv_script = Path(current_dir) / "setenv.ps1"
+    dest_setenv_script = Path(prefix).parent / "setenv.ps1"
+    setenv_script_copied = False
+
+    if setenv_script.exists():
+        if setenv_script.resolve() != dest_setenv_script.resolve():
+            shutil.copy(setenv_script, dest_setenv_script)
+            print(f"  Copied setenv.ps1 to {dest_setenv_script}")
+            setenv_script_copied = True
+        else:
+            print(f"  setenv.ps1 already in correct location (project folder installation)")
+            setenv_script_copied = False
+    else:
+        print(f"  setenv.ps1 not found, skipping copy")
+        setenv_script_copied = False
+
     # Save the lua_prefix.txt file in the parent directory of the prefix
     dest_prefix_fir_file = Path(prefix).parent / ".lua_prefix.txt"
     with open(dest_prefix_fir_file, 'w') as f:
@@ -205,7 +203,7 @@ def run_setup(with_dll=False, with_debug=False, prefix=install_dir, skip_env_che
     print(f"  Created prefix file: {dest_prefix_fir_file}")
 
     # Save installation information for uninstall
-    save_installation_info(prefix, with_dll, with_debug, use_lua_script_copied)
+    save_installation_info(prefix, with_dll, with_debug, use_lua_script_copied, setenv_script_copied)
 
     return True
 
@@ -272,11 +270,10 @@ def test_lua_build(lua_install_dir, run_tests=True):
                             if line.strip():
                                 print(f"       {line}")
 
-                        # Common issues and solutions
-                        if "attempt to index a nil value" in result.stdout:
-                            print(f"\n  [TIP] Some test failures are common on Windows for Lua {LUA_VERSION}.")
-                            print("     This usually relates to file permissions or temp directory access.")
-                            print("     Your Lua build is likely fine for normal use.")
+                        print(f"\n  [TIP] Some test failures are common on Windows for Lua {LUA_VERSION}.")
+                        print("     These are common for the x86 build and builds with the --debug flag.")
+                        print("     It can also be related to file permissions or temp directory access.")
+                        print("     Your Lua build is likely fine for normal use.")
 
                         return False
 
@@ -307,7 +304,7 @@ def test_lua_build(lua_install_dir, run_tests=True):
         print(f"  [ERROR] Unexpected error testing Lua: {e}")
         return False
 
-def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_copied=False):
+def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_copied=False, setenv_script_copied=False):
     """Save installation information for later uninstall."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     install_info_file = Path(current_dir) / ".lua_install_info.txt"
@@ -322,8 +319,9 @@ def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_co
     else:
         build_type = "static"
 
-    # Only save use-lua.ps1 path if it was actually copied (not project folder installation)
+    # Only save script paths if they were actually copied (not project folder installation)
     use_lua_script_path = str(Path(prefix).parent / "use-lua.ps1") if use_lua_script_copied else ""
+    setenv_script_path = str(Path(prefix).parent / "setenv.ps1") if setenv_script_copied else ""
 
     # Collect installation information
     install_info = {
@@ -333,6 +331,7 @@ def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_co
         'luarocks_version': LUAROCKS_VERSION,
         'luarocks_platform': LUAROCKS_PLATFORM,
         'use_lua_script': use_lua_script_path,
+        'setenv_script': setenv_script_path,
         'prefix_file': str(Path(prefix).parent / ".lua_prefix.txt"),
         'timestamp': subprocess.run(['date', '/t'], capture_output=True, text=True, shell=True).stdout.strip()
     }
@@ -347,12 +346,12 @@ def save_installation_info(prefix, with_dll, with_debug=False, use_lua_script_co
         f.write(f"LUAROCKS_VERSION={install_info['luarocks_version']}\n")
         f.write(f"LUAROCKS_PLATFORM={install_info['luarocks_platform']}\n")
         f.write(f"USE_LUA_SCRIPT={install_info['use_lua_script']}\n")
+        f.write(f"SETENV_SCRIPT={install_info['setenv_script']}\n")
         f.write(f"PREFIX_FILE={install_info['prefix_file']}\n")
         f.write(f"INSTALL_DATE={install_info['timestamp']}\n")
 
     print(f"[INFO] Installation information saved to {install_info_file}")
     print(f"       Lua {LUA_VERSION} ({install_info['build_type']}) -> {prefix}")
-
 
 def uninstall_lua():
     """Uninstall Lua and related files based on saved installation info."""
@@ -387,6 +386,7 @@ def uninstall_lua():
     luarocks_version = install_info.get('LUAROCKS_VERSION', 'unknown')
     luarocks_platform = install_info.get('LUAROCKS_PLATFORM', 'unknown')
     use_lua_script = install_info.get('USE_LUA_SCRIPT')
+    setenv_script = install_info.get('SETENV_SCRIPT')
     prefix_file = install_info.get('PREFIX_FILE')
     install_date = install_info.get('INSTALL_DATE', 'unknown')
 
@@ -431,6 +431,19 @@ def uninstall_lua():
         print(f"  [SKIP] use-lua.ps1 script not found: {use_lua_script}")
     else:
         print(f"  [SKIP] use-lua.ps1 was not copied during installation (project folder installation)")
+
+    # Remove setenv.ps1 script (only if it was copied during installation)
+    if setenv_script and setenv_script.strip() and Path(setenv_script).exists():
+        print(f"  [REMOVE] Removing setenv.ps1 script: {setenv_script}")
+        try:
+            Path(setenv_script).unlink()
+            print(f"  [OK] Successfully removed {setenv_script}")
+        except Exception as e:
+            print(f"  [ERROR] Failed to remove {setenv_script}: {e}")
+    elif setenv_script and setenv_script.strip():
+        print(f"  [SKIP] setenv.ps1 script not found: {setenv_script}")
+    else:
+        print(f"  [SKIP] setenv.ps1 was not copied during installation (project folder installation)")
 
     # Remove prefix file
     if prefix_file and Path(prefix_file).exists():

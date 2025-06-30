@@ -7,8 +7,6 @@ This file tests the cache-related functions in config.py that work with local fi
 import unittest
 import sys
 import os
-import tempfile
-import json
 from pathlib import Path
 
 # Add parent directory to path so we can import config

@@ -7,7 +7,6 @@ We start simple and only test real functions with real return values.
 
 import unittest
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path so we can import config
