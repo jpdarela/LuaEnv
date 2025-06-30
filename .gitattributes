@@ -9,6 +9,7 @@
 
 # Python files should have LF line endings (Python convention)
 *.py text eol=lf
+*.fs text eol=crlf
 
 # Text files should have LF line endings (cross-platform)
 *.txt text eol=lf

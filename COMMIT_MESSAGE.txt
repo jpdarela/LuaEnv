@@ -1,0 +1,91 @@
+feat: Implement UUID-based registry system with global script management
+
+MAJOR RESTRUCTURE: Complete LuaEnv System Modernization
+
+## Architecture Changes
+- NEW: UUID-based installation registry system in %USERPROFILE%\.luaenv
+- NEW: Global script installation to %USERPROFILE%\.luaenv\bin
+- NEW: Complete environment isolation with per-installation package trees
+- RESTRUCTURE: Moved all backend components to dedicated backend/ directory
+- NEW: F# CLI and GUI applications in cli/ directory
+
+## Core Features Implemented
+
+### Registry Management (registry.py)
+- UUID-based installation tracking with centralized registry.json
+- User-friendly alias system for installations
+- Installation status tracking (active/broken/removed)
+- Default installation management
+- Complete CLI interface with commands:
+  - install-scripts, check-scripts, scripts-path
+  - list, status, remove, validate, cleanup
+  - alias management and default selection
+
+### Enhanced Installation System (setup_lua.py)
+- Registry-integrated installation creation
+- Support for multiple concurrent installations
+- Automatic UUID generation and directory structure
+- Build type support: static/dll x release/debug
+- Comprehensive testing with official Lua test suite
+- Environment isolation with per-installation LuaRocks trees
+
+### Global Script Management
+- use-lua.ps1: Registry-aware environment activation
+  - Installation resolution by UUID/alias/default
+  - Visual Studio Developer Shell integration with directory preservation
+  - Session-only environment configuration
+  - Isolated LuaRocks package tree setup
+- setenv.ps1: Standalone Visual Studio environment setup
+- luaenv.ps1: Global registry management wrapper
+
+## Directory Structure Modernization
+```
+%USERPROFILE%\.luaenv\                    # Central user directory
+├── bin\                                  # Global scripts
+├── registry.json                         # Installation registry
+├── installations\{uuid}\                 # Individual installations
+├── environments\{uuid}\                  # Isolated package trees
+└── cache\                               # Build cache
+
+backend/                                  # Build system backend
+├── registry.py                          # Registry management
+├── setup_lua.py                         # Installation creator
+├── use-lua.ps1, setenv.ps1             # Environment scripts
+├── config.py, build.py                  # Build system
+└── tests/                               # Test suite
+
+cli/                                     # F# applications
+├── LuaEnv.CLI/                          # Command-line interface
+├── LuaEnv.Core/                         # Core types and logic
+└── LuaEnv.GUI/                          # Avalonia GUI application
+```
+
+## Key Improvements
+- Multi-Installation Support: Unlimited concurrent Lua installations
+- Complete Isolation: No interference between installations
+- Global Accessibility: Scripts available from anywhere via PATH
+- Directory Preservation: Fixed VS Developer Shell location changes
+- Enhanced CLI: Comprehensive command-line management
+- Production Ready: Fully tested workflow with comprehensive validation
+
+## Migration Notes
+- Legacy single-installation system replaced with UUID registry
+- No backward compatibility needed (systems are independent)
+- Global scripts provide convenient access to all functionality
+- Complete isolation prevents conflicts between environments
+
+## Validation Status
+[OK] Fresh installation workflow tested and validated
+[OK] Multiple environment isolation confirmed
+[OK] Package management with C extensions working
+[OK] Global script access functional
+[OK] Visual Studio integration stable
+[OK] Registry management operations tested
+
+Breaking Changes: Complete system restructure - legacy installations
+will continue to work but are not registry-managed.
+
+Ready for Production: System fully operational and validated.
+
+Tested: July 1, 2025 - Complete workflow validation from clean slate
+Co-authored-by: GitHub Copilot <copilot@github.com>

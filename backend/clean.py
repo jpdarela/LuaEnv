@@ -6,7 +6,6 @@ It uses the configuration system to work with any Lua/LuaRocks versions and prot
 important files when installations are in the project directory.
 """
 
-import os
 import shutil
 import sys
 from pathlib import Path

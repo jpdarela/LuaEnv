@@ -1,6 +1,7 @@
 """
-Move build scripts to the lua directory and the setup-luarocks.bat to the luarocks directory.
-This script now uses the configuration system to work with any Lua/LuaRocks versions.
+Move build scripts to the lua and luarocks directories in the extracted folder.
+This script now uses the configuration system and extracted folder structure
+to work with any Lua/LuaRocks versions in an isolated build environment.
 
 """
 
@@ -8,35 +9,41 @@ import os
 import shutil
 import sys
 
-# Import configuration system
+# Import configuration system and utilities
 try:
     from config import (
         get_lua_dir_name, get_luarocks_dir_name,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
+    from utils import ensure_extracted_folder, get_extracted_path
 except ImportError as e:
     print(f"Error importing configuration: {e}")
-    print("Make sure config.py is in the same directory as this script.")
+    print("Make sure config.py and utils.py are in the same directory as this script.")
     sys.exit(1)
 
 BUILD_DLL = 0
 BUILD_DEBUG = 0
 
 def copy_build_scripts():
-    """Copy build scripts to the lua and luarocks directories."""
+    """Copy build scripts to the lua and luarocks directories in the extracted folder."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     build_scripts_dir = os.path.join(current_dir, "build_scripts")
+
+    # Ensure extracted folder exists
+    extracted_folder = ensure_extracted_folder(current_dir)
 
     # Use configuration to get correct directory names
     lua_dir_name = get_lua_dir_name()
     luarocks_dir_name = get_luarocks_dir_name()
 
-    lua_dir = os.path.join(current_dir, lua_dir_name, "src")
-    luarocks_dir = os.path.join(current_dir, luarocks_dir_name)
+    # Build paths using extracted folder
+    lua_dir = extracted_folder / lua_dir_name / "src"
+    luarocks_dir = extracted_folder / luarocks_dir_name
 
     print(f"Setting up build scripts for:")
     print(f"  Lua {LUA_VERSION} (directory: {lua_dir_name})")
     print(f"  LuaRocks {LUAROCKS_VERSION} {LUAROCKS_PLATFORM} (directory: {luarocks_dir_name})")
+    print(f"  Extracted folder: {extracted_folder}")
 
     # Show selected build type
     if BUILD_DLL and BUILD_DEBUG:
@@ -57,16 +64,16 @@ def copy_build_scripts():
         return False
 
     # Ensure the target directories exist
-    if not os.path.exists(lua_dir):
+    if not lua_dir.exists():
         print(f"[ERROR] Lua source directory does not exist: {lua_dir}")
-        print(f"        Expected directory: {lua_dir_name}")
+        print(f"        Expected directory: extracted/{lua_dir_name}/src")
         print("        Make sure you have run the download script first:")
         print("        python download_lua_luarocks.py")
         return False
 
-    if not os.path.exists(luarocks_dir):
+    if not luarocks_dir.exists():
         print(f"[ERROR] LuaRocks directory does not exist: {luarocks_dir}")
-        print(f"        Expected directory: {luarocks_dir_name}")
+        print(f"        Expected directory: extracted/{luarocks_dir_name}")
         print("        Make sure you have run the download script first:")
         print("        python download_lua_luarocks.py")
         return False
@@ -75,30 +82,30 @@ def copy_build_scripts():
     try:
         if BUILD_DLL and BUILD_DEBUG:
             print("Copying DLL debug build scripts...")
-            shutil.copy(os.path.join(build_scripts_dir, "build-dll-debug.bat"), lua_dir)
-            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-dll-debug.bat"), str(lua_dir))
+            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), str(lua_dir))
             print(f"  build-dll-debug.bat -> {lua_dir}")
             print(f"  install_lua_dll.py -> {lua_dir}")
         elif BUILD_DLL:
             print("Copying DLL build scripts...")
-            shutil.copy(os.path.join(build_scripts_dir, "build-dll.bat"), lua_dir)
-            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-dll.bat"), str(lua_dir))
+            shutil.copy(os.path.join(build_scripts_dir, "install_lua_dll.py"), str(lua_dir))
             print(f"  build-dll.bat -> {lua_dir}")
             print(f"  install_lua_dll.py -> {lua_dir}")
         elif BUILD_DEBUG:
             print("Copying static debug build scripts...")
-            shutil.copy(os.path.join(build_scripts_dir, "build-static-debug.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-static-debug.bat"), str(lua_dir))
             print(f"  build-static-debug.bat -> {lua_dir}")
         else:
             print("Copying static build scripts...")
-            shutil.copy(os.path.join(build_scripts_dir, "build-static.bat"), lua_dir)
+            shutil.copy(os.path.join(build_scripts_dir, "build-static.bat"), str(lua_dir))
             print(f"  build-static.bat -> {lua_dir}")
 
         print("Copying LuaRocks setup script...")
-        shutil.copy(os.path.join(build_scripts_dir, "setup-luarocks.bat"), luarocks_dir)
+        shutil.copy(os.path.join(build_scripts_dir, "setup-luarocks.bat"), str(luarocks_dir))
         print(f"  setup-luarocks.bat -> {luarocks_dir}")
 
-        print("Build scripts copied successfully.")
+        print("[OK] Build scripts copied successfully.")
         return True
 
     except Exception as e:
@@ -135,9 +142,9 @@ if __name__ == "__main__":
                 print(f"  Lua: {LUA_VERSION}")
                 print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
                 print()
-                print("Expected directories:")
-                print(f"  {get_lua_dir_name()}/src")
-                print(f"  {get_luarocks_dir_name()}")
+                print("Expected directories (in extracted folder):")
+                print(f"  extracted/{get_lua_dir_name()}/src")
+                print(f"  extracted/{get_luarocks_dir_name()}")
                 print()
                 print("Make sure to run 'python download_lua_luarocks.py' first!")
                 sys.exit(0)

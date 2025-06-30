@@ -2,10 +2,11 @@
 Build script for Lua MSVC Build System
 
 This script compiles Lua and sets up LuaRocks using the configuration system.
-It now works with any Lua/LuaRocks versions specified in build_config.txt.
+It now works with the extracted folder structure and any Lua/LuaRocks versions
+specified in build_config.txt.
 
-1 - Enter lua directory and run the build script to compile lua
-2 - Enter luarocks directory and run the setup-luarocks.bat script
+1 - Enter extracted lua directory and run the build script to compile lua
+2 - Enter extracted luarocks directory and run the setup-luarocks.bat script
 """
 
 import os
@@ -15,33 +16,39 @@ import argparse
 import sys
 from pathlib import Path
 
-# Import configuration system
+# Import configuration system and utilities
 try:
     from config import (
         get_lua_dir_name, get_luarocks_dir_name,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
+    from utils import ensure_extracted_folder, get_extracted_path
 except ImportError as e:
     print(f"Error importing configuration: {e}")
-    print("Make sure config.py is in the same directory as this script.")
+    print("Make sure config.py and utils.py are in the same directory as this script.")
     sys.exit(1)
 
 INSTALL_DIR = Path("./lua").resolve()
 
 def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DIR):
-    """Run the build scripts for Lua and LuaRocks."""
+    """Run the build scripts for Lua and LuaRocks from the extracted folder."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Ensure extracted folder exists
+    extracted_folder = ensure_extracted_folder(current_dir)
 
     # Use configuration system to get correct directory names
     lua_dir_name = get_lua_dir_name()
     luarocks_dir_name = get_luarocks_dir_name()
 
-    lua_dir = os.path.join(current_dir, lua_dir_name, "src")
-    luarocks_dir = os.path.join(current_dir, luarocks_dir_name)
+    # Build paths using extracted folder
+    lua_dir = extracted_folder / lua_dir_name / "src"
+    luarocks_dir = extracted_folder / luarocks_dir_name
 
     print(f"Building with configuration:")
     print(f"  Lua {LUA_VERSION} (directory: {lua_dir_name})")
     print(f"  LuaRocks {LUAROCKS_VERSION} {LUAROCKS_PLATFORM} (directory: {luarocks_dir_name})")
+    print(f"  Extracted folder: {extracted_folder}")
 
     # Determine build type
     if build_dll and build_debug:
@@ -61,16 +68,16 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
     install_dir = os.path.abspath(install_dir)
 
     # Ensure the directories exist
-    if not os.path.exists(lua_dir):
+    if not lua_dir.exists():
         print(f"[ERROR] Lua directory does not exist: {lua_dir}")
-        print(f"        Expected: {lua_dir_name}/src")
+        print(f"        Expected: extracted/{lua_dir_name}/src")
         print("        Make sure you have:")
         print("        1. Run 'python download_lua_luarocks.py' to download sources")
         print("        2. Run 'python setup_build.py' to copy build scripts")
         return False
-    if not os.path.exists(luarocks_dir):
+    if not luarocks_dir.exists():
         print(f"[ERROR] LuaRocks directory does not exist: {luarocks_dir}")
-        print(f"        Expected: {luarocks_dir_name}")
+        print(f"        Expected: extracted/{luarocks_dir_name}")
         print("        Make sure you have:")
         print("        1. Run 'python download_lua_luarocks.py' to download sources")
         print("        2. Run 'python setup_build.py' to copy build scripts")
@@ -78,7 +85,7 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
 
     print("Starting Lua build...")
     # Change to Lua directory and run the build script
-    os.chdir(lua_dir)
+    os.chdir(str(lua_dir))
     try:
         if build_dll and build_debug:
             subprocess.run(["build-dll-debug.bat", install_dir], check=True, shell=True)
@@ -89,7 +96,7 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
             subprocess.run(["build-static-debug.bat", install_dir], check=True, shell=True)
         else:
             subprocess.run(["build-static.bat", install_dir], check=True, shell=True)
-        print("Lua build completed successfully.")
+        print("[OK] Lua build completed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Lua build failed: {e}")
         return False
@@ -104,11 +111,11 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
         luarocks_dest.mkdir(parents=True, exist_ok=True)
 
     try:
-        shutil.copytree(luarocks_dir, luarocks_dest, dirs_exist_ok=True)
+        shutil.copytree(str(luarocks_dir), luarocks_dest, dirs_exist_ok=True)
 
         os.chdir(luarocks_dest)
         subprocess.run(["setup-luarocks.bat", install_dir], check=True, shell=True)
-        print("LuaRocks setup completed successfully.")
+        print("[OK] LuaRocks setup completed successfully.")
         return True
     except Exception as e:
         print(f"[ERROR] LuaRocks setup failed: {e}")
