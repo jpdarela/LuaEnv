@@ -1,28 +1,33 @@
 """
 LuaEnv Setup Script - UUID-Based Installation System
 
-This script builds and installs Lua/LuaRocks into the LuaEnv system at %USERPROFILE%\.luaenv\
+This script builds and installs Lua/LuaRocks into the LuaEnv system at %USERPROFILE%\\.luaenv\\
 Each installation gets a unique UUID and is tracked in the central registry.
 """
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 import argparse
 
-# Import configuration system and registry
+# Add current directory to Python path for local imports
+current_dir = Path(__file__).parent
+sys.path.insert(0, str(current_dir))
+
+# Import configuration system and registry with dual-context support
 try:
+    from .config import (
+        get_lua_tests_dir_name,
+        LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+    )
+    from .registry import LuaEnvRegistry
+except ImportError:
     from config import (
-        get_lua_dir_name, get_luarocks_dir_name, get_lua_tests_dir_name,
+        get_lua_tests_dir_name,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
     from registry import LuaEnvRegistry
-except ImportError as e:
-    print(f"[ERROR] Import failed: {e}")
-    print("[ERROR] Make sure config.py and registry.py are in the same directory.")
-    sys.exit(1)
 
 
 def setenv():
@@ -232,7 +237,7 @@ def build_lua(installation_path, with_dll=False, with_debug=False):
     subprocess.run(build_args, check=True)
 
 
-def test_lua_build(installation_path, run_tests=True):
+def test_lua_build(installation_path, lua_version, run_tests=True):
     """Test the Lua build by running basic commands and test suite."""
     lua_exe = Path(installation_path) / "bin" / "lua.exe"
 
@@ -240,7 +245,7 @@ def test_lua_build(installation_path, run_tests=True):
         print(f"[ERROR] lua.exe not found at {lua_exe}")
         return False
 
-    print(f"[TEST] Testing Lua {LUA_VERSION} installation...")
+    print(f"[TEST] Testing Lua {lua_version} installation...")
 
     try:
         # Test 1: Check Lua version
@@ -260,7 +265,7 @@ def test_lua_build(installation_path, run_tests=True):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             tests_dir = Path(current_dir) / "extracted" / get_lua_tests_dir_name()
             if tests_dir.exists():
-                print(f"[TEST] Running Lua {LUA_VERSION} basic test suite...")
+                print(f"[TEST] Running Lua {lua_version} basic test suite...")
                 print("[INFO] Running basic tests (_U=true flag) - some warnings are normal.")
 
                 original_cwd = os.getcwd()
@@ -289,7 +294,7 @@ def test_lua_build(installation_path, run_tests=True):
                             if line.strip():
                                 print(f"    {line}")
 
-                        print(f"\n[TIP] Some test failures are common on Windows for Lua {LUA_VERSION}.")
+                        print(f"\n[TIP] Some test failures are common on Windows for Lua {lua_version}.")
                         print("  These are common for x86 builds and builds with --debug flag.")
                         print("  Your Lua build is likely fine for normal use.")
                         return False
@@ -376,14 +381,14 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
             print("\n" + "="*60)
             print("TESTING INSTALLATION")
             print("="*60)
-            test_success = test_lua_build(installation_path, run_tests=True)
+            test_success = test_lua_build(installation_path, lua_version, run_tests=True)
             if not test_success:
                 print("\n[WARN] Some tests failed, but installation may still be usable.")
             else:
                 print("\n[SUCCESS] All tests passed!")
         else:
             # Run minimal test even when tests are skipped
-            test_success = test_lua_build(installation_path, run_tests=False)
+            test_success = test_lua_build(installation_path, lua_version, run_tests=False)
             if not test_success:
                 print("[ERROR] Basic functionality test failed.")
                 registry.update_status(installation_id, "broken")
@@ -435,6 +440,86 @@ def list_installations():
         print()
 
 
+def backup_config():
+    """Backup the current config file."""
+    config_file = Path(__file__).parent / "build_config.txt"
+    backup_file = Path(__file__).parent / "build_config.txt.backup"
+
+    if config_file.exists():
+        import shutil
+        shutil.copy2(str(config_file), str(backup_file))
+        return True
+    return False
+
+
+def restore_config():
+    """Restore the backed up config file."""
+    config_file = Path(__file__).parent / "build_config.txt"
+    backup_file = Path(__file__).parent / "build_config.txt.backup"
+
+    if backup_file.exists():
+        import shutil
+        shutil.copy2(str(backup_file), str(config_file))
+        backup_file.unlink()  # Remove backup file
+        return True
+    return False
+
+
+def create_temp_config(lua_version=None, luarocks_version=None):
+    """Create a temporary config with specified versions."""
+    config_file = Path(__file__).parent / "build_config.txt"
+
+    # Read current config or use defaults
+    current_config = {}
+    if config_file.exists():
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        current_config[key.strip()] = value.strip()
+        except Exception as e:
+            print(f"[WARNING] Failed to read current config: {e}")
+
+    # Set defaults if missing
+    if 'LUA_VERSION' not in current_config:
+        current_config['LUA_VERSION'] = '5.4.8'
+    if 'LUA_MAJOR_MINOR' not in current_config:
+        current_config['LUA_MAJOR_MINOR'] = '5.4'
+    if 'LUAROCKS_VERSION' not in current_config:
+        current_config['LUAROCKS_VERSION'] = '3.12.2'
+    if 'LUAROCKS_PLATFORM' not in current_config:
+        current_config['LUAROCKS_PLATFORM'] = 'windows-64'
+
+    # Override with provided versions
+    if lua_version:
+        current_config['LUA_VERSION'] = lua_version
+        # Extract major.minor from version (e.g., "5.4.7" -> "5.4")
+        try:
+            parts = lua_version.split('.')
+            if len(parts) >= 2:
+                current_config['LUA_MAJOR_MINOR'] = f"{parts[0]}.{parts[1]}"
+        except:
+            pass
+
+    if luarocks_version:
+        current_config['LUAROCKS_VERSION'] = luarocks_version
+
+    # Write temporary config
+    try:
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write("# Temporary configuration file for per-installation versions\n")
+            f.write("# This file was automatically generated - do not edit manually\n")
+            f.write("\n")
+            for key, value in current_config.items():
+                f.write(f"{key}={value}\n")
+        return True
+    except Exception as e:
+        print(f"[ERROR] Failed to create temporary config: {e}")
+        return False
+
+
 def remove_installation(id_or_alias):
     """Remove an installation from the registry and filesystem."""
     registry = LuaEnvRegistry()
@@ -446,17 +531,15 @@ def main():
     parser = argparse.ArgumentParser(
         description="LuaEnv Setup - UUID-based Lua installation system",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-Current Configuration (from build_config.txt):
-  Lua: {LUA_VERSION}
-  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})
-
+        epilog="""
 Examples:
   python setup_lua.py                                    # Create installation with current config
   python setup_lua.py --dll                              # Create DLL build
   python setup_lua.py --debug                            # Create debug build
   python setup_lua.py --dll --debug                      # Create DLL debug build
   python setup_lua.py --name "Development" --alias dev   # Create with custom name and alias
+  python setup_lua.py --lua-version 5.4.7 --alias dev   # Use specific Lua version
+  python setup_lua.py --luarocks-version 3.11.1          # Use specific LuaRocks version
   python setup_lua.py --list                             # List all installations
   python setup_lua.py --remove dev                       # Remove installation by alias
   python setup_lua.py --remove a1b2c3d4                  # Remove by partial UUID
@@ -484,6 +567,12 @@ Each installation gets a unique UUID for identification.
     parser.add_argument("--debug", action="store_true",
                        help="Create debug build with debug symbols")
 
+    # Version configuration
+    parser.add_argument("--lua-version", metavar="VERSION",
+                       help="Lua version to use for this installation (e.g., 5.4.7, 5.3.6)")
+    parser.add_argument("--luarocks-version", metavar="VERSION",
+                       help="LuaRocks version to use for this installation (e.g., 3.11.1, 3.10.0)")
+
     # Installation metadata
     parser.add_argument("--name", help="Descriptive name for the installation")
     parser.add_argument("--alias", help="Short alias for the installation")
@@ -495,6 +584,12 @@ Each installation gets a unique UUID for identification.
                        help="Skip test suite after building")
 
     args = parser.parse_args()
+
+    # Show current configuration from build_config.txt
+    print(f"Current Configuration (from build_config.txt):")
+    print(f"  Lua: {LUA_VERSION}")
+    print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
+    print()
 
     # Handle list command
     if args.list:
@@ -509,7 +604,53 @@ Each installation gets a unique UUID for identification.
     # Handle create installation (default action)
     print("LuaEnv Setup - Creating New Installation")
     print("="*50)
-    print(f"Configuration: Lua {LUA_VERSION}, LuaRocks {LUAROCKS_VERSION}")
+
+    # Handle version parameters
+    config_modified = False
+    if args.lua_version or args.luarocks_version:
+        print("[INFO] Using custom versions for this installation")
+        if args.lua_version:
+            print(f"  Lua version: {args.lua_version}")
+        if args.luarocks_version:
+            print(f"  LuaRocks version: {args.luarocks_version}")
+
+        # Backup current config and create temporary config
+        if backup_config():
+            print("[INFO] Current config backed up")
+
+        if create_temp_config(args.lua_version, args.luarocks_version):
+            print("[INFO] Temporary config created")
+            config_modified = True
+
+            # Reload config module to pick up new values
+            import importlib
+            try:
+                from . import config
+                importlib.reload(config)
+            except ImportError:
+                import config
+                importlib.reload(config)
+        else:
+            print("[ERROR] Failed to create temporary config")
+            sys.exit(1)
+
+    # Use the final versions (either from temp config or original)
+    if config_modified:
+        # If we reloaded config, get values from the config module
+        try:
+            from . import config
+            final_lua_version = args.lua_version or config.LUA_VERSION
+            final_luarocks_version = args.luarocks_version or config.LUAROCKS_VERSION
+        except ImportError:
+            import config
+            final_lua_version = args.lua_version or config.LUA_VERSION
+            final_luarocks_version = args.luarocks_version or config.LUAROCKS_VERSION
+    else:
+        # Use original imported values
+        final_lua_version = args.lua_version or LUA_VERSION
+        final_luarocks_version = args.luarocks_version or LUAROCKS_VERSION
+
+    print(f"Configuration: Lua {final_lua_version}, LuaRocks {final_luarocks_version}")
 
     # Determine build type
     build_type = "dll" if args.dll else "static"
@@ -517,7 +658,7 @@ Each installation gets a unique UUID for identification.
 
     # Generate default name if not provided
     if not args.name:
-        args.name = f"Lua {LUA_VERSION} {build_type.upper()} {build_config.title()}"
+        args.name = f"Lua {final_lua_version} {build_type.upper()} {build_config.title()}"
 
     print(f"Build type: {build_type} {build_config}")
     print(f"Name: {args.name}")
@@ -529,24 +670,36 @@ Each installation gets a unique UUID for identification.
         print("Test suite: Skipped")
     print()
 
-    # Create installation
-    installation_id = create_installation(
-        lua_version=LUA_VERSION,
-        luarocks_version=LUAROCKS_VERSION,
-        build_type=build_type,
-        build_config=build_config,
-        name=args.name,
-        alias=args.alias,
-        skip_env_check=args.skip_env_check,
-        skip_tests=args.skip_tests
-    )
+    try:
+        # Create installation
+        installation_id = create_installation(
+            lua_version=final_lua_version,
+            luarocks_version=final_luarocks_version,
+            build_type=build_type,
+            build_config=build_config,
+            name=args.name,
+            alias=args.alias,
+            skip_env_check=args.skip_env_check,
+            skip_tests=args.skip_tests
+        )
 
-    if installation_id:
-        print(f"\n[SUCCESS] Installation created with ID: {installation_id}")
-        print(f"[INFO] Use 'python use_lua.py {args.alias or installation_id}' to activate this installation")
-    else:
-        print("[ERROR] Installation failed")
-        sys.exit(1)
+        if installation_id:
+            print(f"\n[SUCCESS] Installation created with ID: {installation_id}")
+            print(f"[INFO] Use 'python use_lua.py {args.alias or installation_id}' to activate this installation")
+            exit_code = 0
+        else:
+            print("[ERROR] Installation failed")
+            exit_code = 1
+
+    finally:
+        # Restore original config if we modified it
+        if config_modified:
+            if restore_config():
+                print("[INFO] Original config restored")
+            else:
+                print("[WARNING] Failed to restore original config")
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

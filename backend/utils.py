@@ -11,13 +11,32 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+def print_message(message: str, prefix: str = "[INFO]") -> None:
+    """Print a message with ASCII prefix."""
+    print(f"{prefix} {message}")
+
+def print_success(message: str) -> None:
+    """Print a success message."""
+    print_message(message, "[OK]")
+
+def print_error(message: str) -> None:
+    """Print an error message."""
+    print_message(message, "[ERROR]")
+
+def print_warning(message: str) -> None:
+    """Print a warning message."""
+    print_message(message, "[WARNING]")
+
+def get_backend_dir() -> Path:
+    """Get the backend directory path."""
+    # Assuming the backend directory is in the same location as this script
+    return Path(__file__).resolve().parent
 
 def download_file(url, dest):
     """Download a file from a URL to a specified destination."""
     print(f"Downloading {url} to {dest}...")
     urllib.request.urlretrieve(url, dest)
     print(f"Downloaded {dest}")
-
 
 def extract_file(file_path, extract_to=None, move_callback=None):
     """
@@ -38,7 +57,6 @@ def extract_file(file_path, extract_to=None, move_callback=None):
         _extract_zip(file_path, extract_to, move_callback)
     else:
         print(f"Unsupported file format: {file_path}")
-
 
 def _extract_tar_gz(file_path, extract_to, move_callback=None):
     """Extract a .tar.gz file."""
@@ -63,7 +81,6 @@ def _extract_tar_gz(file_path, extract_to, move_callback=None):
                     dest = move_callback(source, dir_name)
                     if dest and dest != source:
                         _safe_move(source, dest)
-
 
 def _extract_zip(file_path, extract_to, move_callback=None):
     """Extract a .zip file."""
@@ -90,7 +107,6 @@ def _extract_zip(file_path, extract_to, move_callback=None):
                     if dest and dest != source:
                         _safe_move(source, dest)
 
-
 def _safe_move(source, dest):
     """Safely move a file or directory, removing destination if it exists."""
     dest = Path(dest)
@@ -101,7 +117,6 @@ def _safe_move(source, dest):
             dest.unlink()
     shutil.move(str(source), str(dest))
     print(f"Moved {source} to {dest}")
-
 
 def create_directory_structure(base_path, structure):
     """
@@ -121,14 +136,12 @@ def create_directory_structure(base_path, structure):
         if isinstance(subdirs, dict) and subdirs:
             create_directory_structure(dir_path, subdirs)
 
-
 def get_file_size(file_path):
     """Get file size in bytes, or 0 if file doesn't exist."""
     try:
         return Path(file_path).stat().st_size
     except (OSError, FileNotFoundError):
         return 0
-
 
 def format_file_size(size_bytes):
     """Format file size in human-readable format."""
@@ -141,12 +154,10 @@ def format_file_size(size_bytes):
         size_bytes /= 1024.0
     return f"{size_bytes:.1f} TB"
 
-
 def verify_file_exists(file_path):
     """Verify that a file exists and is not empty."""
     path = Path(file_path)
     return path.exists() and path.is_file() and path.stat().st_size > 0
-
 
 def update_build_config(lua_version, luarocks_version, luarocks_platform, config_file="build_config.txt"):
     """
@@ -215,7 +226,6 @@ def update_build_config(lua_version, luarocks_version, luarocks_platform, config
         print(f"Error updating config file: {e}")
         return False
 
-
 def read_build_config(config_file="build_config.txt"):
     """
     Read the current build configuration from build_config.txt.
@@ -253,7 +263,6 @@ def read_build_config(config_file="build_config.txt"):
         print(f"Error reading config file: {e}")
         return {}
 
-
 def ensure_extracted_folder(base_path="."):
     """
     Ensure the extracted folder exists.
@@ -267,7 +276,6 @@ def ensure_extracted_folder(base_path="."):
     extracted_path = Path(base_path) / "extracted"
     extracted_path.mkdir(exist_ok=True)
     return extracted_path
-
 
 def clean_extracted_folder(base_path=".", confirm=True):
     """
@@ -313,7 +321,6 @@ def clean_extracted_folder(base_path=".", confirm=True):
         print(f"Error cleaning extracted folder: {e}")
         return False
 
-
 def list_extracted_contents(base_path="."):
     """
     List contents of the extracted folder.
@@ -353,7 +360,6 @@ def list_extracted_contents(base_path="."):
     except Exception as e:
         print(f"Error listing extracted contents: {e}")
         return []
-
 
 def get_extracted_path(item_name, base_path="."):
     """

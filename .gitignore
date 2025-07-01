@@ -11,7 +11,17 @@ backend/tests/__pycache__/
 backend/__pycache__/
 backend/version_cache.json
 
+sdb
+
+.copilot
+
+# Embeded Python files
+python
+.pythonenv
+
+
 # F# / .NET build artifacts
+publish/
 cli/*/bin/
 cli/*/obj/
 cli/.fake/
@@ -73,3 +83,4 @@ bld/
 activate-*.ps1
 .lua-version
 
+.fake

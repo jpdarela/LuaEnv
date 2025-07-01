@@ -8,18 +8,31 @@ important files when installations are in the project directory.
 
 import shutil
 import sys
+import os
 from pathlib import Path
 
-# Import configuration system
+# Ensure we can import from the current directory when run from CLI
+if __name__ == "__main__" or "backend" not in sys.path:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
+# Import configuration system with dual-context support
 try:
     from config import (
         get_lua_dir_name, get_luarocks_dir_name, get_lua_tests_dir_name,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
-except ImportError as e:
-    print(f"Error importing configuration: {e}")
-    print("Make sure config.py is in the same directory as this script.")
-    sys.exit(1)
+except ImportError:
+    try:
+        from .config import (
+            get_lua_dir_name, get_luarocks_dir_name, get_lua_tests_dir_name,
+            LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+        )
+    except ImportError as e:
+        print(f"Error importing configuration: {e}")
+        print("Make sure config.py is in the same directory as this script.")
+        sys.exit(1)
 
 def safe_remove_dir(path, description):
     """Safely remove a directory with proper error handling."""

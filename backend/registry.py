@@ -2,29 +2,47 @@
 """
 LuaEnv Registry Management System
 
-Manages UUID-based Lua installations in %USERPROFILE%\.luaenv\
+Manages UUID-based Lua installations in %USERPROFILE%\\.luaenv
 Provides centralized tracking of installations, environments, and aliases.
 """
 
 import json
 import uuid
 import shutil
+import sys
+import os
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Union, Tuple
-import os
+from typing import Dict, List, Optional
+
+# Ensure we can import from the current directory when run from CLI
+if __name__ == "__main__" or "backend" not in sys.path:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
+# Import utilities with dual-context support
+try:
+    from utils import get_backend_dir, print_error
+except ImportError:
+    try:
+        from .utils import get_backend_dir
+    except ImportError as e:
+        print(f"Error importing utilities: {e}")
+        print("Make sure utils.py is in the same directory as this script.")
+        sys.exit(1)
 
 
 class LuaEnvRegistry:
     """Manages the LuaEnv installation registry."""
 
-    REGISTRY_VERSION = "2.0"
+    REGISTRY_VERSION = "1.0"
 
     def __init__(self, registry_path: Optional[Path] = None):
         """Initialize registry manager.
 
         Args:
-            registry_path: Custom registry path, defaults to %USERPROFILE%\.luaenv\registry.json
+            registry_path: Custom registry path, defaults to %USERPROFILE%\\.luaenv\\registry.json
         """
         if registry_path:
             self.registry_path = Path(registry_path)
@@ -115,54 +133,86 @@ class LuaEnvRegistry:
         if not name:
             name = f"Lua {lua_version} {build_type.upper()} {build_config.title()}"
 
+        # VALIDATE ALIAS BEFORE CREATING ANYTHING
+        if alias and alias in self.registry["aliases"]:
+            print_error(f"[ERROR] Alias '{alias}' already exists")
+            raise ValueError(f"Alias '{alias}' already exists")
+
         # Create installation directories
         install_path = self.installations_root / installation_id
         env_path = self.environments_root / installation_id
 
-        install_path.mkdir(parents=True, exist_ok=True)
-        env_path.mkdir(parents=True, exist_ok=True)
+        try:
+            install_path.mkdir(parents=True, exist_ok=True)
+            env_path.mkdir(parents=True, exist_ok=True)
 
-        # Create installation record
-        installation = {
-            "id": installation_id,
-            "name": name,
-            "alias": alias,
-            "lua_version": lua_version,
-            "luarocks_version": luarocks_version,
-            "build_type": build_type,
-            "build_config": build_config,
-            "created": datetime.now(timezone.utc).isoformat(),
-            "last_used": None,
-            "status": "building",
-            "installation_path": str(install_path),
-            "environment_path": str(env_path),
-            "packages": {
-                "count": 0,
-                "last_updated": None
-            },
-            "tags": []
-        }
+            # Create installation record
+            installation = {
+                "id": installation_id,
+                "name": name,
+                "alias": alias,
+                "lua_version": lua_version,
+                "luarocks_version": luarocks_version,
+                "build_type": build_type,
+                "build_config": build_config,
+                "created": datetime.now(timezone.utc).isoformat(),
+                "last_used": None,
+                "status": "building",
+                "installation_path": str(install_path),
+                "environment_path": str(env_path),
+                "packages": {
+                    "count": 0,
+                    "last_updated": None
+                },
+                "tags": []
+            }
 
-        # Add to registry
-        self.registry["installations"][installation_id] = installation
+            # Add to registry
+            self.registry["installations"][installation_id] = installation
 
-        # Set alias if provided
-        if alias:
-            if alias in self.registry["aliases"]:
-                raise ValueError(f"Alias '{alias}' already exists")
-            self.registry["aliases"][alias] = installation_id
+            # Set alias if provided (already validated above)
+            if alias:
+                self.registry["aliases"][alias] = installation_id
 
-        # Set as default if this is the first installation
-        if not self.registry["default_installation"]:
-            self.registry["default_installation"] = installation_id
+            # Set as default if this is the first installation
+            if not self.registry["default_installation"]:
+                self.registry["default_installation"] = installation_id
 
-        self._save_registry()
+            self._save_registry()
 
-        print(f"[OK] Created installation '{name}' with ID: {installation_id}")
-        if alias:
-            print(f"[OK] Set alias: {alias} -> {installation_id}")
+            print(f"[OK] Created installation '{name}' with ID: {installation_id}")
+            if alias:
+                print(f"[OK] Set alias: {alias} -> {installation_id}")
 
-        return installation_id
+            return installation_id
+
+        except Exception as e:
+            # CLEANUP ON ERROR: Remove directories and registry entries
+            print(f"[ERROR] Installation failed, cleaning up...")
+
+            # Remove directories if they were created
+            if install_path.exists():
+                shutil.rmtree(install_path, ignore_errors=True)
+                print(f"[CLEANUP] Removed installation directory: {install_path}")
+
+            if env_path.exists():
+                shutil.rmtree(env_path, ignore_errors=True)
+                print(f"[CLEANUP] Removed environment directory: {env_path}")
+
+            # Remove from registry if added
+            if installation_id in self.registry["installations"]:
+                del self.registry["installations"][installation_id]
+                print(f"[CLEANUP] Removed installation from registry")
+
+            if alias and alias in self.registry["aliases"]:
+                del self.registry["aliases"][alias]
+                print(f"[CLEANUP] Removed alias from registry")
+
+            # Save cleaned registry
+            self._save_registry()
+
+            # Re-raise the original error
+            raise
 
     def get_installation(self, id_or_alias: str) -> Optional[Dict]:
         """Get installation by ID or alias.
@@ -447,6 +497,55 @@ class LuaEnvRegistry:
         print(f"[OK] Cleaned up {count} broken installations")
         return count
 
+    def cleanup_zombie_installations(self, confirm: bool = True) -> int:
+        """Detect and clean up zombie installations (directories without registry entries).
+
+        Args:
+            confirm: Whether to prompt for confirmation
+
+        Returns:
+            Number of zombie installations cleaned up
+        """
+        zombies = []
+
+        # Check for installation directories not in registry
+        if self.installations_root.exists():
+            for install_dir in self.installations_root.iterdir():
+                if install_dir.is_dir() and install_dir.name not in self.registry["installations"]:
+                    zombies.append(("installation", install_dir))
+
+        # Check for environment directories not in registry
+        if self.environments_root.exists():
+            for env_dir in self.environments_root.iterdir():
+                if env_dir.is_dir() and env_dir.name not in self.registry["installations"]:
+                    zombies.append(("environment", env_dir))
+
+        if not zombies:
+            print("[INFO] No zombie installations found")
+            return 0
+
+        print(f"[INFO] Found {len(zombies)} zombie directories:")
+        for zombie_type, zombie_path in zombies:
+            print(f"  - {zombie_type}: {zombie_path}")
+
+        if confirm:
+            response = input(f"Remove all {len(zombies)} zombie directories? [y/N]: ")
+            if response.lower() != 'y':
+                print("[INFO] Cleanup cancelled")
+                return 0
+
+        cleaned = 0
+        for zombie_type, zombie_path in zombies:
+            try:
+                shutil.rmtree(zombie_path)
+                print(f"[OK] Removed zombie {zombie_type}: {zombie_path}")
+                cleaned += 1
+            except Exception as e:
+                print(f"[ERROR] Failed to remove {zombie_path}: {e}")
+
+        print(f"[OK] Cleaned up {cleaned} zombie installations")
+        return cleaned
+
     def get_cache_path(self) -> Path:
         """Get cache directory path."""
         return self.cache_root
@@ -456,6 +555,85 @@ class LuaEnvRegistry:
         scripts_path = self.luaenv_root / "bin"
         scripts_path.mkdir(parents=True, exist_ok=True)
         return scripts_path
+
+    def _update_backend_config(self, scripts_path: Path) -> None:
+        """Update backend configuration file for F# CLI and embedded Python access."""
+        backend_config_path = scripts_path / "backend.config"
+
+        try:
+            # Get backend directory
+            backend_dir = get_backend_dir()
+
+            # Find embedded Python
+            project_root = backend_dir.parent  # backend is inside project root
+            embedded_python_dir = project_root / "python"
+            embedded_python_exe = embedded_python_dir / "python.exe"
+
+            # Create configuration object
+            config = {
+                "backend_dir": str(backend_dir),
+                "embedded_python": {
+                    "python_dir": str(embedded_python_dir),
+                    "python_exe": str(embedded_python_exe),
+                    "available": embedded_python_exe.exists()
+                },
+                "project_root": str(project_root),
+                "config_version": "1.0",
+                "created": datetime.now(timezone.utc).isoformat()
+            }
+
+            # Write JSON configuration
+            with open(backend_config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+
+            print(f"[OK] Updated backend config (JSON): {backend_config_path}")
+
+            if config["embedded_python"]["available"]:
+                print(f"[OK] Embedded Python detected: {embedded_python_exe}")
+            else:
+                print(f"[WARNING] Embedded Python not found: {embedded_python_exe}")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to update backend config: {e}")
+
+    def _create_cli_wrapper(self, scripts_path: Path) -> None:
+        """Create luaenv.cmd wrapper that passes backend.config to CLI."""
+        wrapper_path = scripts_path / "luaenv.cmd"
+
+        wrapper_content = '''@echo off
+setlocal enabledelayedexpansion
+
+REM Get the directory where this batch file is located (bin directory)
+set BIN_DIR=%~dp0
+
+REM Set the backend config path
+set BACKEND_CONFIG=%BIN_DIR%backend.config
+
+REM Set the CLI executable path
+set CLI_EXE=%BIN_DIR%cli\\LuaEnv.CLI.exe
+
+REM Check if config exists
+if not exist "%BACKEND_CONFIG%" (
+    echo [ERROR] Backend configuration not found: %BACKEND_CONFIG%
+    exit /b 1
+)
+
+REM Check if CLI exists
+if not exist "%CLI_EXE%" (
+    echo [ERROR] CLI executable not found: %CLI_EXE%
+    exit /b 1
+)
+
+REM Execute CLI with config and pass through all arguments
+"%CLI_EXE%" --config "%BACKEND_CONFIG%" %*
+    '''
+
+        try:
+            with open(wrapper_path, 'w', encoding='utf-8') as f:
+                f.write(wrapper_content)
+            print(f"[OK] Created CLI wrapper: {wrapper_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to create CLI wrapper: {e}")
 
     def install_scripts(self, force: bool = False) -> Path:
         """Install LuaEnv scripts to the global bin directory.
@@ -469,20 +647,27 @@ class LuaEnvRegistry:
         scripts_path = self.get_scripts_path()
 
         # Find the backend directory (where this script is located)
-        backend_dir = Path(__file__).parent
+        backend_dir = get_backend_dir()
 
         # Scripts to install
         scripts_to_install = [
             ("setenv.ps1", "Visual Studio environment setup script"),
-            ("use-lua.ps1", "Registry-aware Lua environment activation script")
+            ("use-lua.ps1", "Registry-aware Lua environment activation script"),
+            ("backend.config", "Backend configuration for LuaEnv"),
         ]
 
         installed_scripts = []
         updated_scripts = []
 
         for script_name, description in scripts_to_install:
-            source_path = backend_dir / script_name
-            target_path = scripts_path / script_name
+
+            if script_name == "backend.config":
+                # Write backend.config directly to scripts_path
+                self._update_backend_config(scripts_path)
+                continue
+            else:
+                source_path = backend_dir / script_name
+                target_path = scripts_path / script_name
 
             if not source_path.exists():
                 print(f"[WARNING] Source script not found: {source_path}")
@@ -513,46 +698,8 @@ class LuaEnvRegistry:
                 print(f"[ERROR] Failed to install {script_name}: {e}")
                 continue
 
-        # Create a wrapper script for registry commands (optional)
-        luaenv_script = scripts_path / "luaenv.ps1"
-        if not luaenv_script.exists() or force:
-            wrapper_content = f'''#!/usr/bin/env pwsh
-# luaenv.ps1 - LuaEnv Registry Management Wrapper
-# Provides convenient access to registry commands from anywhere
-
-param(
-    [Parameter(Position=0)]
-    [string]$Command = "status",
-
-    [Parameter(Position=1, ValueFromRemainingArguments=$true)]
-    [string[]]$Arguments
-)
-
-# Find the backend directory to call registry.py
-$BackendDir = "{str(backend_dir).replace(chr(92), chr(92) + chr(92))}"
-$RegistryScript = Join-Path $BackendDir "registry.py"
-
-if (-not (Test-Path $RegistryScript)) {{
-    Write-Error "[ERROR] Registry script not found at: $RegistryScript"
-    exit 1
-}}
-
-# Execute the registry command
-try {{
-    $AllArgs = @($Command) + $Arguments
-    & python $RegistryScript @AllArgs
-}} catch {{
-    Write-Error "[ERROR] Failed to execute registry command: $_"
-    exit 1
-}}
-'''
-            try:
-                with open(luaenv_script, 'w', encoding='utf-8') as f:
-                    f.write(wrapper_content)
-                print(f"[OK] Created wrapper script: luaenv.ps1")
-                installed_scripts.append("luaenv.ps1")
-            except Exception as e:
-                print(f"[WARNING] Failed to create wrapper script: {e}")
+        # Create/update backend configuration for F# CLI
+        self._update_backend_config(scripts_path)
 
         # Summary
         print(f"\n[SUCCESS] Script installation completed!")
@@ -568,7 +715,7 @@ try {{
         print(f"  use-lua.ps1 -List")
         print(f"  use-lua.ps1 -Alias <name>")
         print(f"  setenv.ps1")
-        print(f"  luaenv.ps1 status")
+        print(f"[INFO] For registry/install commands, use the CLI: luaenv help")
 
         return scripts_path
 
@@ -602,7 +749,7 @@ try {{
    use-lua.ps1 -List
    use-lua.ps1 -Alias <name>
    setenv.ps1
-   luaenv.ps1 status
+   luaenv help  (CLI commands)
 """
         return instructions
 
@@ -616,7 +763,7 @@ try {{
             "scripts_status": {}
         }
 
-        scripts_to_check = ["use-lua.ps1", "setenv.ps1", "luaenv.ps1"]
+        scripts_to_check = ["use-lua.ps1", "setenv.ps1"]
 
         for script_name in scripts_to_check:
             script_path = scripts_path / script_name
@@ -676,6 +823,51 @@ try {{
                 if installation['last_used']:
                     print(f"    Last used: {installation['last_used']}")
 
+    def install_fsharp_cli_with_deps(self, publish_dir_path: Path, force: bool = False) -> bool:
+        """Install F# CLI with all dependencies from publish directory.
+
+        Args:
+            publish_dir_path: Path to the publish directory containing all files
+            force: Whether to overwrite existing installation
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        scripts_path = self.get_scripts_path()
+        cli_dir = scripts_path / "cli"
+
+        if not publish_dir_path.exists():
+            print(f"[ERROR] Publish directory not found: {publish_dir_path}")
+            return False
+
+        exe_file = publish_dir_path / "LuaEnv.CLI.exe"
+        if not exe_file.exists():
+            print(f"[ERROR] Main executable not found: {exe_file}")
+            return False
+
+        if cli_dir.exists() and not force:
+            print(f"[INFO] F# CLI already installed at: {cli_dir}")
+            print("[INFO] Use --force to overwrite")
+            return True
+
+        try:
+            # Remove existing CLI directory if it exists
+            if cli_dir.exists():
+                shutil.rmtree(cli_dir)
+
+            # Copy entire publish directory
+            shutil.copytree(publish_dir_path, cli_dir)
+            print(f"[OK] Installed F# CLI with dependencies: {cli_dir}")
+
+            # Create a wrapper script in bin directory
+            self._create_cli_wrapper(scripts_path)
+
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] Failed to install F# CLI: {e}")
+            return False
+
 
 def main():
     """Command line interface for registry management."""
@@ -684,6 +876,10 @@ def main():
     parser = argparse.ArgumentParser(description="LuaEnv Registry Management")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
+    # Registry command
+    parser.add_argument('-r', '--register',
+                       type=str,
+                       help='Path to a custom registry file.')
     # List command
     list_parser = subparsers.add_parser('list', help='List all installations')
 
@@ -727,14 +923,28 @@ def main():
     # Check scripts command
     check_scripts_parser = subparsers.add_parser('check-scripts', help='Check LuaEnv scripts installation status')
 
+    # Install F# CLI command
+    install_cli_parser = subparsers.add_parser('install-cli', help='Install F# CLI executable')
+    install_cli_parser.add_argument('exe_path', help='Path to the compiled F# CLI executable')
+    install_cli_parser.add_argument('--force', action='store_true', help='Force install/overwrite existing executable')
+
+    # Install F# CLI with dependencies command
+    install_cli_deps_parser = subparsers.add_parser('install-cli-deps', help='Install F# CLI with all dependencies')
+    install_cli_deps_parser.add_argument('publish_dir', help='Path to the publish directory containing all files')
+    install_cli_deps_parser.add_argument('--force', action='store_true', help='Force install/overwrite existing installation')
+
     args = parser.parse_args()
+
+    # Initialize registry
+    # If a custom registry file is specified, use it; otherwise, use the default (%USERPROFILE%\.luaenv\registry.json)
+    if args.register:
+        registry = LuaEnvRegistry(registry_path=args.register)
+    else:
+        registry = LuaEnvRegistry()
 
     if not args.command:
         parser.print_help()
         return
-
-    # Initialize registry
-    registry = LuaEnvRegistry()
 
     if args.command == 'list':
         installations = registry.list_installations()
@@ -787,7 +997,19 @@ def main():
                 print(f"  - {installation['name']} ({installation_id})")
 
     elif args.command == 'cleanup':
-        registry.cleanup_broken(confirm=not args.yes)
+        print("[INFO] Running cleanup operations...")
+
+        # Clean up broken registry entries
+        broken_count = registry.cleanup_broken(confirm=not args.yes)
+
+        # Clean up zombie installations
+        zombie_count = registry.cleanup_zombie_installations(confirm=not args.yes)
+
+        total_cleaned = broken_count + zombie_count
+        if total_cleaned > 0:
+            print(f"[OK] Cleanup complete: {broken_count} broken entries + {zombie_count} zombie installations = {total_cleaned} total")
+        else:
+            print("[OK] No cleanup needed - everything is clean!")
 
     elif args.command == 'install-scripts':
         print("[INFO] Installing LuaEnv scripts to global bin directory...")
@@ -821,7 +1043,7 @@ def main():
             print(f"[OK] Scripts directory exists: {scripts_path}")
 
             # Check individual scripts
-            scripts = ['setenv.ps1', 'use-lua.ps1', 'luaenv.ps1']
+            scripts = ['setenv.ps1', 'use-lua.ps1']
             for script in scripts:
                 script_path = scripts_path / script
                 if script_path.exists():
@@ -838,6 +1060,34 @@ def main():
         else:
             print(f"[ERROR] Scripts directory does not exist: {scripts_path}")
             print("Run 'python registry.py install-scripts' to install")
+
+    elif args.command == 'install-cli':
+        print("[INFO] Installing F# CLI executable...")
+        from pathlib import Path
+        exe_path = Path(args.exe_path)
+
+        if registry.install_fsharp_cli(exe_path, force=args.force):
+            print("[SUCCESS] F# CLI executable installed successfully")
+            print("[INFO] You can now use 'luaenv.exe' commands globally")
+            scripts_path = registry.get_scripts_path()
+            print(f"[INFO] Make sure {scripts_path} is in your PATH")
+        else:
+            print("[ERROR] Failed to install F# CLI executable")
+            return 1
+
+    elif args.command == 'install-cli-deps':
+        from pathlib import Path
+        print("[INFO] Installing F# CLI with dependencies...")
+        publish_dir = Path(args.publish_dir)
+
+        if registry.install_fsharp_cli_with_deps(publish_dir, force=args.force):
+            print("[SUCCESS] F# CLI with dependencies installed successfully")
+            print("[INFO] You can now use 'luaenv.exe' commands globally")
+            scripts_path = registry.get_scripts_path()
+            print(f"[INFO] Make sure {scripts_path} is in your PATH")
+        else:
+            print("[ERROR] Failed to install F# CLI with dependencies")
+            return 1
 
 
 if __name__ == "__main__":

@@ -8,18 +8,25 @@ to work with any Lua/LuaRocks versions in an isolated build environment.
 import os
 import shutil
 import sys
+from pathlib import Path
 
-# Import configuration system and utilities
+# Add current directory to Python path for local imports
+current_dir = Path(__file__).parent
+sys.path.insert(0, str(current_dir))
+
+# Import configuration system and utilities with dual-context support
 try:
+    from .config import (
+        get_lua_dir_name, get_luarocks_dir_name,
+        LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+    )
+    from .utils import ensure_extracted_folder
+except ImportError:
     from config import (
         get_lua_dir_name, get_luarocks_dir_name,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
-    from utils import ensure_extracted_folder, get_extracted_path
-except ImportError as e:
-    print(f"Error importing configuration: {e}")
-    print("Make sure config.py and utils.py are in the same directory as this script.")
-    sys.exit(1)
+    from utils import ensure_extracted_folder
 
 BUILD_DLL = 0
 BUILD_DEBUG = 0

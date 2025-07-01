@@ -6,12 +6,20 @@ a registry of available versions.
 """
 
 import json
-import os
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from utils import download_file, extract_file, verify_file_exists, get_file_size, format_file_size
+# Add current directory to Python path for local imports
+current_dir = Path(__file__).parent
+sys.path.insert(0, str(current_dir))
+
+# Import utilities with dual-context support
+try:
+    from .utils import download_file, extract_file, verify_file_exists, get_file_size, format_file_size
+except ImportError:
+    from utils import download_file, extract_file, verify_file_exists, get_file_size, format_file_size
 
 
 class DownloadManager:

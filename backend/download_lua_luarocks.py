@@ -1,15 +1,20 @@
 """
 Download and extract Lua source code and LuaRocks package manager for Windows.
 
-This script now uses a version-aware download manager that avoids re-downloading
+This script uses a version-aware download manager that avoids re-downloading
 and maintains a registry of available versions.
 """
 
-from pathlib import Path
 import sys
 import os
 
-# Import configuration
+# Ensure we can import from the current directory when run from CLI
+if __name__ == "__main__" or "backend" not in sys.path:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
+# Import configuration with dual-context support
 try:
     from config import (
         get_lua_url, get_lua_tests_url, get_luarocks_url,
@@ -18,19 +23,32 @@ try:
         validate_current_configuration,
         LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
     )
-except ImportError as e:
-    print(f"Error importing configuration: {e}")
-    print("Make sure config.py is in the same directory as this script.")
-    sys.exit(1)
+except ImportError:
+    try:
+        from .config import (
+            get_lua_url, get_lua_tests_url, get_luarocks_url,
+            get_lua_dir_name, get_luarocks_dir_name, get_lua_tests_dir_name,
+            get_download_filenames, check_version_compatibility,
+            validate_current_configuration,
+            LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+        )
+    except ImportError as e:
+        print(f"Error importing configuration: {e}")
+        print("Make sure config.py is in the same directory as this script.")
+        sys.exit(1)
 
-# Import download manager and utilities
+# Import download manager and utilities with dual-context support
 try:
     from download_manager import DownloadManager
     from utils import extract_file, ensure_extracted_folder, clean_extracted_folder, list_extracted_contents
-except ImportError as e:
-    print(f"Error importing utilities: {e}")
-    print("Make sure utils.py and download_manager.py are in the same directory as this script.")
-    sys.exit(1)
+except ImportError:
+    try:
+        from .download_manager import DownloadManager
+        from .utils import extract_file, ensure_extracted_folder, clean_extracted_folder, list_extracted_contents
+    except ImportError as e:
+        print(f"Error importing utilities: {e}")
+        print("Make sure utils.py and download_manager.py are in the same directory as this script.")
+        sys.exit(1)
 
 def download():
     """Download Lua and LuaRocks using the version-aware download manager."""
