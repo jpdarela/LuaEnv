@@ -188,9 +188,9 @@ def clear_version_cache():
     except Exception as e:
         print(f"[WARNING] Failed to clear cache: {e}")
 
-def get_cached_versions():
+def get_cached_versions(show_message=True):
     """Get versions from cache if available."""
-    cache = load_version_cache()
+    cache = load_version_cache(show_message=show_message)
 
     if cache and 'lua_versions' in cache and 'luarocks_versions' in cache:
         return (
@@ -284,19 +284,21 @@ def validate_current_configuration():
 
     return all_valid, results
 
-def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=False):
+def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=False, use_stderr=False):
     """
     Try to discover available Lua versions by checking common version patterns.
     This is a best-effort approach since there's no API.
     """
+    print_fn = print if not use_stderr else lambda *args, **kwargs: print(*args, file=sys.stderr, **kwargs)
+
     if use_cache and not force_refresh:
         cached_lua, cached_luarocks, is_cached = get_cached_versions()
         if is_cached and cached_lua:
-            print(f"[CACHE] Found {len(cached_lua)} Lua versions in cache")
+            print_fn(f"[CACHE] Found {len(cached_lua)} Lua versions in cache")
             return cached_lua
 
-    print("Discovering available Lua versions (this may take a moment)...")
-    print("[INFO] Being respectful to lua.org servers with rate limiting...")
+    print_fn("Discovering available Lua versions (this may take a moment)...")
+    print_fn("[INFO] Being respectful to lua.org servers with rate limiting...")
 
     # Common Lua versions to check (most recent first)
     versions_to_check = [
@@ -310,35 +312,37 @@ def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=Fa
             break
 
         url = f"{LUA_BASE_URL}/lua-{version}.tar.gz"
-        print(f"  Checking Lua {version}...", end=' ')
+        print_fn(f"  Checking Lua {version}...", end=' ')
 
         exists, message = check_url_exists(url, timeout=5)
         if exists:
             available_versions.append(version)
-            print("[AVAILABLE]")
+            print_fn("[AVAILABLE]")
         else:
-            print("[NOT FOUND]")
+            print_fn("[NOT FOUND]")
 
         checked_count += 1
 
         # Rate limiting: wait between requests to be respectful
         if checked_count < max_versions:  # Don't wait after the last check
-            time.sleep(0.5)  # 500ms delay between requests
+            time.sleep(0.05)  # 500ms delay between requests
 
     return available_versions
 
-def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_cache=True, force_refresh=False):
+def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_cache=True, force_refresh=False, use_stderr=False):
     """
     Try to discover available LuaRocks versions by checking common version patterns.
     """
+    print_fn = print if not use_stderr else lambda *args, **kwargs: print(*args, file=sys.stderr, **kwargs)
+
     if use_cache and not force_refresh:
         cached_lua, cached_luarocks, is_cached = get_cached_versions()
         if is_cached and cached_luarocks.get(platform):
-            print(f"[CACHE] Found {len(cached_luarocks[platform])} LuaRocks versions for {platform} in cache")
+            print_fn(f"[CACHE] Found {len(cached_luarocks[platform])} LuaRocks versions for {platform} in cache")
             return cached_luarocks[platform]
 
-    print(f"Discovering available LuaRocks versions for {platform}...")
-    print("[INFO] Being respectful to luarocks.github.io servers with rate limiting...")
+    print_fn(f"Discovering available LuaRocks versions for {platform}...")
+    print_fn("[INFO] Being respectful to luarocks.github.io servers with rate limiting...")
 
     # Common LuaRocks versions to check (most recent first)
     versions_to_check = [
@@ -352,14 +356,14 @@ def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_c
             break
 
         url = f"{LUAROCKS_BASE_URL}/luarocks-{version}-{platform}.zip"
-        print(f"  Checking LuaRocks {version}...", end=' ')
+        print_fn(f"  Checking LuaRocks {version}...", end=' ')
 
         exists, message = check_url_exists(url, timeout=5)
         if exists:
             available_versions.append(version)
-            print("[AVAILABLE]")
+            print_fn("[AVAILABLE]")
         else:
-            print("[NOT FOUND]")
+            print_fn("[NOT FOUND]")
 
         checked_count += 1
 
@@ -369,30 +373,44 @@ def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_c
 
     return available_versions
 
-def discover_and_cache_versions(force_refresh=False):
+def discover_and_cache_versions(force_refresh=False, quiet=False, use_stderr=False):
     """
     Discover available versions and cache them.
     Returns (lua_versions, luarocks_versions_dict)
     """
+    print_fn = print if not use_stderr else lambda *args, **kwargs: print(*args, file=sys.stderr, **kwargs)
+
     if not force_refresh:
-        cached_lua, cached_luarocks, is_cached = get_cached_versions()
+        cached_lua, cached_luarocks, is_cached = get_cached_versions(show_message=not quiet)
         if is_cached:
             return cached_lua, cached_luarocks
 
-    print("Discovering available versions (this will take a few moments)...")
-    print("[INFO] Results will be cached for future use")
+    if not quiet:
+        print_fn("Discovering available versions (this will take a few moments)...")
+        print_fn("[INFO] Results will be cached for future use")
 
     # Discover Lua versions
-    lua_versions = get_available_lua_versions(use_cache=False)
+    lua_versions = get_available_lua_versions(use_cache=False, use_stderr=use_stderr)
 
     # Discover LuaRocks versions for both platforms
     luarocks_versions = {
-        'windows-64': get_available_luarocks_versions('windows-64', use_cache=False),
-        'windows-32': get_available_luarocks_versions('windows-32', use_cache=False)
+        'windows-64': get_available_luarocks_versions('windows-64', use_cache=False, use_stderr=use_stderr),
+        'windows-32': get_available_luarocks_versions('windows-32', use_cache=False, use_stderr=use_stderr)
     }
 
     # Save to cache
-    save_version_cache(lua_versions, luarocks_versions)
+    if use_stderr:
+        with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+            cache_data = {
+                'timestamp': datetime.now().isoformat(),
+                'lua_versions': lua_versions,
+                'luarocks_versions': luarocks_versions,
+                'cache_expiry_hours': CACHE_EXPIRY_HOURS
+            }
+            json.dump(cache_data, f, indent=2)
+        print_fn(f"[INFO] Version cache saved to {CACHE_FILE}")
+    else:
+        save_version_cache(lua_versions, luarocks_versions)
 
     return lua_versions, luarocks_versions
 
@@ -419,51 +437,101 @@ if __name__ == "__main__":
 
         elif sys.argv[1] in ['--discover', '-d']:
             force_refresh = '--refresh' in sys.argv or '-r' in sys.argv
+            json_output = '--json' in sys.argv
 
-            print("Lua MSVC Build System - Version Discovery")
-            print("=" * 50)
+            if json_output:
+                # JSON output for programmatic consumption (CLI)
+                # Use stderr for all debug output to keep stdout clean for JSON
+                lua_versions, luarocks_versions = discover_and_cache_versions(force_refresh, quiet=True, use_stderr=True)
 
-            # Check current config first
-            print("Current configuration:")
-            print(f"  Lua: {LUA_VERSION}")
-            print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
-            print()
+                # Build structured output
+                cache_info = {}
+                if not force_refresh:
+                    cache_data = load_version_cache(show_message=False)
+                    if cache_data:
+                        cache_time = datetime.fromisoformat(cache_data.get('timestamp', '1970-01-01T00:00:00'))
+                        cache_age_hours = (datetime.now() - cache_time).total_seconds() / 3600
+                        cache_info = {
+                            'used_cache': True,
+                            'cache_age_hours': round(cache_age_hours, 1),
+                            'cache_file': str(CACHE_FILE)
+                        }
+                    else:
+                        cache_info = {'used_cache': False}
+                else:
+                    cache_info = {'used_cache': False, 'forced_refresh': True}
 
-            # Check cache status
-            if not force_refresh:
-                cached_lua, cached_luarocks, is_cached = get_cached_versions()
-                if is_cached:
-                    cache_age = datetime.now() - datetime.fromisoformat(load_version_cache(show_message=False).get('timestamp', '1970-01-01T00:00:00'))
-                    print(f"[INFO] Using cached data (age: {cache_age.total_seconds()/3600:.1f} hours)")
-                    print("       Use --discover --refresh flags combined to update cache")
-                    print()
+                output = {
+                    'current_config': {
+                        'lua_version': LUA_VERSION,
+                        'lua_major_minor': LUA_MAJOR_MINOR,
+                        'luarocks_version': LUAROCKS_VERSION,
+                        'luarocks_platform': LUAROCKS_PLATFORM
+                    },
+                    'cache_info': cache_info,
+                    'available_versions': {
+                        'lua': lua_versions,
+                        'luarocks': luarocks_versions
+                    },
+                    'discovery_timestamp': datetime.now().isoformat(),
+                    'urls': {
+                        'lua': get_lua_url(),
+                        'lua_tests': get_lua_tests_url(),
+                        'luarocks': get_luarocks_url()
+                    },
+                    'config_info': {
+                        'config_file': str(Path(__file__).parent / "build_config.txt")
+                    }
+                }
 
-            # Discover versions (using cache if available)
-            lua_versions, luarocks_versions = discover_and_cache_versions(force_refresh)
+                print(json.dumps(output, indent=2))
+                sys.exit(0)
+            else:
+                # Human-readable output for direct use
+                print("Lua MSVC Build System - Version Discovery")
+                print("=" * 50)
 
-            print(f"Found {len(lua_versions)} available Lua versions:")
-            for version in lua_versions:
-                marker = " (CURRENT)" if version == LUA_VERSION else ""
-                print(f"  - {version}{marker}")
+                # Check current config first
+                print("Current configuration:")
+                print(f"  Lua: {LUA_VERSION}")
+                print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
+                print()
 
-            print()
-            platform_versions = luarocks_versions.get(LUAROCKS_PLATFORM, [])
-            print(f"Found {len(platform_versions)} available LuaRocks versions for {LUAROCKS_PLATFORM}:")
-            for version in platform_versions:
-                marker = " (CURRENT)" if version == LUAROCKS_VERSION else ""
-                print(f"  - {version}{marker}")
+                # Check cache status
+                if not force_refresh:
+                    cached_lua, cached_luarocks, is_cached = get_cached_versions()
+                    if is_cached:
+                        cache_age = datetime.now() - datetime.fromisoformat(load_version_cache(show_message=False).get('timestamp', '1970-01-01T00:00:00'))
+                        print(f"[INFO] Using cached data (age: {cache_age.total_seconds()/3600:.1f} hours)")
+                        print("       Use --discover --refresh flags combined to update cache")
+                        print()
 
-            # Show other platform if available
-            other_platform = 'windows-32' if LUAROCKS_PLATFORM == 'windows-64' else 'windows-64'
-            if other_platform in luarocks_versions:
-                other_versions = luarocks_versions[other_platform]
-                print(f"\nAlso available for {other_platform}: {len(other_versions)} versions")
+                # Discover versions (using cache if available)
+                lua_versions, luarocks_versions = discover_and_cache_versions(force_refresh)
 
-            print()
-            print("To use a different version, edit build_config.txt")
-            if CACHE_FILE.exists():
-                print(f"Cache file: {CACHE_FILE}")
-            sys.exit(0)
+                print(f"Found {len(lua_versions)} available Lua versions:")
+                for version in lua_versions:
+                    marker = " (CURRENT)" if version == LUA_VERSION else ""
+                    print(f"  - {version}{marker}")
+
+                print()
+                platform_versions = luarocks_versions.get(LUAROCKS_PLATFORM, [])
+                print(f"Found {len(platform_versions)} available LuaRocks versions for {LUAROCKS_PLATFORM}:")
+                for version in platform_versions:
+                    marker = " (CURRENT)" if version == LUAROCKS_VERSION else ""
+                    print(f"  - {version}{marker}")
+
+                # Show other platform if available
+                other_platform = 'windows-32' if LUAROCKS_PLATFORM == 'windows-64' else 'windows-64'
+                if other_platform in luarocks_versions:
+                    other_versions = luarocks_versions[other_platform]
+                    print(f"\nAlso available for {other_platform}: {len(other_versions)} versions")
+
+                print()
+                print("To use a different version, edit build_config.txt")
+                if CACHE_FILE.exists():
+                    print(f"Cache file: {CACHE_FILE}")
+                sys.exit(0)
 
         elif sys.argv[1] in ['--clear-cache']:
             print("Clearing version cache...")
@@ -500,6 +568,8 @@ if __name__ == "__main__":
             print("  python config.py --check            # Validate current download URLs")
             print("  python config.py --discover         # Discover available versions (use cache)")
             print("  python config.py --discover --refresh # Discover versions (refresh cache)")
+            print("  python config.py --discover --json  # Output version data as JSON")
+            print("  python config.py --discover --json --refresh # JSON output with fresh data")
             print("  python config.py --cache-info       # Show cache information")
             print("  python config.py --clear-cache      # Clear version cache")
             print("  python config.py --help             # Show this help")
@@ -508,6 +578,11 @@ if __name__ == "__main__":
             print(f"  - Cache expires after {CACHE_EXPIRY_HOURS} hours")
             print("  - Use --refresh to force cache update")
             print("  - Cache reduces server load and improves performance")
+            print()
+            print("JSON Output:")
+            print("  - Use --json flag for structured output (for CLI integration)")
+            print("  - Includes cache info, URLs, and all available versions")
+            print("  - Combine with --refresh for fresh data")
             print()
             print("To change versions, edit build_config.txt")
             sys.exit(0)

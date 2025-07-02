@@ -538,8 +538,8 @@ def restore_config():
     return False
 
 
-def create_temp_config(lua_version=None, luarocks_version=None):
-    """Create a temporary config with specified versions."""
+def create_temp_config(lua_version=None, luarocks_version=None, architecture=None):
+    """Create a temporary config with specified versions and architecture."""
     config_file = Path(__file__).parent / "build_config.txt"
 
     # Read current config or use defaults
@@ -578,6 +578,17 @@ def create_temp_config(lua_version=None, luarocks_version=None):
 
     if luarocks_version:
         current_config['LUAROCKS_VERSION'] = luarocks_version
+
+    # Set LUAROCKS_PLATFORM based on architecture
+    if architecture:
+        if architecture == "x86":
+            current_config['LUAROCKS_PLATFORM'] = 'windows-32'
+            print(f"[INFO] Architecture x86 detected: Setting LUAROCKS_PLATFORM to windows-32")
+        elif architecture == "x64":
+            current_config['LUAROCKS_PLATFORM'] = 'windows-64'
+            print(f"[INFO] Architecture x64 detected: Setting LUAROCKS_PLATFORM to windows-64")
+        else:
+            print(f"[WARNING] Unknown architecture '{architecture}', keeping default LUAROCKS_PLATFORM")
 
     # Write temporary config
     try:
@@ -703,18 +714,24 @@ Each installation gets a unique UUID for identification.
 
     # Handle version parameters
     config_modified = False
-    if args.lua_version or args.luarocks_version:
-        print("[INFO] Using custom versions for this installation")
+
+    # Determine architecture early for potential config modification
+    architecture = "x86" if args.x86 else "x64"
+
+    if args.lua_version or args.luarocks_version or args.x86:
+        print("[INFO] Using custom configuration for this installation")
         if args.lua_version:
             print(f"  Lua version: {args.lua_version}")
         if args.luarocks_version:
             print(f"  LuaRocks version: {args.luarocks_version}")
+        if args.x86:
+            print(f"  Architecture: x86 (32-bit) - will use windows-32 platform")
 
         # Backup current config and create temporary config
         if backup_config():
             print("[INFO] Current config backed up")
 
-        if create_temp_config(args.lua_version, args.luarocks_version):
+        if create_temp_config(args.lua_version, args.luarocks_version, architecture):
             print("[INFO] Temporary config created")
             config_modified = True
 
@@ -748,10 +765,9 @@ Each installation gets a unique UUID for identification.
 
     print(f"Configuration: Lua {final_lua_version}, LuaRocks {final_luarocks_version}")
 
-    # Determine build type
+    # Determine build type (architecture already determined above)
     build_type = "dll" if args.dll else "static"
     build_config = "debug" if args.debug else "release"
-    architecture = "x86" if args.x86 else "x64"
 
     # Generate default name if not provided
     if not args.name:
