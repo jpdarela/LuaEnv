@@ -30,23 +30,35 @@ except ImportError:
     from registry import LuaEnvRegistry
 
 
-def setenv():
-    """Set Visual Studio environment variables by directly calling vcvars64.bat."""
-    print("[INFO] Setting up Visual Studio environment...")
+def setenv(architecture="x64"):
+    """Set Visual Studio environment variables by directly calling vcvars batch file.
+
+    Args:
+        architecture (str): Target architecture - "x64" (default) or "x86"
+    """
+    print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
 
     # Save current working directory
     original_cwd = os.getcwd()
 
+    # Choose the appropriate vcvars batch file based on architecture
+    if architecture == "x86":
+        vcvars_filename = "vcvars32.bat"
+        arch_display = "x86 (32-bit)"
+    else:  # Default to x64
+        vcvars_filename = "vcvars64.bat"
+        arch_display = "x64 (64-bit)"
+
     # Common paths where Visual Studio might be installed
     vs_paths = [
-        r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
     ]
 
     # Check if there's a saved VS path
@@ -56,27 +68,43 @@ def setenv():
             with open(vs_config_file, 'r') as f:
                 saved_path = f.read().strip()
                 if saved_path:
-                    vcvars_path = os.path.join(saved_path, r"VC\Auxiliary\Build\vcvars64.bat")
+                    vcvars_path = os.path.join(saved_path, rf"VC\Auxiliary\Build\{vcvars_filename}")
                     if os.path.exists(vcvars_path):
                         vs_paths.insert(0, vcvars_path)  # Use saved path first
                         print(f"[INFO] Using saved Visual Studio path: {saved_path}")
         except Exception as e:
             print(f"[WARNING] Could not read VS config file: {e}")
 
-    # Find the first available vcvars64.bat
+    # Find the first available vcvars batch file
     vcvars_bat = None
     for path in vs_paths:
         if os.path.exists(path):
             vcvars_bat = path
             print(f"[OK] Found Visual Studio at: {path}")
+            print(f"[INFO] Target architecture: {arch_display}")
             break
 
     if not vcvars_bat:
-        print("[WARNING] Could not find Visual Studio installation")
+        print(f"[ERROR] Could not find Visual Studio installation for {arch_display}")
         print("[INFO] Searched the following paths:")
         for path in vs_paths:
             print(f"  - {path}")
-        print("[INFO] Build may fail without Visual Studio environment")
+        print("")
+        print("[SOLUTION] To resolve this issue:")
+        print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
+        print("2. OR use the setenv.ps1 script to manually configure environment:")
+        arch_param = "x86" if architecture == "x86" else "amd64"
+        print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+        print("3. Then run your installation command with --skip-env-check flag:")
+        print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+        print("")
+        print("[IMPORTANT] Architecture flags must match:")
+        if architecture == "x86":
+            print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+        else:
+            print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+        print("")
+        print("[WARNING] Build may fail without Visual Studio environment")
         return False
 
     try:
@@ -113,9 +141,24 @@ set
                 print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
                 return True
             else:
-                print("[WARNING] Failed to set up Visual Studio environment")
+                print("[ERROR] Failed to set up Visual Studio environment")
                 if "VCVARS_FAILED" in result.stdout:
-                    print("[WARNING] vcvars64.bat reported an error")
+                    print("[INFO] The Visual Studio environment setup script reported an error")
+                print("")
+                print("[SOLUTION] To resolve this issue:")
+                print("1. Make sure Visual Studio C++ development tools are properly installed")
+                print("2. OR use the setenv.ps1 script to manually configure environment:")
+                arch_param = "x86" if architecture == "x86" else "amd64"
+                print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+                print("3. Then run your installation command with --skip-env-check flag:")
+                print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+                print("")
+                print("[IMPORTANT] Architecture flags must match:")
+                if architecture == "x86":
+                    print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+                else:
+                    print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+                print("")
                 return False
         finally:
             # Clean up temp file
@@ -125,7 +168,22 @@ set
                 pass
 
     except Exception as e:
-        print(f"[WARNING] Failed to set up Visual Studio environment: {e}")
+        print(f"[ERROR] Failed to set up Visual Studio environment: {e}")
+        print("")
+        print("[SOLUTION] To resolve this issue:")
+        print("1. Make sure Visual Studio C++ development tools are properly installed")
+        print("2. OR use the setenv.ps1 script to manually configure environment:")
+        arch_param = "x86" if architecture == "x86" else "amd64"
+        print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+        print("3. Then run your installation command with --skip-env-check flag:")
+        print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+        print("")
+        print("[IMPORTANT] Architecture flags must match:")
+        if architecture == "x86":
+            print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+        else:
+            print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+        print("")
         return False
     finally:
         # Ensure we're back in the original directory
@@ -322,7 +380,7 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
 
 
 def create_installation(lua_version, luarocks_version, build_type, build_config,
-                       name=None, alias=None, skip_env_check=False, skip_tests=False):
+                       name=None, alias=None, architecture="x64", skip_env_check=False, skip_tests=False):
     """Create a new Lua installation in the LuaEnv system."""
 
     # Initialize registry
@@ -330,7 +388,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
 
     # Check environment unless explicitly skipped
     if not skip_env_check:
-        env_set = setenv()
+        env_set = setenv(architecture)
         if not env_set:
             print("[WARNING] Failed to set environment variables from setenv.ps1.")
 
@@ -352,6 +410,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
         luarocks_version=luarocks_version,
         build_type=build_type,
         build_config=build_config,
+        architecture=architecture,
         name=name,
         alias=alias
     )
@@ -409,6 +468,18 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
         print(f"\n[ERROR] Installation failed: {e}")
         # Mark installation as broken but don't remove it (user can debug)
         registry.update_status(installation_id, "broken")
+
+        # Automatically cleanup broken installations (silent)
+        print("[INFO] Running automatic cleanup...")
+        try:
+            cleaned_count = registry.cleanup_broken(confirm=False)
+            if cleaned_count > 0:
+                print(f"[INFO] Automatically cleaned up {cleaned_count} broken installations")
+            else:
+                print("[INFO] No broken installations to clean up")
+        except Exception as cleanup_error:
+            print(f"[WARN] Cleanup failed: {cleanup_error}")
+
         return installation_id
 
 
@@ -433,7 +504,9 @@ def list_installations():
         print(f"  {status_mark} {installation['name']}{alias_info}")
         print(f"    ID: {installation['id']}")
         print(f"    Lua: {installation['lua_version']}, LuaRocks: {installation['luarocks_version']}")
-        print(f"    Build: {installation['build_type']} {installation['build_config']}")
+        # Handle backward compatibility for installations without architecture field
+        arch_info = installation.get('architecture', 'x64')
+        print(f"    Build: {installation['build_type']} {installation['build_config']} ({arch_info})")
         print(f"    Path: {installation['installation_path']}")
         if installation['last_used']:
             print(f"    Last used: {installation['last_used']}")
@@ -536,7 +609,9 @@ Examples:
   python setup_lua.py                                    # Create installation with current config
   python setup_lua.py --dll                              # Create DLL build
   python setup_lua.py --debug                            # Create debug build
+  python setup_lua.py --x86                              # Create x86 (32-bit) build
   python setup_lua.py --dll --debug                      # Create DLL debug build
+  python setup_lua.py --x86 --dll                        # Create x86 DLL build
   python setup_lua.py --name "Development" --alias dev   # Create with custom name and alias
   python setup_lua.py --lua-version 5.4.7 --alias dev   # Use specific Lua version
   python setup_lua.py --luarocks-version 3.11.1          # Use specific LuaRocks version
@@ -544,11 +619,30 @@ Examples:
   python setup_lua.py --remove dev                       # Remove installation by alias
   python setup_lua.py --remove a1b2c3d4                  # Remove by partial UUID
 
+Manual Environment Setup (if automatic setup fails):
+  %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch amd64 -Current  # Setup x64 environment manually
+  python setup_lua.py --skip-env-check [options]               # Then run installation (x64 is default)
+
+  %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch x86 -Current   # Setup x86 environment manually
+  python setup_lua.py --skip-env-check --x86 [options]        # Then run x86 installation (MUST include --x86 flag)
+
+  For first install before .luaenv exists:
+  .\\backend\\setenv.ps1 -Arch amd64 -Current                  # Setup x64 environment manually
+  .\\backend\\setenv.ps1 -Arch x86 -Current                    # Setup x86 environment manually
+
+  IMPORTANT: When using manual environment setup, ensure the architecture flag matches:
+  - If you ran setenv.ps1 with -Arch amd64, omit --x86 flag (x64 is default)
+  - If you ran setenv.ps1 with -Arch x86, MUST include --x86 flag for correct registry
+
 Build Types:
   Static Release:  Optimized static library build (default)
   DLL Release:     Optimized DLL build (--dll)
   Static Debug:    Unoptimized static build with debug symbols (--debug)
   DLL Debug:       Unoptimized DLL build with debug symbols (--dll --debug)
+
+Architectures:
+  x64:             64-bit build (default) - uses vcvars64.bat
+  x86:             32-bit build (--x86) - uses vcvars32.bat
 
 All installations are stored in %USERPROFILE%\\.luaenv\\
 Each installation gets a unique UUID for identification.
@@ -566,6 +660,8 @@ Each installation gets a unique UUID for identification.
                        help="Create DLL build instead of static build")
     parser.add_argument("--debug", action="store_true",
                        help="Create debug build with debug symbols")
+    parser.add_argument("--x86", action="store_true",
+                       help="Create x86 (32-bit) build instead of x64 (64-bit) build (must match setenv.ps1 -Arch x86 if using manual setup)")
 
     # Version configuration
     parser.add_argument("--lua-version", metavar="VERSION",
@@ -579,7 +675,7 @@ Each installation gets a unique UUID for identification.
 
     # Build options
     parser.add_argument("--skip-env-check", action="store_true",
-                       help="Skip Visual Studio environment check")
+                       help="Skip Visual Studio environment check (use after running %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 - ensure architecture flags match)")
     parser.add_argument("--skip-tests", action="store_true",
                        help="Skip test suite after building")
 
@@ -655,17 +751,23 @@ Each installation gets a unique UUID for identification.
     # Determine build type
     build_type = "dll" if args.dll else "static"
     build_config = "debug" if args.debug else "release"
+    architecture = "x86" if args.x86 else "x64"
 
     # Generate default name if not provided
     if not args.name:
-        args.name = f"Lua {final_lua_version} {build_type.upper()} {build_config.title()}"
+        arch_display = "x86" if args.x86 else "x64"
+        args.name = f"Lua {final_lua_version} {build_type.upper()} {build_config.title()} ({arch_display})"
 
     print(f"Build type: {build_type} {build_config}")
+    print(f"Architecture: {architecture}")
     print(f"Name: {args.name}")
     if args.alias:
         print(f"Alias: {args.alias}")
     if args.skip_env_check:
-        print("Environment check: Skipped")
+        arch_param = "x86" if args.x86 else "amd64"
+        print(f"Environment check: Skipped")
+        print(f"  Ensure you ran: %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+        print(f"  Architecture match: setenv.ps1 -Arch {arch_param} ↔ setup_lua.py {'--x86' if args.x86 else '(default x64)'}")
     if args.skip_tests:
         print("Test suite: Skipped")
     print()
@@ -677,6 +779,7 @@ Each installation gets a unique UUID for identification.
             luarocks_version=final_luarocks_version,
             build_type=build_type,
             build_config=build_config,
+            architecture=architecture,
             name=args.name,
             alias=args.alias,
             skip_env_check=args.skip_env_check,
@@ -692,15 +795,24 @@ Each installation gets a unique UUID for identification.
             exit_code = 1
 
     finally:
+        # Final cleanup safety net - ensure no broken installations remain
+        try:
+            registry = LuaEnvRegistry()
+            cleaned_count = registry.cleanup_broken(confirm=False)
+            if cleaned_count > 0:
+                print(f"[INFO] Final cleanup removed {cleaned_count} broken installations")
+            else:
+                print("[INFO] No broken installations to clean up in the final cleanup")
+        except Exception:
+            print("[WARNING] Final cleanup failed, you may need to run cleanup manually")
+            pass  # Silent failure - don't let cleanup errors affect the main operation
         # Restore original config if we modified it
         if config_modified:
             if restore_config():
                 print("[INFO] Original config restored")
             else:
                 print("[WARNING] Failed to restore original config")
-
     sys.exit(exit_code)
-
 
 if __name__ == "__main__":
     main()

@@ -113,7 +113,8 @@ class LuaEnvRegistry:
 
     def create_installation(self, lua_version: str, luarocks_version: str,
                           build_type: str, build_config: str = "release",
-                          name: Optional[str] = None, alias: Optional[str] = None) -> str:
+                          name: Optional[str] = None, alias: Optional[str] = None,
+                          architecture: str = "x64") -> str:
         """Create new installation record.
 
         Args:
@@ -123,6 +124,7 @@ class LuaEnvRegistry:
             build_config: "release" or "debug"
             name: Optional descriptive name
             alias: Optional alias for the installation
+            architecture: Target architecture - "x64" (default) or "x86"
 
         Returns:
             Installation UUID
@@ -131,7 +133,8 @@ class LuaEnvRegistry:
 
         # Generate default name if not provided
         if not name:
-            name = f"Lua {lua_version} {build_type.upper()} {build_config.title()}"
+            arch_display = "x86" if architecture == "x86" else "x64"
+            name = f"Lua {lua_version} {build_type.upper()} {build_config.title()} ({arch_display})"
 
         # VALIDATE ALIAS BEFORE CREATING ANYTHING
         if alias and alias in self.registry["aliases"]:
@@ -155,6 +158,7 @@ class LuaEnvRegistry:
                 "luarocks_version": luarocks_version,
                 "build_type": build_type,
                 "build_config": build_config,
+                "architecture": architecture,
                 "created": datetime.now(timezone.utc).isoformat(),
                 "last_used": None,
                 "status": "building",

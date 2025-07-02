@@ -11,14 +11,15 @@ backend/tests/__pycache__/
 backend/__pycache__/
 backend/version_cache.json
 
+# Sandbox folder
 sdb
 
-.copilot
+# AI assistant files
+.copilot*
 
 # Embeded Python files
 python
 .pythonenv
-
 
 # F# / .NET build artifacts
 publish/
