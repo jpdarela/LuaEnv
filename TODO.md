@@ -25,3 +25,6 @@ Interesting blogpost about implementations of a luaenv system: [LuaEnv Blog Post
 
 **Last Updated**: July 1, 2025
 **Status**: Ready for F# CLI Implementation
+
+
+TODO ADAPT THE DOWNLOAD OF LUAROCKS 32 BIT FOR X86 LUA BUILDS
