@@ -6,10 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Argu" Version="6.2.4" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="Program.fs" />
   </ItemGroup>
 

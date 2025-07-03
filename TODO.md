@@ -1,123 +1,78 @@
 # TODO
 
-## Phase 1 CLI Implementation - Printing Commands (July 2, 2025)
 
-### 🎯 **Objective**
-Implement CLI commands for printing and understanding the LuaEnv system state:
-- Available versions (what can be downloaded)
-- Installed versions (what's currently installed)
-- System state (help users understand their LuaEnv setup)
+# LuaEnv Environment Management
 
-### 💡 **Commands to Implement**
+## Overview
 
-#### **Core Information Commands**
+The `~/.luaenv/environments/` directories serve as **per-installation LuaRocks package trees**, providing isolated package management similar to Python virtual environments. Each Lua installation gets its own environment directory for managing its specific package dependencies.
 
-**1. `luaenv list` - Show Installed Environments** ✅ IMPLEMENTED - ENHANCED VERSION READY
-```bash
-luaenv list                 ✅ DONE   # List all installations with details (backend)
-luaenv list --detailed      🚧 NEXT   # Rich output with validation (direct registry)
-luaenv list --validate      💡 FUTURE # Health check installations
-luaenv list --json          💡 FUTURE # Machine-readable output (direct registry)
+## Current Implementation
+
+### Structure
 ```
-- ✅ Basic backend integration complete
-- 🚧 Ready for `--detailed` flag using direct registry access
-- 💡 Foundation for advanced features (validation, filtering, custom output)
-
-**2. `luaenv status` - System Overview** ✅ IMPLEMENTED - ENHANCED VERSION READY
-```bash
-luaenv status                  ✅ DONE   # Overall system status (backend)
-luaenv status --detailed       🚧 NEXT   # Enhanced system info (direct registry)
-luaenv status --validate       💡 FUTURE # System health validation
-luaenv status --disk-usage     💡 FUTURE # Show space usage per installation
+~/.luaenv/
+├── installations/
+│   ├── <uuid>/              # Lua/LuaRocks binaries
+│   └── ...
+├── environments/
+│   ├── <uuid>/              # LuaRocks package tree (same UUID as installation)
+│   │   ├── lib/lua/5.4/     # Compiled modules (.dll files)
+│   │   ├── share/lua/5.4/   # Lua modules (.lua files)
+│   │   └── bin/             # Package executables
+│   └── ...
+└── registry.json           # Installation metadata
 ```
-- ✅ Basic backend integration complete
-- 🚧 Ready for `--detailed` flag with registry validation and rich statistics
-- 💡 Foundation for system health monitoring and diagnostics
 
-**3. `luaenv versions` - Available Versions**
-```bash
-luaenv versions                # Show available Lua versions
-luaenv versions --luarocks     # Show available LuaRocks versions
-luaenv versions --all          # Show both Lua and LuaRocks
-luaenv versions --installed    # Show only installed versions
+### How It should Work
+1. **Creation**: Environment directories are created automatically when installations are registered
+2. **Activation**: When using `use-lua.ps1` [luaenv activate], the environment path becomes the LuaRocks tree
+3. **Isolation**: Each installation has its own package dependencies and module paths
+4. **Configuration**: LuaRocks is configured to install packages to the environment directory
+
+## Proposed CLI Enhancements
+
+### New Command: `luaenv activate <alias|id>`
+This command will activate a specific Lua environment, setting the necessary paths for LuaRocks and Lua modules.
+
+**Implement the CLI command to <activate> a Lua environment**
+
+```PowerShell
+luaenv activate <alias|id>         # Activate a specific Lua environment by alias or ID
+luaenv activate --default          # Activate the default installation in the registry
+luaenv activate --help, -h         # Show help for the activate command
 ```
-- Integrate with `download_manager.py` or version detection
-- Display what can be downloaded vs what's installed
-- Show compatibility matrix
 
-#### **Advanced Inspection Commands**
+The command will be developed based on the use-lua.ps1 script, which sets up the environment variables for LuaRocks and Lua modules. It will create a `.luaenv` file in the current directory to store the activated installation information.
 
-**4. `luaenv info <alias|uuid>` - Installation Details**
-```bash
-luaenv info dev                # Detailed info about specific installation
-luaenv info a1b2c3d4           # Info by UUID
-```
-- Show build details, paths, environment variables
-- Display LuaRocks configuration, package counts
-- Show architecture, build type, creation date
+### Command Details
+ - only one command
+ - Make an installation of lua (with an isolated package tree) available in the current session
+ - When called with an alias or ID, it will set the environment variables for LuaRocks and Lua modules
+ - A text file called .luaenv will be created in the current directory with the activated installation information
+ - When called without arguments, it will search for the .luaenv file in the current directory
+ - if no arguments are provided, and no .luaenv file is found, an error is raised
+ - luaenv activate <alias|id> - Activate an environment/installation based on alias or ID
+ - luaenv activate --help - Show help for the activate command
+ - luaenv activate --default activates the default installation in the registry
 
-**5. `luaenv which <alias|uuid>` - Path Information**
-```bash
-luaenv which dev               # Show paths for installation
-luaenv which dev --bin         # Show just binary paths
-```
-- Display installation paths, binary locations
-- Show LuaRocks tree paths, package directories
 
-**6. `luaenv pkg-config <alias|uuid>` - C Developer Support**
-```bash
-luaenv pkg-config dev          # Show pkg-config style output
-luaenv pkg-config dev --cflags # Show compiler flags
-luaenv pkg-config dev --libs   # Show linker flags
-luaenv pkg-config dev --path   # Show installation paths
-```
-- Offers functionality to C developers for finding Lua includes, libraries, and binaries (DLL)
-- Output format suitable for Makefiles and build systems
-- Support for both static and DLL builds
+### Integration Points
+- **LuaRocks**: Use `luarocks list` to get accurate package information
+- **Registry**: Update registry with package counts and environment status
+- **Activation**: Ensure `use-lua.ps1` properly sets up environment paths
 
-#### **System Health Commands**
+## Benefits
 
-**7. `luaenv check` - System Validation**
-```bash
-luaenv check                   # Validate system health
-luaenv check --fix             # Attempt to fix issues
-```
-- Validate registry integrity, check for broken installations
-- Verify embedded Python, backend scripts
-- Check PATH configuration, wrapper functionality
+1. **Isolation**: Each installation has independent package dependencies
+2. **Management**: Easy cleanup and reset of package environments
+3. **Visibility**: Clear overview of what packages are installed where
+4. **Maintenance**: Automated cleanup of orphaned and empty environments
 
-### 🔧 **Implementation Strategy**
-
-#### **Backend Integration Approach**
-1. **Leverage Existing Scripts**: Use registry.py, download_manager.py, config.py
-2. **JSON Communication**: Extend backend.config for additional script integration
-3. **Error Handling**: Consistent error reporting across CLI and backend
-4. **Performance**: Cache version information when possible
-
-#### **F# CLI Architecture**
-1. **Extend Types.fs**: Add new command types for printing operations
-2. **Backend Execution**: Use existing `executePython` pattern
-3. **Output Formatting**: Consistent, user-friendly display formatting
-4. **Help Integration**: Context-specific help for each command
-
-#### **Development Priority**
-1. **Start Simple**: `luaenv list` and `luaenv status` (direct registry.py integration)
-2. **Version Info**: `luaenv versions` (integrate with download manager)
-3. **Enhanced Details**: `luaenv info` and `luaenv which`
-4. **C Developer Support**: `luaenv pkg-config` for build system integration
-5. **System Health**: `luaenv check` for validation
-
-### 🚀 **Next Steps**
-- Start with `luaenv list` (backend already exists, simple CLI integration)
-- Foundation for other commands using established patterns
-- Leverage existing registry.py functionality
-
-### 📋 **Implementation Notes**
-- Use existing backend scripts where possible
-- Maintain consistent CLI argument parsing patterns
-- Follow established error handling and help system
-- All commands should integrate with luaenv.cmd wrapper
-
+## Notes
+- Environment directories are separate from installation directories for flexibility
+- Custom LuaRocks trees can still be specified via `use-lua.ps1 -Tree <path>`
+- Environment management doesn't interfere with existing LuaRocks workflows
 
 
 ## To read (do not edit this section):
