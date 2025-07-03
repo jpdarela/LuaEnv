@@ -600,44 +600,6 @@ class LuaEnvRegistry:
         except Exception as e:
             print(f"[ERROR] Failed to update backend config: {e}")
 
-    def _create_cli_wrapper(self, scripts_path: Path) -> None:
-        """Create luaenv.cmd wrapper that passes backend.config to CLI."""
-        wrapper_path = scripts_path / "luaenv.cmd"
-
-        wrapper_content = '''@echo off
-setlocal enabledelayedexpansion
-
-REM Get the directory where this batch file is located (bin directory)
-set BIN_DIR=%~dp0
-
-REM Set the backend config path
-set BACKEND_CONFIG=%BIN_DIR%backend.config
-
-REM Set the CLI executable path
-set CLI_EXE=%BIN_DIR%cli\\LuaEnv.CLI.exe
-
-REM Check if config exists
-if not exist "%BACKEND_CONFIG%" (
-    echo [ERROR] Backend configuration not found: %BACKEND_CONFIG%
-    exit /b 1
-)
-
-REM Check if CLI exists
-if not exist "%CLI_EXE%" (
-    echo [ERROR] CLI executable not found: %CLI_EXE%
-    exit /b 1
-)
-
-REM Execute CLI with config and pass through all arguments
-"%CLI_EXE%" --config "%BACKEND_CONFIG%" %*
-    '''
-
-        try:
-            with open(wrapper_path, 'w', encoding='utf-8') as f:
-                f.write(wrapper_content)
-            print(f"[OK] Created CLI wrapper: {wrapper_path}")
-        except Exception as e:
-            print(f"[ERROR] Failed to create CLI wrapper: {e}")
 
     def install_scripts(self, force: bool = False) -> Path:
         """Install LuaEnv scripts to the global bin directory.
@@ -657,6 +619,7 @@ REM Execute CLI with config and pass through all arguments
         scripts_to_install = [
             ("setenv.ps1", "Visual Studio environment setup script"),
             ("use-lua.ps1", "Registry-aware Lua environment activation script"),
+            ("luaenv.ps1", "LuaEnv CLI wrapper and environment activator"),
             ("backend.config", "Backend configuration for LuaEnv"),
         ]
 
@@ -719,7 +682,8 @@ REM Execute CLI with config and pass through all arguments
         print(f"  use-lua.ps1 -List")
         print(f"  use-lua.ps1 -Alias <name>")
         print(f"  setenv.ps1")
-        print(f"[INFO] For registry/install commands, use the CLI: luaenv help")
+        print(f"  luaenv.ps1 status")
+        print(f"[INFO] For registry/install commands, use: luaenv.ps1 help")
 
         return scripts_path
 
@@ -748,12 +712,13 @@ REM Execute CLI with config and pass through all arguments
 4. VERIFY INSTALLATION:
    Get-Command use-lua.ps1
    Get-Command setenv.ps1
+   Get-Command luaenv.ps1
 
 5. USAGE:
    use-lua.ps1 -List
    use-lua.ps1 -Alias <name>
    setenv.ps1
-   luaenv help  (CLI commands)
+   luaenv.ps1 status  (CLI commands)
 """
         return instructions
 
@@ -767,7 +732,7 @@ REM Execute CLI with config and pass through all arguments
             "scripts_status": {}
         }
 
-        scripts_to_check = ["use-lua.ps1", "setenv.ps1"]
+        scripts_to_check = ["use-lua.ps1", "setenv.ps1", "luaenv.ps1"]
 
         for script_name in scripts_to_check:
             script_path = scripts_path / script_name
@@ -862,9 +827,6 @@ REM Execute CLI with config and pass through all arguments
             # Copy entire publish directory
             shutil.copytree(publish_dir_path, cli_dir)
             print(f"[OK] Installed F# CLI with dependencies: {cli_dir}")
-
-            # Create a wrapper script in bin directory
-            self._create_cli_wrapper(scripts_path)
 
             return True
 

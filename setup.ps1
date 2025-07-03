@@ -118,13 +118,12 @@ WHAT GETS INSTALLED:
        • cache/                # Download cache
 
   3. Scripts and Tools
-     • PowerShell scripts (use-lua.ps1, setenv.ps1)
-     • CLI wrapper (luaenv.cmd)
+     • PowerShell scripts (use-lua.ps1, setenv.ps1, luaenv.ps1)
      • Backend configuration (backend.config JSON)
 
 AFTER INSTALLATION:
     Add to PATH: ~/.luaenv/bin
-    Then use: luaenv status
+    Then use: luaenv.ps1 status  (or luaenv status if in PATH)
 
 REQUIREMENTS:
     • Windows PowerShell 5.1 or later
@@ -290,7 +289,7 @@ try {
             Write-Host ""
 
             $confirm = Read-Host "Type 'RESET' to confirm complete removal"
-            if ($confirm -ne 'RESET') {
+            if ($confirm.ToUpper() -ne 'RESET') {
                 Write-Info "Reset cancelled by user"
                 exit 0
             }
@@ -345,8 +344,8 @@ try {
         Write-OK "LuaEnv is now ready to use!"
         Write-Info "Next steps:"
         Write-Info "  1. Add to PATH: ~/.luaenv/bin"
-        Write-Info "  2. Try: luaenv status"
-        Write-Info "  3. For help: luaenv --help"
+        Write-Info "  2. Try: luaenv.ps1 status  (or luaenv status if in PATH)"
+        Write-Info "  3. For help: luaenv.ps1 --help"
     }
 
 } catch {

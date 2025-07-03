@@ -192,7 +192,7 @@ def verify_installation() -> Dict[str, bool]:
     scripts_to_check = [
         ("use-lua.ps1", BIN_DIR / "use-lua.ps1"),
         ("setenv.ps1", BIN_DIR / "setenv.ps1"),
-        ("luaenv.cmd", BIN_DIR / "luaenv.cmd")
+        ("luaenv.ps1", BIN_DIR / "luaenv.ps1")
     ]
     for name, path in scripts_to_check:
         exists = path.exists()
@@ -327,7 +327,7 @@ def main():
             print_success("Installation completed successfully!")
             print_message("")
             print_message("LuaEnv scripts are now installed.")
-            print_message("Try: luaenv status")
+            print_message("Try: luaenv.ps1 status  (or luaenv status if in PATH)")
         else:
             print_warning("Installation completed with some missing components")
     else:

@@ -1,14 +1,14 @@
-# luaenv-merged.ps1 - Combined LuaEnv CLI wrapper and environment activator
+# luaenv.ps1 - Combined LuaEnv CLI wrapper and environment activator
 #
 # Usage:
 #   Without 'activate': Acts as CLI wrapper (forwards to LuaEnv.CLI.exe)
 #   With 'activate': Sets up PowerShell session for Lua development
 #
 # Examples:
-#   .\luaenv-merged.ps1 list                    # CLI command
-#   .\luaenv-merged.ps1 activate --list         # List installations
-#   .\luaenv-merged.ps1 activate --alias dev    # Activate 'dev' installation
-#   .\luaenv-merged.ps1 activate --devshell "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools"
+#   .\luaenv.ps1 list                    # CLI command
+#   .\luaenv.ps1 activate --list         # List installations
+#   .\luaenv.ps1 activate --alias dev    # Activate 'dev' installation
+#   .\luaenv.ps1 activate --devshell "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools"
 
 param(
     [Parameter(Position=0)]
@@ -46,7 +46,7 @@ if ($Command -and $validCommands -notcontains $Command) {
     Write-Host "  CLI commands:     install, uninstall, list, status, versions, pkg-config, config, help"
     Write-Host "  Script command:   activate"
     Write-Host ""
-    Write-Host "For help, use: .\luaenv-merged.ps1 --help" -ForegroundColor Gray
+    Write-Host "For help, use: .\luaenv.ps1 --help" -ForegroundColor Gray
     exit 1
 }
 
@@ -56,7 +56,7 @@ if ($Command -eq "--help" -or $Command -eq "-h" -or $Command -eq "help") {
     Write-Host "=======================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "USAGE:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv-merged.ps1 <command> [options]"
+    Write-Host "  .\luaenv.ps1 <command> [options]"
     Write-Host ""
     Write-Host "CLI COMMANDS (forwarded to LuaEnv.CLI.exe):" -ForegroundColor Yellow
     Write-Host "  install [options]              Install a new Lua environment"
@@ -72,13 +72,13 @@ if ($Command -eq "--help" -or $Command -eq "-h" -or $Command -eq "help") {
     Write-Host "  activate [options]             Activate a Lua environment in current shell"
     Write-Host ""
     Write-Host "For command-specific help, use:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv-merged.ps1 <command> --help"
+    Write-Host "  .\luaenv.ps1 <command> --help"
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv-merged.ps1 install --help" -ForegroundColor Cyan
-    Write-Host "  .\luaenv-merged.ps1 activate --help" -ForegroundColor Cyan
-    Write-Host "  .\luaenv-merged.ps1 list" -ForegroundColor Cyan
-    Write-Host "  .\luaenv-merged.ps1 activate --alias dev" -ForegroundColor Cyan
+    Write-Host "  .\luaenv.ps1 install --help" -ForegroundColor Cyan
+    Write-Host "  .\luaenv.ps1 activate --help" -ForegroundColor Cyan
+    Write-Host "  .\luaenv.ps1 list" -ForegroundColor Cyan
+    Write-Host "  .\luaenv.ps1 activate --alias dev" -ForegroundColor Cyan
     exit 0
 }
 
@@ -91,7 +91,7 @@ if ($Command -eq "activate") {
         "--tree", "-Tree",
         "--devshell", "-DevShell",
         "--list", "-List",
-        "--info", "-Info",
+        "--environment", "-Environment",
         "--help", "-Help", "-h"
     )
 
@@ -101,7 +101,7 @@ if ($Command -eq "activate") {
     $Tree = ""
     $DevShell = ""
     $List = $false
-    $Info = $false
+    $Environment = $false
     $Help = $false
 
     # Validate and process arguments for activate command
@@ -128,10 +128,10 @@ if ($Command -eq "activate") {
                 Write-Host "  --tree <path>      Custom LuaRocks package tree path"
                 Write-Host "  --devshell <path>  Path to VS Tools folder"
                 Write-Host "  --list             List all available installations"
-                Write-Host "  --info             Show current environment information"
+                Write-Host "  --environment      Show current environment information"
                 Write-Host "  --help             Display help information"
                 Write-Host ""
-                Write-Host "Use: .\luaenv-merged.ps1 activate --help for more information" -ForegroundColor Gray
+                Write-Host "Use: .\luaenv.ps1 activate --help for more information" -ForegroundColor Gray
                 exit 1
             }
         }
@@ -176,8 +176,8 @@ if ($Command -eq "activate") {
             '^(--list|-List)$' {
                 $List = $true
             }
-            '^(--info|-Info)$' {
-                $Info = $true
+            '^(--environment|-Environment)$' {
+                $Environment = $true
             }
             '^(--help|-Help|-h)$' {
                 $Help = $true
@@ -195,7 +195,7 @@ if ($Command -eq "activate") {
         Write-Host "  Automatically configures Visual Studio Developer Shell, PATH, and Lua module paths."
         Write-Host ""
         Write-Host "USAGE:" -ForegroundColor Yellow
-        Write-Host "  .\luaenv-merged.ps1 activate [options]"
+        Write-Host "  .\luaenv.ps1 activate [options]"
         Write-Host ""
         Write-Host "OPTIONS:" -ForegroundColor Yellow
         Write-Host "  --id <uuid>        Use installation by UUID (full or partial, minimum 8 characters)"
@@ -204,41 +204,41 @@ if ($Command -eq "activate") {
         Write-Host "  --devshell <path>  Path to VS Tools folder containing Launch-VsDevShell.ps1"
         Write-Host "                     (saves path to .vspath.txt for future use)"
         Write-Host "  --list             List all available installations"
-        Write-Host "  --info             Show current environment information"
+        Write-Host "  --environment      Show current environment information"
         Write-Host "  --help             Display this help information"
         Write-Host ""
         Write-Host "  Note: Both Unix-style (--option) and PowerShell-style (-Option) are supported"
         Write-Host ""
         Write-Host "EXAMPLES:" -ForegroundColor Yellow
         Write-Host "  List available installations:"
-        Write-Host "  .\luaenv-merged.ps1 activate --list" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate --list" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use default installation:"
-        Write-Host "  .\luaenv-merged.ps1 activate" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation by alias:"
-        Write-Host "  .\luaenv-merged.ps1 activate --alias dev" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate --alias dev" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation by partial UUID:"
-        Write-Host "  .\luaenv-merged.ps1 activate --id a1b2c3d4" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate --id a1b2c3d4" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation with custom LuaRocks tree:"
-        Write-Host "  .\luaenv-merged.ps1 activate --alias dev --tree 'C:\MyProject\lua_modules'" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate --alias dev --tree 'C:\MyProject\lua_modules'" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Set custom Visual Studio path:"
-        Write-Host "  .\luaenv-merged.ps1 activate --devshell 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools'" -ForegroundColor Cyan
+        Write-Host "  .\luaenv.ps1 activate --devshell 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools'" -ForegroundColor Cyan
         Write-Host ""
         return
     }
 
     # Include all the activate functionality from luaenv2.ps1
     function Get-LuaEnvRegistry {
-        """Load and parse the LuaEnv registry."""
+        # Load and parse the LuaEnv registry.
         $registryPath = Join-Path $env:USERPROFILE ".luaenv\registry.json"
 
         if (-not (Test-Path $registryPath)) {
             Write-Host "[ERROR] LuaEnv registry not found at: $registryPath" -ForegroundColor Red
-            Write-Host "[INFO] Run 'python setup_lua.py' to create your first installation" -ForegroundColor Yellow
+            Write-Host "[INFO] Run 'luaenv.ps1 install' to create your first installation" -ForegroundColor Yellow
             return $null
         }
 
@@ -312,14 +312,21 @@ if ($Command -eq "activate") {
     function Show-Installations {
         param($registry)
 
+        # If registry is null, don't show anything (error already handled by Get-LuaEnvRegistry)
+        if (-not $registry) {
+            return
+        }
+
         $installations = @()
-        foreach ($prop in $registry.installations.PSObject.Properties) {
-            $installations += $prop.Value
+        if ($registry.installations) {
+            foreach ($prop in $registry.installations.PSObject.Properties) {
+                $installations += $prop.Value
+            }
         }
 
         if ($installations.Count -eq 0) {
             Write-Host "[INFO] No installations found" -ForegroundColor Yellow
-            Write-Host "[INFO] Run 'python setup_lua.py' to create your first installation" -ForegroundColor Yellow
+            Write-Host "[INFO] Run 'luaenv.ps1 install' to create your first installation" -ForegroundColor Yellow
             return
         }
 
@@ -385,7 +392,7 @@ if ($Command -eq "activate") {
     }
 
     function Get-VsPathConfig {
-        """Get Visual Studio path from .vspath.txt config file."""
+        # Get Visual Studio path from .vspath.txt config file.
         $configPath = Join-Path $PSScriptRoot ".vspath.txt"
 
         if (Test-Path $configPath) {
@@ -405,7 +412,7 @@ if ($Command -eq "activate") {
 
     function Set-VsPathConfig {
         param([string]$VsPath)
-        """Save Visual Studio path to .vspath.txt config file."""
+        # Save Visual Studio path to .vspath.txt config file.
 
         $configPath = Join-Path $PSScriptRoot ".vspath.txt"
 
@@ -426,7 +433,7 @@ if ($Command -eq "activate") {
             [string]$Architecture = "x64",  # Default to x64
             [string]$CustomPath = ""        # Custom VS Tools path
         )
-        """Find and initialize Visual Studio Developer Shell."""
+        # Find and initialize Visual Studio Developer Shell.
 
         # Determine VS arch parameter based on architecture
         $vsArch = if ($Architecture -eq "x86") { "x86" } else { "amd64" }
@@ -643,7 +650,7 @@ lua_lib = "lua54.lib"
         # Load registry
         $registry = Get-LuaEnvRegistry
         if (-not $registry) {
-            exit 1
+            return
         }
 
         # Handle list command
@@ -652,8 +659,8 @@ lua_lib = "lua54.lib"
             return
         }
 
-        # Handle info command
-        if ($Info) {
+        # Handle environment info command
+        if ($Environment) {
             Show-EnvironmentInfo
             return
         }
@@ -732,7 +739,7 @@ else {
                         }
                     }
                     Write-Host ""
-                    Write-Host "For help, use: .\luaenv-merged.ps1 $Command --help" -ForegroundColor Gray
+                    Write-Host "For help, use: .\luaenv.ps1 $Command --help" -ForegroundColor Gray
                     exit 1
                 }
             }
