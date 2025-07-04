@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>LuaEnv.Core</name></assembly>
+<members>
+<member name="T:LuaEnv.Core.RegistryData">
+<summary>
+ Registry data structure
+</summary>
+</member>
+<member name="T:LuaEnv.Core.Installation">
+<summary>
+ Complete installation record from registry
+</summary>
+</member>
+<member name="T:LuaEnv.Core.PackageInfo">
+<summary>
+ Package information from registry
+</summary>
+</member>
+<member name="T:LuaEnv.Core.PkgConfigResponse">
+<summary>
+ Represents the complete pkg-config response from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.PkgConfigFlags">
+<summary>
+ Represents flags information from pkg-config backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.PkgConfigPaths">
+<summary>
+ Represents paths information from pkg-config backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.Command">
+<summary>
+ CLI Commands
+</summary>
+</member>
+<member name="T:LuaEnv.Core.PkgConfigOptions">
+<summary>
+ Options for pkg-config command
+</summary>
+</member>
+<member name="T:LuaEnv.Core.VersionsOptions">
+<summary>
+ Versions command options
+</summary>
+</member>
+<member name="T:LuaEnv.Core.StatusOptions">
+<summary>
+ Status command options (simplified - no additional options needed)
+</summary>
+</member>
+<member name="T:LuaEnv.Core.ListOptions">
+<summary>
+ List command options
+</summary>
+</member>
+<member name="T:LuaEnv.Core.SetAliasOptions">
+<summary>
+ Set alias command options
+</summary>
+</member>
+<member name="T:LuaEnv.Core.UninstallOptions">
+<summary>
+ Uninstall command options
+</summary>
+</member>
+<member name="T:LuaEnv.Core.InstallOptions">
+<summary>
+ Install command options
+</summary>
+</member>
+<member name="T:LuaEnv.Core.BackendDiscoveryResponse">
+<summary>
+ Represents the full backend discovery response
+</summary>
+</member>
+<member name="T:LuaEnv.Core.ConfigInfo">
+<summary>
+ Represents config information from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.BackendUrls">
+<summary>
+ Represents URLs from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.AvailableVersions">
+<summary>
+ Represents available versions from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.CurrentConfig">
+<summary>
+ Represents current configuration from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.CacheInfo">
+<summary>
+ Represents cache information from backend
+</summary>
+</member>
+<member name="T:LuaEnv.Core.BackendConfig">
+<summary>
+ Represents the backend configuration loaded from JSON
+</summary>
+</member>
+<member name="T:LuaEnv.Core.EmbeddedPython">
+<summary>
+ Represents embedded Python configuration
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.getInstallationSize(LuaEnv.Core.Installation)">
+<summary>
+ Get installation size information
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.getDirectorySize(System.String)">
+<summary>
+ Get directory size recursively
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.formatFileSize(System.Int64)">
+<summary>
+ Format file size in human-readable format
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.validateInstallation(LuaEnv.Core.Installation)">
+<summary>
+ Validate installation paths exist
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.getDefaultInstallation(LuaEnv.Core.RegistryData)">
+<summary>
+ Get default installation if set
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.getInstallations(LuaEnv.Core.RegistryData)">
+<summary>
+ Get all installations as a list with resolved aliases
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.loadRegistry(Microsoft.FSharp.Core.FSharpOption{System.String})">
+<summary>
+ Load registry from file
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.parseRegistryJson(System.String)">
+<summary>
+ Parse registry JSON with custom JSON options
+</summary>
+</member>
+<member name="M:LuaEnv.Core.RegistryAccess.getDefaultRegistryPath">
+<summary>
+ Get the default registry path in user&apos;s home directory
+</summary>
+</member>
+<member name="T:LuaEnv.Core.RegistryAccess">
+<summary>
+ Registry access module for direct JSON operations
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executePkgConfig(LuaEnv.Core.BackendConfig,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.String})">
+<summary>
+ Execute pkg-config command for specific installation
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeSetAlias(LuaEnv.Core.BackendConfig,LuaEnv.Core.SetAliasOptions)">
+<summary>
+ Execute set-alias command via registry.py
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeVersions(LuaEnv.Core.BackendConfig,LuaEnv.Core.VersionsOptions)">
+<summary>
+ Execute versions command
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeInstalledVersions(LuaEnv.Core.BackendConfig)">
+<summary>
+ Execute installed versions command using direct registry access
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeStatus(LuaEnv.Core.BackendConfig,Microsoft.FSharp.Core.Unit)">
+<summary>
+ Execute status command via registry.py (backend)
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeList(LuaEnv.Core.BackendConfig,LuaEnv.Core.ListOptions)">
+<summary>
+ Execute list command via registry.py (backend) or direct registry access (detailed)
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeUninstall(LuaEnv.Core.BackendConfig,LuaEnv.Core.UninstallOptions)">
+<summary>
+ Execute uninstall command via registry.py
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeInstall(LuaEnv.Core.BackendConfig,LuaEnv.Core.InstallOptions)">
+<summary>
+ Execute install command via setup_lua.py
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executePython(LuaEnv.Core.BackendConfig,System.String,Microsoft.FSharp.Collections.FSharpList{System.String})">
+<summary>
+ Execute a Python script in the backend directory
+</summary>
+</member>
+<member name="T:LuaEnv.Core.Backend">
+<summary>
+ Backend execution module
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Config.discoverVersions(LuaEnv.Core.BackendConfig,System.Boolean)">
+<summary>
+ Call backend to discover available versions
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Config.loadConfig(System.String)">
+<summary>
+ Load and validate configuration from file
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Config.validateConfig(LuaEnv.Core.BackendConfig)">
+<summary>
+ Validate that required paths exist
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Config.parseConfig(System.String)">
+<summary>
+ Parse backend.config JSON file
+</summary>
+</member>
+<member name="T:LuaEnv.Core.Config">
+<summary>
+ Configuration module for reading and parsing backend.config
+</summary>
+</member>
+</members>
+</doc>

@@ -1,0 +1,67 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "LuaEnv.CLI/1.0.0": {
+        "dependencies": {
+          "FSharp.Core": "9.0.300",
+          "LuaEnv.Core": "1.0.0"
+        },
+        "runtime": {
+          "LuaEnv.CLI.dll": {}
+        }
+      },
+      "FSharp.Core/9.0.300": {
+        "runtime": {
+          "lib/netstandard2.1/FSharp.Core.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.3.25.22803"
+          }
+        }
+      },
+      "System.Text.Json/9.0.6": {},
+      "LuaEnv.Core/1.0.0": {
+        "dependencies": {
+          "FSharp.Core": "9.0.300",
+          "System.Text.Json": "9.0.6"
+        },
+        "runtime": {
+          "LuaEnv.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "LuaEnv.CLI/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "FSharp.Core/9.0.300": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-2ZDoF/N7WPidmaflrTnPucUJfaV5XkIHCh4h77yET7ihuv2dR2ksSsIiiDd34Z9YmwyYEQocpDl1r6RXFr0DMg==",
+      "path": "fsharp.core/9.0.300",
+      "hashPath": "fsharp.core.9.0.300.nupkg.sha512"
+    },
+    "System.Text.Json/9.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-h+ZtYTyTnTh5Ju6mHCKb3FPGx4ylJZgm9W7Y2psUnkhQRPMOIxX+TCN0ZgaR/+Yea+93XHWAaMzYTar1/EHIPg==",
+      "path": "system.text.json/9.0.6",
+      "hashPath": "system.text.json.9.0.6.nupkg.sha512"
+    },
+    "LuaEnv.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

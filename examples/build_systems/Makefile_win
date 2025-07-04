@@ -1,0 +1,65 @@
+# Makefile for nmake (Visual Studio)
+#
+# This file demonstrates how to integrate a C project with a Lua environment
+# managed by luaenv on Windows using nmake.
+#
+# Key integration points:
+# 1. Temporary Files: nmake does not have a built-in way to execute a command
+#    and use its output directly. The common workaround, demonstrated here,
+#    to call  external script to run `luaenv-pkg-config`
+#    and write the output to temporary files (`cflags.tmp`, `lua_lib.tmp`).
+# 2. `!INCLUDE`: The makefile then uses the `!INCLUDE` directive to import these
+#    temporary files, which define the `CFLAGS` and `LUA_LIB` variables.
+# 3. `--path-style windows`: The script generating the temp files must use this
+#    argument to ensure paths use double backslashes (`\\`), which nmake and cl.exe expect.
+
+# If using a dll build, ensure that the dll is in the same directory as the executable
+# or in the system PATH.
+# You can use luaenv activate --alias dev to set up the environment for development.
+# This will set the bin path of the lua installation to the PATH variable, enabling the finding of the lua.dll
+# and linking against the Lua library.
+# This script assumes that you have an installation of lua made with luaenv with the dev alias.
+
+
+CC = cl.exe
+
+# Using luaenv-pkg-config for dynamic Lua paths with Windows path style
+# Execute pkg-config commands with Windows-style double backslashes for nmake compatibility
+!IF [luaenv-pkg-config dev --cflag --path-style windows > cflags.tmp] == 0
+!ENDIF
+!IF [luaenv-pkg-config dev --liblua --path-style windows > lua_lib.tmp] == 0
+!ENDIF
+
+# Read the temp files into variables using for loops
+!IF [for /f "delims=" %i in (cflags.tmp) do @echo LUA_CFLAGS=%i > lua_cflags.inc] == 0
+!INCLUDE lua_cflags.inc
+!ENDIF
+
+!IF [for /f "delims=" %i in (lua_lib.tmp) do @echo LUA_LIB=%i > lua_lib.inc] == 0
+!INCLUDE lua_lib.inc
+!ENDIF
+
+# Base compiler flags
+BASE_CFLAGS = /TC /W4 /EHsc
+DEBUG_FLAGS = /Zi /Od
+RELEASE_FLAGS = /O2
+
+DBG_FLAG = -DNDEBUG
+# DBG_FLAG =
+TARGET = main
+SOURCE = $(TARGET).c
+
+all: debug release
+
+debug: $(TARGET)_debug.exe
+
+release: $(TARGET).exe
+
+$(TARGET)_debug.exe: $(SOURCE)
+    $(CC) $(BASE_CFLAGS) $(DEBUG_FLAGS) $(LUA_CFLAGS) $(SOURCE) $(DBG_FLAG) -D_CRT_SECURE_NO_WARNINGS /Fe$@ /link $(LUA_LIB)
+
+$(TARGET).exe: $(SOURCE)
+    $(CC) $(BASE_CFLAGS) $(RELEASE_FLAGS) $(LUA_CFLAGS) $(SOURCE) $(DBG_FLAG) -D_CRT_SECURE_NO_WARNINGS /Fe$@ /link $(LUA_LIB)
+
+clean:
+    del $(TARGET).exe $(TARGET)_debug.exe *.obj *.pdb *.ilk *.exe cflags.tmp lua_lib.tmp 2>nul

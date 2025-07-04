@@ -1,9 +1,84 @@
-downloads
-rocks
-lua
-lua-*
-luarocks*
-.lua_prefix.txt
-.lua_install_info.txt
-tests/__pycache__
-__pycache__
+# Python build system artifacts
+backend/downloads/
+backend/extracted
+backend/rocks/
+backend/lua/
+backend/lua-*/
+backend/luarocks*/
+backend/.lua_prefix.txt
+backend/.lua_install_info.txt
+backend/tests/__pycache__/
+backend/__pycache__/
+backend/version_cache.json
+
+# Sandbox folder
+sdb
+
+# AI assistant files
+.copilot*
+
+# Embeded Python files
+python
+.pythonenv
+
+# F# / .NET build artifacts
+publish/
+cli/*/bin/
+cli/*/obj/
+cli/.fake/
+cli/packages/
+cli/paket-files/
+*.so
+*.cache
+
+# IDE and editor files
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# NuGet packages (if not using package restore)
+# cli/packages/
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# LuaEnv specific
+.luaenv/
+*.luaenv
+
+# LuaEnv activation scripts
+activate-*.ps1
+.lua-version
+
+.fake

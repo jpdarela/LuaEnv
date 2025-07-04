@@ -1,0 +1,29 @@
+PKG-CONFIG INFORMATION
+Installation: Lua 5.4.8 DLL Release (x64)
+Alias:        dev
+ID:           3867cc1b-b1f3-4a8d-ba2c-014b74089bd1
+Lua Version:  5.4.8
+LuaRocks:     3.12.2
+Build Type:   dll release
+Architecture: x64
+
+COMPILER FLAGS
+CFLAGS:   /I"C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\include"
+
+LINKER FLAGS
+LIBS:     lua54.lib
+LDFLAGS:  /LIBPATH:"C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\lib"
+
+USAGE EXAMPLES
+For Makefile:
+  CFLAGS += /I"C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\include"
+  LDFLAGS += /LIBPATH:"C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\lib"
+  LIBS += lua54.lib
+
+For CMake:
+  target_include_directories(myapp PRIVATE "C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\include")
+  target_link_directories(myapp PRIVATE "C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\lib")
+  target_link_libraries(myapp lua54)
+
+For single file compilation:
+  cl.exe /Fe:myapp.exe myapp.c /I"C:\Users\darel\.luaenv\installations\3867cc1b-b1f3-4a8d-ba2c-014b74089bd1\include" lua54.lib
