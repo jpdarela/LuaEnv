@@ -2,23 +2,15 @@
 #
 # This file demonstrates how to integrate a C project with a Lua environment
 # managed by luaenv on Windows using CMake.
-#
-# Key integration points:
-# 1. `execute_process`: This command is used to run `luaenv.cmd pkg-config`
-#    to retrieve the necessary compiler and linker flags.
-# 2. `luaenv.cmd`: On Windows, the command is `luaenv.cmd`. This script must
-#    be in the system's PATH for CMake to find it.
-# 3. `--path-style windows`: This argument ensures that the paths returned by
-#    pkg-config use double backslashes (`\\`).
-# 4. `get_filename_component` & `find_library`: Instead of hardcoding the full
-#    path to the .lib file, the script extracts the library directory and uses
-#    CMake's standard `find_library` to locate `lua54.lib`. This is a more
-#    robust and portable approach within the CMake ecosystem.
+# Add linker flag to ignore libcmt.lib when using MSVC
 
 cmake_minimum_required(VERSION 3.10)
 project(main C)
 
 set(CMAKE_C_STANDARD 99)
+
+# Set a string vatiable to hold the alias for the lue installation from luaenv
+set(LUAENV_ALIAS "dev")
 
 # Add your source files here
 add_executable(main main.c)
@@ -27,7 +19,7 @@ add_executable(main main.c)
 if(WIN32)
     # Get Lua include directory from luaenv, requesting Windows-style paths
     execute_process(
-        COMMAND luaenv.cmd pkg-config dev --lua-include --path-style windows
+        COMMAND luaenv-pkg-config.cmd ${LUAENV_ALIAS} --lua-include --path-style windows
         OUTPUT_VARIABLE LUA_INCLUDE_DIR
         ERROR_VARIABLE LUA_INCLUDE_ERROR
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -36,7 +28,7 @@ if(WIN32)
 
     # Get Lua library path from luaenv, requesting Windows-style paths
     execute_process(
-        COMMAND luaenv.cmd pkg-config dev --liblua --path-style windows
+        COMMAND luaenv-pkg-config.cmd ${LUAENV_ALIAS} --liblua --path-style windows
         OUTPUT_VARIABLE LUA_LIBRARY_PATH
         ERROR_VARIABLE LUA_LIB_ERROR
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -80,8 +72,10 @@ else()
     target_link_libraries(main ${LUA_LIBRARIES})
 endif()
 
-# Set compiler-specific warnings
+# Set compiler-specific options
+
 if(MSVC)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:libcmt.lib")
     target_compile_options(main PRIVATE /W4)
     target_compile_definitions(main PRIVATE _CRT_SECURE_NO_WARNINGS)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")

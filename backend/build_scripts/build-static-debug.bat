@@ -59,8 +59,12 @@ rem Create output directory
 if not exist "Debug" mkdir "Debug"
 
 rem Set debug compile flags
-set "CFLAGS=/Od /MDd /W3 /Zi /DLUA_COMPAT_5_3 /D_DEBUG"
-set "LINKFLAGS=/DEBUG /INCREMENTAL:NO"
+REM For backwards compatibility with old lua versions add to the CFLAGS: /DLUA_COMPAT_5_3 /DLUA_COMPAT_5_2 /DLUA_COMPAT_5_1
+set "CFLAGS=/Od /MDd /W3 /Zi /D_DEBUG"
+set "LINKFLAGS=/DEBUG /INCREMENTAL:NO /NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:msvcrt.lib"
+
+@REM libcmt.lib; msvcrt.lib; msvcrtd.lib
+
 
 rem Clean previous build
 echo Cleaning previous debug build...

@@ -33,13 +33,18 @@ else
 endif
 
 # LuaEnv pkg-config integration for Windows/MSVC
+# define the lueenv alias for the Lua environment
+luaenv_alias = 'dev'  # This should match your luaenv alias
+# define the luaenv-pkg-config command
+luaenv_pkg_config_cmd = ['luaenv-pkg-config', luaenv_alias] # .cmd file extension is not needed in Meson
+
 lua_dep = dependency('', required: false)  # Placeholder
 
 if host_machine.system() == 'windows'
   fs = import('fs')
   # Use luaenv pkg-config to get Lua paths with Windows-style paths for Meson
-  lua_include_cmd = run_command('luaenv', 'pkg-config', 'dev', '--lua-include', '--path-style', 'windows', check: false)
-  lua_lib_cmd = run_command('luaenv', 'pkg-config', 'dev', '--liblua', '--path-style', 'windows', check: false)
+  lua_include_cmd = run_command(luaenv_pkg_config_cmd, '--lua-include', '--path-style', 'windows', check: false)
+  lua_lib_cmd = run_command(luaenv_pkg_config_cmd, '--liblua', '--path-style', 'windows', check: false)
 
   if lua_include_cmd.returncode() == 0 and lua_lib_cmd.returncode() == 0
     lua_include_dir = lua_include_cmd.stdout().strip()

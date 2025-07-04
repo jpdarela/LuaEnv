@@ -643,6 +643,8 @@ module Backend =
         | ex -> Error (sprintf "[ERROR] Failed to execute set-alias command: %s" ex.Message)
 
     /// Execute pkg-config command for specific installation
+// Fix the executePkgConfig function to properly display all output from pkg_config.py
+
     let executePkgConfig (config: BackendConfig) (installation: string) (showCFlag: bool) (showLuaInclude: bool) (showLibLua: bool) (showPaths: bool) (pathStyle: string option) : Result<int, string> =
         try
             // Validate required parameters
@@ -671,8 +673,9 @@ module Backend =
                         args <- args + " --liblua"
                     elif showPaths then
                         args <- args + " --path"
-                    else
-                        args <- args + " --json"
+                    // No --json flag for full output format
+                    // This will let pkg_config.py handle the formatting
+                    // and show all information including DLL requirements
 
                     // Add path style if specified
                     match pathStyle with
@@ -700,58 +703,9 @@ module Backend =
                         else
                             Error (sprintf "[ERROR] Pkg-config command failed with exit code %d" proc.ExitCode)
                     else
-                        // If requesting specific flags or paths, just print the output directly
-                        if showCFlag || showLuaInclude || showLibLua || showPaths then
-                            printf "%s" output
-                            Ok 0
-                        else
-                            // Parse JSON response and format nicely
-                            try
-                                let options = JsonSerializerOptions()
-                                options.PropertyNameCaseInsensitive <- true
-                                options.PropertyNamingPolicy <- JsonNamingPolicy.SnakeCaseLower
-
-                                let response = JsonSerializer.Deserialize<PkgConfigResponse>(output, options)
-
-                                printfn "PKG-CONFIG INFORMATION"
-                                printfn "Installation: %s" response.Name
-                                match response.Alias with
-                                | Some alias -> printfn "Alias:        %s" alias
-                                | None -> ()
-                                printfn "ID:           %s" response.Id
-                                printfn "Lua Version:  %s" response.LuaVersion
-                                printfn "LuaRocks:     %s" response.LuaRocksVersion
-                                printfn "Build Type:   %s %s" response.BuildType response.BuildConfig
-                                printfn "Architecture: %s" response.Architecture
-                                printfn ""
-
-                                printfn "COMPILER FLAGS"
-                                printfn "CFLAGS:   %s" response.Flags.CFlags
-                                printfn ""
-
-                                printfn "LINKER FLAGS"
-                                printfn "LIBS:     %s" response.Flags.Libs
-                                printfn "LDFLAGS:  %s" response.Flags.LdFlags
-                                printfn ""
-
-                                printfn "USAGE EXAMPLES"
-                                printfn "For Makefile:"
-                                printfn "  CFLAGS += %s" response.Flags.CFlags
-                                printfn "  LDFLAGS += %s" response.Flags.LdFlags
-                                printfn "  LIBS += %s" response.Flags.Libs
-                                printfn ""
-                                printfn "For CMake:"
-                                printfn "  target_include_directories(myapp PRIVATE \"%s\")" response.Paths.Include
-                                printfn "  target_link_directories(myapp PRIVATE \"%s\")" response.Paths.Lib
-                                printfn "  target_link_libraries(myapp lua54)"
-                                printfn ""
-                                printfn "For single file compilation:"
-                                printfn "  cl.exe /Fe:myapp.exe myapp.c %s %s" response.Flags.CFlags response.Flags.Libs
-
-                                Ok 0
-                            with
-                            | ex ->
-                                Error (sprintf "[ERROR] Failed to parse pkg-config response: %s" ex.Message)
+                        // Always print the output directly
+                        printf "%s" output
+                        Ok 0
         with
         | ex ->
             Error (sprintf "[ERROR] Failed to execute pkg-config command: %s" ex.Message)

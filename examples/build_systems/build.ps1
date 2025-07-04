@@ -1,20 +1,20 @@
 #!/usr/bin/env pwsh
 # This script demonstrates compiling a C application using Lua, with compiler
-# and linker flags provided by `luaenv pkg-config`. It's designed for use
+# and linker flags provided by `luaenv-pkg-config`. It's designed for use
 # with MSVC (cl.exe) in a PowerShell environment.
 
-# --- How it works ---
-# 1. It captures the output of `luaenv pkg-config` for compiler flags (`--cflag`)
-#    and the Lua library path (`--liblua`).
-# 2. It constructs a `cl.exe` command line using these variables.
-# 3. It invokes the command to compile `main.c` into `main_ps.exe`.
-# 4. It checks the exit code of the compiler to determine success or failure.
+# If using a dll build, ensure that the dll is in the same directory as the executable or in the system PATH.
+# You can use luaenv activate --alias dev to set up the environment for development.
+# This will set the bin path of the lua installation to the PATH variable, enabling the findin of the lua.dll
+# This script assumes that you have an installation of lua made with luaenv with the dev alias.
+# If using a DLL build, ensure that the DLL is in the same directory as the executable or in the system PATH.
+
 
 Write-Host "[build.ps1] Starting PowerShell build..."
 
 # Ensure we're using the Windows path style for cl.exe
-$cflags = luaenv pkg-config dev --cflag --path-style windows
-$lua_lib = luaenv pkg-config dev --liblua --path-style windows
+$cflags = luaenv-pkg-config dev --cflag --path-style windows
+$lua_lib = luaenv-pkg-config dev --liblua --path-style windows
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[build.ps1] ERROR: Failed to get pkg-config data from luaenv." -ForegroundColor Red

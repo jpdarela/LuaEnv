@@ -2,14 +2,22 @@
 # Demonstrates cross-platform Makefile that works with MSVC on Windows
 # Usage: make (requires GNU make, works in MSYS2, GitHub Actions, etc.)
 
+# If using a dll build, ensure that the dll is in the same directory as the executable or in the system PATH.
+# You can use luaenv activate --alias dev to set up the environment for development.
+# This will set the bin path of the lua installation to the PATH variable, enabling the findin of the lua.dll
+# This script assumes that you have an installation of lua made with luaenv with the dev alias.
+# If using a DLL build, ensure that the DLL is in the
+# same directory as the executable or in the system PATH.
+
+
 # Detect Windows environment and use MSVC
 ifeq ($(OS),Windows_NT)
     CC = cl.exe
     TARGET_EXT = .exe
     OBJ_EXT = .obj
     # Get Lua configuration from luaenv pkg-config with unix path style
-    LUA_CFLAGS := $(shell luaenv pkg-config dev --cflag --path-style unix)
-    LUA_LIB := $(shell luaenv pkg-config dev --liblua --path-style unix)
+    LUA_CFLAGS := $(shell luaenv-pkg-config dev --cflag --path-style unix)
+    LUA_LIB := $(shell luaenv-pkg-config dev --liblua --path-style unix)
 
     # MSVC-specific flags
     CFLAGS = /TC /W4 -D_CRT_SECURE_NO_WARNINGS $(LUA_CFLAGS)
@@ -106,5 +114,9 @@ help:
 	@echo   - GNU Make (available in MSYS2, Git Bash, GitHub Actions)
 	@echo   - MSVC compiler (cl.exe in PATH)
 	@echo   - luaenv with pkg-config support
+
+
+
+
 
 

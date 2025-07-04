@@ -57,9 +57,12 @@ echo.
 rem Create output directory
 if not exist "Release" mkdir "Release"
 
-rem Set common compile flags
-set "CFLAGS=/O2 /MT /W3 /DLUA_COMPAT_5_3 /DNDEBUG"
-set "LINKFLAGS=/RELEASE /INCREMENTAL:NO"
+rem Set compile flags
+
+REM For backwards compatibility add to the CFLAGS: /DLUA_COMPAT_5_3 /DLUA_COMPAT_5_2 /DLUA_COMPAT_5_1
+
+set "CFLAGS=/O2 /MT /W4 /DNDEBUG"
+set "LINKFLAGS=/RELEASE /INCREMENTAL:NO /NODEFAULTLIB:msvcrt.lib /NODEFAULTLIB:libcmtd.lib /NODEFAULTLIB:msvcrtd.lib"
 
 rem Clean previous build
 echo Cleaning previous build...

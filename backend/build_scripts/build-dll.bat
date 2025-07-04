@@ -30,8 +30,9 @@ rem Create output directory
 if not exist "Release" mkdir "Release"
 
 rem Set common compile flags for DLL build
-set "CFLAGS=/O2 /MD /W3 /DLUA_COMPAT_5_3 /DNDEBUG /DLUA_BUILD_AS_DLL"
-set "LINKFLAGS=/RELEASE /INCREMENTAL:NO /DLL"
+REM For backwards compatibility with old lua versions add to the CFLAGS: /DLUA_COMPAT_5_3 /DLUA_COMPAT_5_2 /DLUA_COMPAT_5_1
+set "CFLAGS=/O2 /MD /W4 /DNDEBUG /DLUA_BUILD_AS_DLL"
+set "LINKFLAGS=/RELEASE  /INCREMENTAL:NO /DLL /NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib /NODEFAULTLIB:msvcrtd.lib"
 
 rem Clean previous build
 echo Cleaning previous build...

@@ -7,8 +7,17 @@ open LuaEnv.Core.Backend
 let showHelp () =
     printfn "LuaEnv CLI - Lua Environment Management Tool"
     printfn ""
-    printfn "USAGE:"
-    printfn "    luaenv <command> [options]"
+    printfn "NOTE: This is the LuaEnv CLI executable, which should typically be invoked"
+    printfn "      through the wrapper scripts, not directly. The wrappers handle configuration"
+    printfn "      and environment setup automatically."
+    printfn ""
+    printfn "WRAPPER SCRIPTS:"
+    printfn "    luaenv.ps1               Main PowerShell wrapper script for all commands"
+    printfn "    luaenv-pkg-config.cmd    Helper batch script for pkg-config integration"
+    printfn ""
+    printfn "CLI ARGUMENTS:"
+    printfn "    --config <path>          Path to the backend configuration file (required)"
+    printfn "                             (Automatically provided by wrapper scripts)"
     printfn ""
     printfn "COMMANDS:"
     printfn "    install [options]              Install a new Lua environment"
@@ -29,11 +38,18 @@ let showHelp () =
     printfn "    luaenv versions --help"
     printfn "    luaenv pkg-config --help"
     printfn ""
-    printfn "NOTE: 'luaenv' is a wrapper script that automatically passes the --config"
-    printfn "      parameter to the CLI executable located in ~/.luaenv/bin/cli/"
+    printfn "DIRECT INVOCATION (NOT RECOMMENDED):"
+    printfn "    LuaEnv.CLI.exe --config <path> <command> [options]"
+    printfn ""
+    printfn "EXAMPLE WITH WRAPPER:"
+    printfn "    luaenv install --alias dev     # Use this approach (recommended)"
+    printfn ""
+    printfn "EXAMPLE WITHOUT WRAPPER (AVOID):"
+    printfn "    LuaEnv.CLI.exe --config C:\\path\\to\\backend.config install --alias dev"
 
 /// Display install-specific help
 let showInstallHelp () =
+    printfn ""
     printfn "LuaEnv CLI - Install Command"
     printfn ""
     printfn "USAGE:"
@@ -42,9 +58,11 @@ let showInstallHelp () =
     printfn "DESCRIPTION:"
     printfn "    Install a new Lua environment with specified versions and options."
     printfn ""
+    printfn "     Note: Use luaenv versions --available to see versions to install."
+    printfn ""
     printfn "OPTIONS:"
-    printfn "    --lua-version <version>        Use specific Lua version (e.g. 5.4.7, 5.3.6)"
-    printfn "    --luarocks-version <version>   Use specific LuaRocks version (e.g. 3.11.1)"
+    printfn "    --lua-version <version>        Use specific Lua version (>= 5.4.0)"
+    printfn "    --luarocks-version <version>   Use specific LuaRocks version (>=3.9.1)"
     printfn "    --alias <name>                 Set an alias for the installation"
     printfn "    --name <display-name>          Set display name for the installation"
     printfn "    --dll                          Build as DLL instead of static library"
@@ -54,12 +72,12 @@ let showInstallHelp () =
     printfn "    --skip-env-check               Skip Visual Studio environment check"
     printfn "    --skip-tests                   Skip test suite after building"
     printfn "    --help, -h                     Show this help message"
-    printfn ""
+    printfn "\n"
     printfn "ARCHITECTURE:"
     printfn "    By default, installs are built for x64 (64-bit) architecture."
     printfn "    Use --x86 for 32-bit builds. The backend will automatically download"
     printfn "    the appropriate LuaRocks binaries for the target architecture."
-    printfn ""
+    printfn "\n"
     printfn "EXAMPLES:"
     printfn "    luaenv install"
     printfn "    luaenv install --alias dev --dll"
@@ -173,7 +191,7 @@ let showVersionsHelp () =
     printfn "    luaenv versions                Show installed versions (fast, direct registry access)"
     printfn ""
     printfn "OPTIONS:"
-    printfn "    --available, -a                Show versions available for installation (online lookup)"
+    printfn "    --available,                   Show versions available for installation (online lookup)"
     printfn "    --online                       Alias for --available (online lookup)"
     printfn "    --refresh                      Force refresh of online version cache (use with --available)"
     printfn "    --help, -h                     Show this help message"
@@ -667,7 +685,7 @@ let executeCommand (config: BackendConfig) (command: Command) : int =
             1
         else
             printfn "[INFO] Updating installation alias..."
-            match Backend.executeSetAlias config options with
+            match executeSetAlias config options with
             | Ok exitCode -> exitCode
             | Error errorMsg ->
                 printfn "%s" errorMsg

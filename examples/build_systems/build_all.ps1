@@ -5,6 +5,49 @@ Write-Host "===============================================" -ForegroundColor Gr
 Write-Host "Testing LuaEnv pkg-config integration" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
+# Hardcoded path to GNU Make executable. Change this to your actual path.
+$gnuMakePath = "C:\Users\darel\miniforge3\envs\linux_tools\Library\bin\make.exe"
+
+# Check if Visual Studio environment is available and initialize if necessary
+Write-Host "`n[INFO] Checking Visual Studio development environment..." -ForegroundColor Cyan
+$vsDevCmd = $null
+
+# Look for VS Developer Command Prompt in common locations
+$vsLocations = @(
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Professional\Common7\Tools\VsDevCmd.bat",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat"
+)
+
+foreach ($location in $vsLocations) {
+    if (Test-Path $location) {
+        $vsDevCmd = $location
+        break
+    }
+}
+
+# Check if cl.exe is already in path
+$clPath = Get-Command cl.exe -ErrorAction SilentlyContinue
+if ($clPath) {
+    Write-Host "[OK] Visual Studio environment is already configured" -ForegroundColor Green
+    Write-Host "     Using cl.exe from: $($clPath.Source)" -ForegroundColor Gray
+}
+elseif ($vsDevCmd) {
+    Write-Host "[INFO] Found VS Developer Command Prompt: $vsDevCmd" -ForegroundColor Yellow
+    Write-Host "[INFO] To use this script with Visual Studio tools:" -ForegroundColor Yellow
+    Write-Host "       1. Open a Visual Studio Developer Command Prompt" -ForegroundColor Yellow
+    Write-Host "       2. Run: pwsh -Command ""& '$PSCommandPath'"" " -ForegroundColor Yellow
+    Write-Host "[WARNING] Continuing without Visual Studio environment may cause failures" -ForegroundColor Yellow
+}
+else {
+    Write-Host "[WARNING] Visual Studio environment not found" -ForegroundColor Yellow
+    Write-Host "         Some build methods may fail. Please run this script from a" -ForegroundColor Yellow
+    Write-Host "         Visual Studio Developer Command Prompt for best results." -ForegroundColor Yellow
+}
+
 # Check if luaenv is available
 Write-Host "`n[INFO] Checking luaenv availability..." -ForegroundColor Cyan
 try {
@@ -38,12 +81,154 @@ Write-Host "Library path: " -NoNewline
 $libPath = luaenv pkg-config dev --liblua
 Write-Host $libPath -ForegroundColor Yellow
 
-$nmakeTested = $false
-$mesonTested = $false
-$cmakeTested = $false
-$batchTested = $false
-$psTested = $false
-$gnuMakeTested = $false
+# Define a structured results tracking system
+$buildResults = @{
+    "nmake" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses temporary files to store pkg-config output"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+    "meson" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses run_command to execute luaenv pkg-config"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+    "cmake" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses execute_process to run luaenv pkg-config"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+    "batch" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses for /f to capture luaenv pkg-config output"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+    "powershell" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses direct variable assignment from command output"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+    "gnumake" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses shell command substitution in make variables"
+            PathStyle = "unix"
+            Files = @()
+        }
+    }
+    "msbuild" = @{
+        Tested = $false
+        Success = $false
+        Executables = @()
+        Details = @{
+            Method = "Uses MSBuild targets to execute luaenv pkg-config"
+            PathStyle = "windows"
+            Files = @()
+        }
+    }
+}
+
+# Function to collect file info
+function Add-ExecutableInfo {
+    param (
+        [string]$BuildSystem,
+        [string]$FilePath,
+        [string]$Description
+    )
+
+    if (Test-Path $FilePath) {
+        $fileInfo = Get-Item $FilePath
+        $buildResults[$BuildSystem].Executables += @{
+            Name = $fileInfo.Name
+            Path = $fileInfo.FullName
+            Size = $fileInfo.Length
+            Description = $Description
+        }
+        $buildResults[$BuildSystem].Details.Files += $fileInfo.Name
+        return $true
+    }
+    return $false
+}
+
+# Function to clean up build artifacts for a specific build system
+function Clean-BuildSystem {
+    param (
+        [string]$BuildSystem,
+        [string]$BuildDir = $null
+    )
+
+    Write-Host "[INFO] Cleaning $BuildSystem artifacts..." -ForegroundColor Cyan
+
+    switch ($BuildSystem) {
+        "nmake" {
+            if (Get-Command nmake -ErrorAction SilentlyContinue) {
+                nmake -f Makefile_win clean 2>$null
+            }
+        }
+        "meson" {
+            if (Test-Path "builddir") {
+                Remove-Item -Recurse -Force builddir
+            }
+        }
+        "cmake" {
+            if (Test-Path "build") {
+                Remove-Item -Recurse -Force build
+            }
+        }
+        "gnumake" {
+            if (Test-Path $gnuMakePath) {
+                & $gnuMakePath clean 2>$null
+            }
+        }
+        "batch" {
+            if (Test-Path "main_bat.exe") { Remove-Item "main_bat.exe" }
+            if (Test-Path "main_bat.obj") { Remove-Item "main_bat.obj" }
+        }
+        "powershell" {
+            if (Test-Path "main_ps.exe") { Remove-Item "main_ps.exe" }
+            if (Test-Path "main_ps.obj") { Remove-Item "main_ps.obj" }
+        }
+        "msbuild" {
+            if (Test-Path ".\x64") { Remove-Item -Recurse -Force .\x64 }
+            if (Test-Path ".\Debug") { Remove-Item -Recurse -Force .\Debug }
+            if (Test-Path ".\Release") { Remove-Item -Recurse -Force .\Release }
+            if (Test-Path ".\main_msbuild.exe") { Remove-Item -Force .\main_msbuild.exe }
+            if (Test-Path ".\luaenv.props") { Remove-Item -Force .\luaenv.props }
+            if (Test-Path ".\LuaEnvTest.vcxproj.user") { Remove-Item -Force .\LuaEnvTest.vcxproj.user }
+        }
+    }
+
+    if ($BuildDir -and (Test-Path $BuildDir)) {
+        Remove-Item -Recurse -Force $BuildDir
+    }
+}
 
 # Initial cleanup before starting
 if (Test-Path "build") { Remove-Item -Recurse -Force build }
@@ -54,7 +239,7 @@ Write-Host "Testing nmake (Windows Makefile)" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
 if (Get-Command nmake -ErrorAction SilentlyContinue) {
-    $nmakeTested = $true
+    $buildResults["nmake"].Tested = $true
     Write-Host "[INFO] Testing nmake with pkg-config integration..." -ForegroundColor Cyan
 
     # First, let's see what the pkg-config commands return
@@ -88,12 +273,20 @@ if (Get-Command nmake -ErrorAction SilentlyContinue) {
         Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
         $output = .\main.exe
         Write-Host $output
+
+        # Rename the nmake executables to ensure they're uniquely identifiable in the summary
+        if (Test-Path "main_nmake.exe") { Remove-Item "main_nmake.exe" }
+        Copy-Item "main.exe" "main_nmake.exe"
+
+        # Update build results
+        $buildResults["nmake"].Success = $true
+        Add-ExecutableInfo -BuildSystem "nmake" -FilePath "main_nmake.exe" -Description "NMake built executable"
     } else {
         Write-Host "[ERROR] nmake compilation failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+        $buildResults["nmake"].Success = $false
     }
 
-    # Clean temp files
-    Remove-Item *.tmp -ErrorAction SilentlyContinue
+    # We'll clean temporary files at the end, after the summary
 } else {
     Write-Host "[WARNING] nmake not found, skipping nmake test" -ForegroundColor Yellow
 }
@@ -101,11 +294,11 @@ if (Get-Command nmake -ErrorAction SilentlyContinue) {
 # Testing other build methods
 
 Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "5. Testing Meson" -ForegroundColor Green
+Write-Host "Testing Meson" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
 if (Get-Command meson -ErrorAction SilentlyContinue) {
-    $mesonTested = $true
+    $buildResults["meson"].Tested = $true
     Write-Host "[INFO] Testing Meson with pkg-config integration..." -ForegroundColor Cyan
 
     if (Test-Path "builddir") { Remove-Item -Recurse -Force builddir }
@@ -119,11 +312,17 @@ if (Get-Command meson -ErrorAction SilentlyContinue) {
             Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
             $output = .\builddir\main.exe
             Write-Host $output
+
+            # Update build results
+            $buildResults["meson"].Success = $true
+            Add-ExecutableInfo -BuildSystem "meson" -FilePath "builddir\main.exe" -Description "Meson built executable"
         } else {
             Write-Host "[ERROR] Meson build failed!" -ForegroundColor Red
+            $buildResults["meson"].Success = $false
         }
     } else {
         Write-Host "[ERROR] Meson setup failed!" -ForegroundColor Red
+        $buildResults["meson"].Success = $false
     }
 } else {
     Write-Host "[WARNING] meson not found, skipping Meson test" -ForegroundColor Yellow
@@ -134,7 +333,7 @@ Write-Host "Testing CMake" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
 if (Get-Command cmake -ErrorAction SilentlyContinue) {
-    $cmakeTested = $true
+    $buildResults["cmake"].Tested = $true
     Write-Host "[INFO] Testing CMake with pkg-config integration..." -ForegroundColor Cyan
 
     if (Test-Path "build") { Remove-Item -Recurse -Force build }
@@ -151,11 +350,17 @@ if (Get-Command cmake -ErrorAction SilentlyContinue) {
             Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
             $output = .\Release\main.exe
             Write-Host $output
+
+            # Update build results
+            $buildResults["cmake"].Success = $true
+            Add-ExecutableInfo -BuildSystem "cmake" -FilePath "build/Release/main.exe" -Description "CMake built executable"
         } else {
             Write-Host "[ERROR] CMake build failed!" -ForegroundColor Red
+            $buildResults["cmake"].Success = $false
         }
     } else {
         Write-Host "[ERROR] CMake configuration failed!" -ForegroundColor Red
+        $buildResults["cmake"].Success = $false
     }
 
     Pop-Location
@@ -168,7 +373,7 @@ Write-Host "Testing Batch Script (build.bat)" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
 if (Test-Path "build.bat") {
-    $batchTested = $true
+    $buildResults["batch"].Tested = $true
     Write-Host "[INFO] Testing Batch Script with pkg-config integration..." -ForegroundColor Cyan
 
     cmd /c .\build.bat
@@ -178,8 +383,13 @@ if (Test-Path "build.bat") {
         Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
         $output = .\main_bat.exe
         Write-Host $output
+
+        # Update build results
+        $buildResults["batch"].Success = $true
+        Add-ExecutableInfo -BuildSystem "batch" -FilePath "main_bat.exe" -Description "Batch script built executable"
     } else {
         Write-Host "[ERROR] batch compilation failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+        $buildResults["batch"].Success = $false
     }
 }
 
@@ -187,7 +397,7 @@ Write-Host "`n===============================================" -ForegroundColor 
 Write-Host "Testing PowerShell build script" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
-$psTested = $true
+$buildResults["powershell"].Tested = $true
 Write-Host "[INFO] Testing build.ps1..." -ForegroundColor Cyan
 
 .\build.ps1
@@ -197,170 +407,26 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path "main_ps.exe")) {
     Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
     $output = .\main_ps.exe
     Write-Host $output
+
+    # Update build results
+    $buildResults["powershell"].Success = $true
+    Add-ExecutableInfo -BuildSystem "powershell" -FilePath "main_ps.exe" -Description "PowerShell built executable"
 } else {
     Write-Host "[ERROR] PowerShell build failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-}
-
-
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "Summary of tests" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-# Keep these commented out for now
-<#
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "1. Testing Direct cl.exe compilation" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-Write-Host "[INFO] Compiling with direct cl.exe using pkg-config..." -ForegroundColor Cyan
-$cmd = "cl.exe /Fe:main_direct.exe main.c $cflag $libPath /TC /W4 -D_CRT_SECURE_NO_WARNINGS"
-Write-Host "Command: $cmd" -ForegroundColor Gray
-Invoke-Expression $cmd
-
-if ($LASTEXITCODE -eq 0 -and (Test-Path "main_direct.exe")) {
-    Write-Host "[SUCCESS] Direct cl.exe compilation successful!" -ForegroundColor Green
-    Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
-    .\main_direct.exe
-} else {
-    Write-Host "[ERROR] Direct cl.exe compilation failed!" -ForegroundColor Red
+    $buildResults["powershell"].Success = $false
 }
 
 Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "2. Testing PowerShell variable method" -ForegroundColor Green
+Write-Host "Testing GNU Make with unix path style" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
-
-Write-Host "[INFO] Using PowerShell variables..." -ForegroundColor Cyan
-$cflags = luaenv pkg-config dev --cflag
-$lua_lib = luaenv pkg-config dev --liblua
-
-Write-Host "CFLAGS: $cflags" -ForegroundColor Gray
-Write-Host "LUA_LIB: $lua_lib" -ForegroundColor Gray
-
-$cmd2 = "cl.exe /Fe:main_ps.exe main.c $cflags $lua_lib /TC /W4 -D_CRT_SECURE_NO_WARNINGS"
-Write-Host "Command: $cmd2" -ForegroundColor Gray
-Invoke-Expression $cmd2
-
-if ($LASTEXITCODE -eq 0 -and (Test-Path "main_ps.exe")) {
-    Write-Host "[SUCCESS] PowerShell method compilation successful!" -ForegroundColor Green
-    Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
-    .\main_ps.exe
-} else {
-    Write-Host "[ERROR] PowerShell method compilation failed!" -ForegroundColor Red
-}
-#>
-
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "Build Testing Complete!" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-$testedMethods = @()
-if ($nmakeTested) { $testedMethods += "nmake with temporary files" }
-if ($mesonTested) { $testedMethods += "Meson with run_command" }
-if ($cmakeTested) { $testedMethods += "CMake with execute_process" }
-if ($batchTested) { $testedMethods += "Batch script with for /f" }
-if ($psTested) { $testedMethods += "PowerShell script" }
-
-if ($gnuMakeTested) { $testedMethods += "GNU Make with three path styles (windows/unix/native)" }
-
-if ($testedMethods.Count -gt 0) {
-    Write-Host "`nSummary of methods tested:" -ForegroundColor Yellow
-    for ($i = 0; $i -lt $testedMethods.Count; $i++) {
-        Write-Host ("{0}. {1}" -f ($i + 1), $testedMethods[$i])
-    }
-}
-
-$executables = @{}
-if (Test-Path "main.exe") { $executables["main.exe (nmake)"] = (Get-Item "main.exe").Length }
-if (Test-Path "main_debug.exe") { $executables["main_debug.exe (nmake)"] = (Get-Item "main_debug.exe").Length }
-if (Test-Path "builddir/main.exe") { $executables["main.exe (meson)"] = (Get-Item "builddir/main.exe").Length }
-if (Test-Path "build/Release/main.exe") { $executables["main.exe (cmake)"] = (Get-Item "build/Release/main.exe").Length }
-if (Test-Path "main_bat.exe") { $executables["main_bat.exe (batch)"] = (Get-Item "main_bat.exe").Length }
-if (Test-Path "main_ps.exe") { $executables["main_ps.exe (PowerShell)"] = (Get-Item "main_ps.exe").Length }
-if (Test-Path "main_windows.exe") { $executables["main_windows.exe (GNU Make, Windows paths)"] = (Get-Item "main_windows.exe").Length }
-if (Test-Path "main_unix.exe") { $executables["main_unix.exe (GNU Make, Unix paths)"] = (Get-Item "main_unix.exe").Length }
-if (Test-Path "main_native.exe") { $executables["main_native.exe (GNU Make, Native paths)"] = (Get-Item "main_native.exe").Length }
-
-if ($executables.Keys.Count -gt 0) {
-    Write-Host "`nExecutables created:" -ForegroundColor Yellow
-    foreach ($exe in $executables.GetEnumerator() | Sort-Object Name) {
-        Write-Host ("  - {0} ({1:N0} bytes)" -f $exe.Name, $exe.Value)
-    }
-}
-
-# Final cleanup
-Write-Host "`n[INFO] Cleaning up build artifacts..." -ForegroundColor Cyan
-$ProgressPreference = 'SilentlyContinue' # Suppress progress bars
-if (Test-Path "build") { Remove-Item -Recurse -Force build }
-if (Test-Path "builddir") { Remove-Item -Recurse -Force builddir }
-if (Test-Path "main.exe") { Remove-Item "main.exe" }
-if (Test-Path "main_debug.exe") { Remove-Item "main_debug.exe" }
-if (Test-Path "main_bat.exe") { Remove-Item "main_bat.exe" }
-if (Test-Path "main_ps.exe") { Remove-Item "main_ps.exe" }
-if (Test-Path "main_windows.exe") { Remove-Item "main_windows.exe" }
-if (Test-Path "main_unix.exe") { Remove-Item "main_unix.exe" }
-if (Test-Path "main_native.exe") { Remove-Item "main_native.exe" }
-if (Test-Path "*.obj") { Remove-Item *.obj }
-if (Test-Path "*.pdb") { Remove-Item *.pdb }
-if (Test-Path "*.ilk") { Remove-Item *.ilk }
-if (Test-Path "*.tmp") { Remove-Item *.tmp }
-if (Test-Path "*.inc") { Remove-Item *.inc }
-
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "All Tests Complete!" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "Testing GNU Make with path-style options" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-$gnuMakePath = "C:\Users\darel\miniforge3\envs\linux_tools\Library\bin\make.exe"
 
 if (Test-Path $gnuMakePath) {
-    $gnuMakeTested = $true
-    Write-Host "[INFO] Testing GNU Make with pkg-config path-style integration..." -ForegroundColor Cyan
+    $buildResults["gnumake"].Tested = $true
+    Write-Host "[INFO] Testing GNU Make with pkg-config unix path style integration..." -ForegroundColor Cyan
 
     # Clean any previous builds
     Write-Host "[INFO] Cleaning previous GNU Make builds..." -ForegroundColor Cyan
     & $gnuMakePath clean
-
-    # Test with Windows-style paths (double backslashes)
-    Write-Host "`n[INFO] Testing with Windows-style paths (--path-style windows)..." -ForegroundColor Cyan
-
-    # Update the Makefile temporarily
-    $makefile = Get-Content -Path "Makefile" -Raw
-    $windowsStyle = $makefile -replace "--path-style \w+", "--path-style windows"
-    Set-Content -Path "Makefile" -Value $windowsStyle
-
-    # Show configuration
-    Write-Host "[DEBUG] GNU Make configuration with Windows paths:" -ForegroundColor Gray
-    & $gnuMakePath config
-
-    # Build release version
-    Write-Host "[INFO] Building release with Windows paths..." -ForegroundColor Cyan
-    & $gnuMakePath release
-
-    if ($LASTEXITCODE -eq 0 -and (Test-Path "main.exe")) {
-        Write-Host "[SUCCESS] GNU Make (Windows paths) compilation successful!" -ForegroundColor Green
-        Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
-        $output = .\main.exe
-        Write-Host $output
-
-        # Rename the executable to prevent overwrite
-        if (Test-Path "main_windows.exe") { Remove-Item "main_windows.exe" }
-        Rename-Item "main.exe" "main_windows.exe"
-    } else {
-        Write-Host "[ERROR] GNU Make compilation with Windows paths failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    }
-
-    # Clean between tests
-    & $gnuMakePath clean
-
-    # Test with Unix-style paths (forward slashes)
-    Write-Host "`n[INFO] Testing with Unix-style paths (--path-style unix)..." -ForegroundColor Cyan
-
-    # Update the Makefile temporarily
-    $unixStyle = $makefile -replace "--path-style \w+", "--path-style unix"
-    Set-Content -Path "Makefile" -Value $unixStyle
 
     # Show configuration
     Write-Host "[DEBUG] GNU Make configuration with Unix paths:" -ForegroundColor Gray
@@ -377,48 +443,248 @@ if (Test-Path $gnuMakePath) {
         Write-Host $output
 
         # Rename the executable to prevent overwrite
-        if (Test-Path "main_unix.exe") { Remove-Item "main_unix.exe" }
-        Rename-Item "main.exe" "main_unix.exe"
+        if (Test-Path "main_gnu.exe") { Remove-Item "main_gnu.exe" }
+        Rename-Item "main.exe" "main_gnu.exe"
+
+        # Update build results
+        $buildResults["gnumake"].Success = $true
+        Add-ExecutableInfo -BuildSystem "gnumake" -FilePath "main_gnu.exe" -Description "GNU Make built executable"
     } else {
         Write-Host "[ERROR] GNU Make compilation with Unix paths failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+        $buildResults["gnumake"].Success = $false
     }
 
-    # Clean between tests
-    & $gnuMakePath clean
-
-    # Test with native-style paths
-    Write-Host "`n[INFO] Testing with native-style paths (--path-style native)..." -ForegroundColor Cyan
-
-    # Update the Makefile temporarily
-    $nativeStyle = $makefile -replace "--path-style \w+", "--path-style native"
-    Set-Content -Path "Makefile" -Value $nativeStyle
-
-    # Show configuration
-    Write-Host "[DEBUG] GNU Make configuration with native paths:" -ForegroundColor Gray
-    & $gnuMakePath config
-
-    # Build release version
-    Write-Host "[INFO] Building release with native paths..." -ForegroundColor Cyan
-    & $gnuMakePath release
-
-    if ($LASTEXITCODE -eq 0 -and (Test-Path "main.exe")) {
-        Write-Host "[SUCCESS] GNU Make (native paths) compilation successful!" -ForegroundColor Green
-        Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
-        $output = .\main.exe
-        Write-Host $output
-
-        # Rename the executable to prevent overwrite
-        if (Test-Path "main_native.exe") { Remove-Item "main_native.exe" }
-        Rename-Item "main.exe" "main_native.exe"
-    } else {
-        Write-Host "[ERROR] GNU Make compilation with native paths failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    }
-
-    # Restore original Makefile
-    Set-Content -Path "Makefile" -Value $makefile
-
-    # Clean up after testing
-    & $gnuMakePath clean
+    # We'll clean up later, after the summary
 } else {
     Write-Host "[WARNING] GNU Make not found at path: $gnuMakePath, skipping GNU Make test" -ForegroundColor Yellow
 }
+
+Write-Host "`n===============================================" -ForegroundColor Green
+Write-Host "Testing MSBuild (.vcxproj)" -ForegroundColor Green
+Write-Host "===============================================" -ForegroundColor Green
+
+# Check for Visual Studio MSBuild
+$msbuildPath = $null
+$vsWherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+
+if (Test-Path $vsWherePath) {
+    $msbuildPath = & $vsWherePath -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+}
+
+if (-not $msbuildPath) {
+    # Try to find MSBuild in common locations
+    $commonPaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+    )
+
+    foreach ($path in $commonPaths) {
+        if (Test-Path $path) {
+            $msbuildPath = $path
+            break
+        }
+    }
+}
+
+if (-not $msbuildPath) {
+    # Last resort - check if MSBuild is in the path
+    $msbuildInPath = Get-Command MSBuild -ErrorAction SilentlyContinue
+    if ($msbuildInPath) {
+        $msbuildPath = $msbuildInPath.Source
+    }
+}
+
+if (Test-Path "LuaEnvTest.vcxproj" -and $msbuildPath) {
+    $buildResults["msbuild"].Tested = $true
+    Write-Host "[INFO] Testing MSBuild with pkg-config integration..." -ForegroundColor Cyan
+
+    # Clean any previous build artifacts
+    if (Test-Path ".\x64") { Remove-Item -Recurse -Force .\x64 }
+    if (Test-Path ".\luaenv.props") { Remove-Item -Force .\luaenv.props }
+    if (Test-Path ".\main_msbuild.exe") { Remove-Item -Force .\main_msbuild.exe }
+
+    # Build using MSBuild
+    Write-Host "[INFO] Building with MSBuild..." -ForegroundColor Cyan
+    & $msbuildPath LuaEnvTest.vcxproj /p:Configuration=Release /p:Platform=x64 /v:minimal
+
+    if ($LASTEXITCODE -eq 0 -and (Test-Path ".\x64\Release\LuaEnvTest.exe")) {
+        # Copy to standard naming convention
+        Copy-Item ".\x64\Release\LuaEnvTest.exe" ".\main_msbuild.exe"
+
+        Write-Host "[SUCCESS] MSBuild compilation successful!" -ForegroundColor Green
+        Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
+        $output = .\main_msbuild.exe
+        Write-Host $output
+
+        # Update build results
+        $buildResults["msbuild"].Success = $true
+        Add-ExecutableInfo -BuildSystem "msbuild" -FilePath "main_msbuild.exe" -Description "MSBuild built executable"
+    } else {
+        Write-Host "[ERROR] MSBuild compilation failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+        $buildResults["msbuild"].Success = $false
+    }
+} else {
+    if (-not (Test-Path "LuaEnvTest.vcxproj")) {
+        Write-Host "[WARNING] LuaEnvTest.vcxproj not found, skipping MSBuild test" -ForegroundColor Yellow
+    } else {
+        Write-Host "[WARNING] MSBuild not found, skipping MSBuild test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host "`n===============================================" -ForegroundColor Green
+Write-Host "Summary of tests" -ForegroundColor Green
+Write-Host "===============================================" -ForegroundColor Green
+
+Write-Host "`n===============================================" -ForegroundColor Green
+Write-Host "Build Testing Complete!" -ForegroundColor Green
+Write-Host "===============================================" -ForegroundColor Green
+
+# Debug output to see what executables exist
+Write-Host "`n[DEBUG] Listing all executable files in the directory:" -ForegroundColor DarkGray
+Get-ChildItem -Path . -Filter *.exe -Recurse | ForEach-Object {
+    Write-Host ("  - {0} ({1:N0} bytes)" -f $_.FullName, $_.Length) -ForegroundColor DarkGray
+}
+
+# Function to render colorized status
+function Get-StatusColor {
+    param (
+        [bool]$Status,
+        [bool]$Tested
+    )
+
+    if (-not $Tested) {
+        return "SKIPPED", "DarkGray"
+    }
+    elseif ($Status) {
+        return "SUCCESS", "Green"
+    }
+    else {
+        return "FAILED", "Red"
+    }
+}
+
+# Generate summary table from build results
+Write-Host "`n===============================================" -ForegroundColor Yellow
+Write-Host "       BUILD SYSTEM TEST SUMMARY" -ForegroundColor Yellow
+Write-Host "===============================================" -ForegroundColor Yellow
+
+$i = 1
+$totalTested = 0
+$totalSuccess = 0
+$nameMap = @{
+    "nmake" = "NMake (Windows Makefile)"
+    "meson" = "Meson Build System"
+    "cmake" = "CMake Build System"
+    "batch" = "Batch Script (.bat)"
+    "powershell" = "PowerShell Script (.ps1)"
+    "gnumake" = "GNU Make with Unix paths"
+    "msbuild" = "Visual Studio Project (.vcxproj)"
+}
+
+# Print header
+Write-Host ("{0,-3} {1,-25} {2,-10} {3,-15} {4,-25}" -f "#", "Build System", "Status", "Path Style", "Integration Method")
+Write-Host ("-" * 85)
+
+# Print rows
+foreach ($buildSystem in $buildResults.Keys) {
+    $result = $buildResults[$buildSystem]
+    $statusText, $statusColor = Get-StatusColor -Status $result.Success -Tested $result.Tested
+
+    if ($result.Tested) { $totalTested++ }
+    if ($result.Success) { $totalSuccess++ }
+
+    $displayName = $nameMap[$buildSystem]
+    if (-not $displayName) { $displayName = $buildSystem }
+
+    Write-Host ("{0,-3} {1,-25} " -f $i, $displayName) -NoNewline
+    Write-Host ("{0,-10}" -f $statusText) -ForegroundColor $statusColor -NoNewline
+    Write-Host (" {0,-15} {1}" -f $result.Details.PathStyle, $result.Details.Method)
+    $i++
+}
+
+Write-Host ("-" * 85)
+Write-Host "Total build systems tested: $totalTested, Succeeded: $totalSuccess, Failed: ($totalTested - $totalSuccess)" -ForegroundColor Yellow
+
+# Generate executable summary
+Write-Host "`n===============================================" -ForegroundColor Yellow
+Write-Host "       EXECUTABLES CREATED" -ForegroundColor Yellow
+Write-Host "===============================================" -ForegroundColor Yellow
+
+# Gather executables from build results
+$exeTable = @()
+foreach ($buildSystem in $buildResults.Keys) {
+    foreach ($exe in $buildResults[$buildSystem].Executables) {
+        $exeTable += [PSCustomObject]@{
+            Name = $exe.Name
+            BuildSystem = $nameMap[$buildSystem]
+            Size = $exe.Size
+            Path = $exe.Path
+        }
+    }
+}
+
+# Print table of executables
+if ($exeTable.Count -gt 0) {
+    Write-Host ("{0,-20} {1,-25} {2,-15}" -f "Executable", "Build System", "Size (bytes)")
+    Write-Host ("-" * 70)
+    foreach ($exe in $exeTable | Sort-Object Name) {
+        Write-Host ("{0,-20} {1,-25} {2,-15:N0}" -f $exe.Name, $exe.BuildSystem, $exe.Size)
+    }
+
+    Write-Host "`nNote: All executables print the same output: 'Hello from Lua! x from Lua: 42'" -ForegroundColor Cyan
+} else {
+    Write-Host "No executables were created during testing." -ForegroundColor Yellow
+}
+
+# Final cleanup
+Write-Host "`n[INFO] Cleaning up build artifacts..." -ForegroundColor Cyan
+$ProgressPreference = 'SilentlyContinue' # Suppress progress bars
+
+# Clean GNU Make artifacts if available
+if ($buildResults["gnumake"].Tested) {
+    Write-Host "[INFO] Cleaning GNU Make artifacts..." -ForegroundColor Cyan
+    & $gnuMakePath clean 2>$null
+}
+
+# Remove build directories
+if (Test-Path "build") { Remove-Item -Recurse -Force build }
+if (Test-Path "builddir") { Remove-Item -Recurse -Force builddir }
+
+# Clean up each build system's artifacts
+Write-Host "[INFO] Cleaning up build system artifacts..." -ForegroundColor Cyan
+foreach ($buildSystem in $buildResults.Keys) {
+    if ($buildResults[$buildSystem].Tested) {
+        Clean-BuildSystem -BuildSystem $buildSystem
+    }
+}
+
+# Extra checks for any remaining executables
+if (Test-Path "main.exe") { Remove-Item "main.exe" }
+if (Test-Path "main_debug.exe") { Remove-Item "main_debug.exe" }
+
+# Remove temp files and build artifacts
+Write-Host "[INFO] Removing build artifacts and temporary files..." -ForegroundColor Cyan
+if (Test-Path "*.obj") { Remove-Item *.obj }
+if (Test-Path "*.pdb") { Remove-Item *.pdb }
+if (Test-Path "*.ilk") { Remove-Item *.ilk }
+if (Test-Path "*.tmp") { Remove-Item *.tmp -ErrorAction SilentlyContinue }
+if (Test-Path "*.inc") { Remove-Item *.inc }
+
+Write-Host "`n===============================================" -ForegroundColor Green
+Write-Host "All Tests Complete!" -ForegroundColor Green
+Write-Host "===============================================" -ForegroundColor Green
+Write-Host "`nLuaEnv pkg-config integration testing complete. This script validates" -ForegroundColor Cyan
+Write-Host "the integration between luaenv's pkg-config system and various build tools." -ForegroundColor Cyan
+Write-Host "`nKey points:" -ForegroundColor Yellow
+Write-Host "  • Different build systems use different methods to invoke luaenv pkg-config" -ForegroundColor White
+Write-Host "  • Each method demonstrates how to integrate with luaenv in that environment" -ForegroundColor White
+Write-Host "  • Path style (windows vs unix) must match the expectations of the build tool" -ForegroundColor White
+Write-Host "  • All methods compile the same main.c file that demonstrates Lua integration" -ForegroundColor White
+Write-Host "`nIf some build systems failed, ensure you are running from a" -ForegroundColor Yellow
+Write-Host "Visual Studio Developer Command Prompt or have the MSVC build tools in your PATH." -ForegroundColor Yellow
