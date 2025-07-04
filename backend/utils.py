@@ -8,8 +8,12 @@ specific configurations and can be reused across different scripts.
 import urllib.request
 import shutil
 import tarfile
+import subprocess
+import os
 import zipfile
+import json
 from pathlib import Path
+from typing import Tuple, Optional, Dict, Any
 
 def print_message(message: str, prefix: str = "[INFO]") -> None:
     """Print a message with ASCII prefix."""
@@ -374,3 +378,115 @@ def get_extracted_path(item_name, base_path="."):
     """
     extracted_path = Path(base_path) / "extracted" / item_name
     return extracted_path if extracted_path.exists() else None
+
+def get_luarocks_package_count() -> Optional[int]:
+    """
+    Get the count of installed LuaRocks packages.
+
+    Returns:
+        Optional[int]: Number of installed packages, or None if unable to determine
+    """
+    try:
+        # Run the luarocks command to list installed packages
+        result = subprocess.run(
+            ["luarocks", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        # Split the output into lines and count non-empty lines
+        package_count = len([line for line in result.stdout.splitlines() if line.strip()])
+
+        return package_count
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error calling luarocks: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+    return None
+
+def get_luarocks_package_count(luarocks_path: str) -> int:
+    """Count the number of packages installed via LuaRocks.
+
+    Args:
+        luarocks_path: Path to the luarocks executable
+
+    Returns:
+        Number of installed packages
+    """
+    try:
+        # Run 'luarocks list' and capture output
+        result = subprocess.run(
+            [luarocks_path, "list"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        # Parse output to count packages
+        output_lines = result.stdout.strip().split('\n')
+        # Filter out header lines and count actual package entries
+        packages = [line for line in output_lines if line and not line.startswith('Installed rocks:')]
+
+        return len(packages)
+    except subprocess.SubprocessError as e:
+        print(f"[WARNING] Failed to get package count: {e}")
+        return 0
+    except Exception as e:
+        print(f"[WARNING] Unexpected error counting packages: {e}")
+        return 0
+
+def get_backend_config() -> Dict[str, Any]:
+    """Load the backend configuration file.
+
+    Returns:
+        Dictionary containing backend configuration
+    """
+    try:
+        # Try to find the backend config in the standard location
+        luaenv_dir = Path.home() / ".luaenv"
+        bin_dir = luaenv_dir / "bin"
+        config_path = bin_dir / "backend.config"
+
+        if not config_path.exists():
+            print("[WARNING] Backend configuration not found at default location")
+            # Try a fallback to find the config relative to the current script
+            script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            parent_dir = script_dir.parent
+            bin_dir = parent_dir / "bin"
+            config_path = bin_dir / "backend.config"
+
+            if not config_path.exists():
+                print(f"[ERROR] Backend configuration not found at {config_path}")
+                return {}
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        return config
+    except Exception as e:
+        print(f"[ERROR] Failed to load backend configuration: {e}")
+        return {}
+
+def get_embedded_python_path() -> Optional[str]:
+    """Get the path to the embedded Python executable.
+
+    Returns:
+        Path to the embedded Python executable or None if not found
+    """
+    config = get_backend_config()
+
+    if not config or "embedded_python" not in config:
+        print("[ERROR] Invalid backend configuration (embedded_python section missing)")
+        return None
+
+    embedded_python = config.get("embedded_python", {})
+    python_exe = embedded_python.get("python_exe")
+
+    if not python_exe or not os.path.exists(python_exe):
+        print(f"[WARNING] Embedded Python not found at {python_exe}")
+        return None
+
+    return python_exe

@@ -26,8 +26,11 @@ try:
     from utils import get_backend_dir, print_error
 except ImportError:
     try:
-        from .utils import get_backend_dir
+        from .utils import get_backend_dir, print_error
     except ImportError as e:
+        print(f"Error importing utilities: {e}")
+        print("Make sure utils.py is in the same directory as this script.")
+        sys.exit(1)
         print(f"Error importing utilities: {e}")
         print("Make sure utils.py is in the same directory as this script.")
         sys.exit(1)
@@ -218,6 +221,64 @@ class LuaEnvRegistry:
             # Re-raise the original error
             raise
 
+    def get_installation_by_alias(self, alias: str) -> Optional[Dict]:
+        """Get installation by alias only (exact match required).
+
+        Args:
+            alias: The alias name to look up
+
+        Returns:
+            Installation record or None if not found
+        """
+        if alias in self.registry["aliases"]:
+            installation_id = self.registry["aliases"][alias]
+            return self.registry["installations"].get(installation_id)
+        return None
+
+    def get_installation_by_id(self, uuid_str: str, allow_partial: bool = True) -> Optional[Dict]:
+        """Get installation by UUID, with option for partial matching.
+
+        Args:
+            uuid_str: Full or partial UUID string
+            allow_partial: Whether to allow partial UUID matching
+
+        Returns:
+            Installation record or None if not found
+        """
+        # Exact match
+        if uuid_str in self.registry["installations"]:
+            return self.registry["installations"][uuid_str]
+
+        # Return early if partial matching is not allowed
+        if not allow_partial:
+            return None
+
+        # Require at least 4 characters for partial matching to avoid ambiguity
+        if len(uuid_str) < 4:
+            return None
+
+        # Validate that input looks like a UUID
+        # Check if it looks like a UUID (contains hyphens or is all hex chars)
+        looks_like_uuid = "-" in uuid_str or all(c in "0123456789abcdef" for c in uuid_str.lower())
+
+        if not looks_like_uuid:
+            return None
+
+        # Find partial matches
+        matches = []
+        for installation_id in self.registry["installations"]:
+            if installation_id.replace("-", "").startswith(uuid_str.replace("-", "")):
+                matches.append(installation_id)
+
+        if len(matches) == 1:
+            return self.registry["installations"][matches[0]]
+        elif len(matches) > 1:
+            print(f"[ERROR] Ambiguous UUID: {uuid_str}")
+            print(f"        Matches: {', '.join(matches)}")
+            print(f"        Please use a longer prefix or the full ID")
+
+        return None
+
     def get_installation(self, id_or_alias: str) -> Optional[Dict]:
         """Get installation by ID or alias.
 
@@ -227,26 +288,15 @@ class LuaEnvRegistry:
         Returns:
             Installation record or None if not found
         """
-        # Try exact match first (alias or full UUID)
-        if id_or_alias in self.registry["aliases"]:
-            installation_id = self.registry["aliases"][id_or_alias]
-            return self.registry["installations"].get(installation_id)
+        # Try alias lookup first
+        installation = self.get_installation_by_alias(id_or_alias)
+        if installation:
+            return installation
 
-        if id_or_alias in self.registry["installations"]:
-            return self.registry["installations"][id_or_alias]
-
-        # Try partial UUID match (minimum 8 characters)
-        if len(id_or_alias) >= 8:
-            matches = []
-            for installation_id in self.registry["installations"]:
-                if installation_id.startswith(id_or_alias):
-                    matches.append(installation_id)
-
-            if len(matches) == 1:
-                return self.registry["installations"][matches[0]]
-            elif len(matches) > 1:
-                print(f"[ERROR] Ambiguous partial ID '{id_or_alias}'. Matches: {matches}")
-                return None
+        # Then try UUID lookup (allows partial matching)
+        installation = self.get_installation_by_id(id_or_alias)
+        if installation:
+            return installation
 
         return None
 
@@ -335,27 +385,32 @@ class LuaEnvRegistry:
         """Set alias for installation.
 
         Args:
-            installation_id: Full UUID of installation
+            installation_id: Installation ID or alias to set alias for
             alias: Alias name
 
         Returns:
             True if set successfully
         """
-        if installation_id not in self.registry["installations"]:
+        print(f"[INFO] Updating installation alias...")
+
+        # Resolve ID or alias to full UUID
+        full_id = self.resolve_id(installation_id)
+
+        if not full_id:
             print(f"[ERROR] Installation {installation_id} not found")
             return False
 
         if alias in self.registry["aliases"]:
             existing_id = self.registry["aliases"][alias]
-            if existing_id != installation_id:
+            if existing_id != full_id:
                 print(f"[ERROR] Alias '{alias}' already points to {existing_id}")
                 return False
 
-        self.registry["aliases"][alias] = installation_id
-        self.registry["installations"][installation_id]["alias"] = alias
+        self.registry["aliases"][alias] = full_id
+        self.registry["installations"][full_id]["alias"] = alias
 
         self._save_registry()
-        print(f"[OK] Set alias: {alias} -> {installation_id}")
+        print(f"[OK] Set alias: {alias} -> {full_id}")
 
         return True
 
@@ -418,7 +473,22 @@ class LuaEnvRegistry:
         if installation_id in self.registry["installations"]:
             self.registry["installations"][installation_id]["last_used"] = \
                 datetime.now(timezone.utc).isoformat()
+            self._save_registry()  # Save the registry after updating timestamp
+
+    def update_package_info(self, installation_id: str, package_count: int) -> None:
+        """Update package information for an installation.
+
+        Args:
+            installation_id: Installation UUID
+            package_count: Number of installed packages
+        """
+        if installation_id in self.registry["installations"]:
+            self.registry["installations"][installation_id]["packages"] = {
+                "count": package_count,
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
             self._save_registry()
+            print(f"[INFO] Updated package count for installation: {package_count} packages")
 
     def update_status(self, installation_id: str, status: str) -> None:
         """Update installation status.
@@ -885,11 +955,6 @@ def main():
 
     # Check scripts command
     check_scripts_parser = subparsers.add_parser('check-scripts', help='Check LuaEnv scripts installation status')
-
-    # Install F# CLI command
-    install_cli_parser = subparsers.add_parser('install-cli', help='Install F# CLI executable')
-    install_cli_parser.add_argument('exe_path', help='Path to the compiled F# CLI executable')
-    install_cli_parser.add_argument('--force', action='store_true', help='Force install/overwrite existing executable')
 
     # Install F# CLI with dependencies command
     install_cli_deps_parser = subparsers.add_parser('install-cli-deps', help='Install F# CLI with all dependencies')

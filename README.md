@@ -1,6 +1,6 @@
 # LuaEnv - Lua Environment Management for Windows
 
-A comprehensive Lua environment management system for Windows that provides automated installation, building, and configuration of Lua and LuaRocks using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing seamless integration with C/C++ development workflows.
+A Lua environment management system for Windows that provides automated installation, building, and configuration of Lua and LuaRocks using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing integration with C/C++ development workflows.
 
 # Table of Contents
 
@@ -19,7 +19,7 @@ A comprehensive Lua environment management system for Windows that provides auto
 
 # Project Overview
 
-LuaEnv is a comprehensive Lua environment management system designed specifically for Windows developers using the Microsoft Visual C++ (MSVC) toolchain. The system provides automated installation, building, and configuration of Lua and LuaRocks while enabling management of multiple isolated environments.
+LuaEnv is a Lua environment management system designed specifically for Windows developers using the Microsoft Visual C++ (MSVC) toolchain. The system provides automated installation, building, and configuration of Lua and LuaRocks while enabling management of multiple isolated environments.
 
 ## Architecture Components
 

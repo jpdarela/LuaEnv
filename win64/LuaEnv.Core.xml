@@ -57,6 +57,11 @@
  List command options
 </summary>
 </member>
+<member name="T:LuaEnv.Core.SetAliasOptions">
+<summary>
+ Set alias command options
+</summary>
+</member>
 <member name="T:LuaEnv.Core.UninstallOptions">
 <summary>
  Uninstall command options
@@ -162,6 +167,11 @@
  Execute pkg-config command for specific installation
 </summary>
 </member>
+<member name="M:LuaEnv.Core.Backend.executeSetAlias(LuaEnv.Core.BackendConfig,LuaEnv.Core.SetAliasOptions)">
+<summary>
+ Execute set-alias command via registry.py
+</summary>
+</member>
 <member name="M:LuaEnv.Core.Backend.executeVersions(LuaEnv.Core.BackendConfig,LuaEnv.Core.VersionsOptions)">
 <summary>
  Execute versions command
@@ -170,26 +180,6 @@
 <member name="M:LuaEnv.Core.Backend.executeInstalledVersions(LuaEnv.Core.BackendConfig)">
 <summary>
  Execute installed versions command using direct registry access
-</summary>
-</member>
-<member name="M:LuaEnv.Core.Backend.executeEnvReset(LuaEnv.Core.BackendConfig,LuaEnv.Core.EnvironmentOptions)">
-<summary>
- Execute environment reset command
-</summary>
-</member>
-<member name="M:LuaEnv.Core.Backend.executeEnvClean(LuaEnv.Core.BackendConfig,LuaEnv.Core.EnvironmentOptions)">
-<summary>
- Execute environment clean command
-</summary>
-</member>
-<member name="M:LuaEnv.Core.Backend.executeEnvShow(LuaEnv.Core.BackendConfig,LuaEnv.Core.EnvironmentOptions)">
-<summary>
- Execute environment show command
-</summary>
-</member>
-<member name="M:LuaEnv.Core.Backend.executeEnvList(LuaEnv.Core.BackendConfig,LuaEnv.Core.EnvironmentOptions)">
-<summary>
- Execute environment list command
 </summary>
 </member>
 <member name="M:LuaEnv.Core.Backend.executeStatus(LuaEnv.Core.BackendConfig,Microsoft.FSharp.Core.Unit)">

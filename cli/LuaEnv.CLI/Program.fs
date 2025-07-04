@@ -17,6 +17,7 @@ let showHelp () =
     printfn "    status                         Show system status and registry information"
     printfn "    versions                       Show installed and available versions"
     printfn "    pkg-config <alias|uuid>        Show pkg-config information for C developers"
+    printfn "    set-alias <alias|uuid> <new>   Set or update an installation alias"
     printfn "    config                         Show current configuration"
     printfn "    help                           Show this help message"
     printfn ""
@@ -136,6 +137,28 @@ let showStatusHelp () =
     printfn "EXAMPLES:"
     printfn "    luaenv status"
 
+/// Display set-alias-specific help
+let showSetAliasHelp () =
+    printfn "LuaEnv CLI - Set-Alias Command"
+    printfn ""
+    printfn "USAGE:"
+    printfn "    luaenv set-alias <alias|uuid> <new-alias>"
+    printfn ""
+    printfn "DESCRIPTION:"
+    printfn "    Set or update an alias for a Lua installation."
+    printfn ""
+    printfn "ARGUMENTS:"
+    printfn "    <alias|uuid>                   Installation alias or UUID to modify"
+    printfn "    <new-alias>                    New alias to assign to the installation"
+    printfn ""
+    printfn "OPTIONS:"
+    printfn "    --help, -h                     Show this help message"
+    printfn ""
+    printfn "EXAMPLES:"
+    printfn "    luaenv set-alias fe5253dd-ee2d-488a-9a38-70534ae9d2e6 dev-lua54"
+    printfn "    luaenv set-alias old-alias new-alias"
+    printfn ""
+
 /// Display versions-specific help
 let showVersionsHelp () =
     printfn "LuaEnv CLI - Versions Command"
@@ -192,7 +215,7 @@ let showPkgConfigHelp () =
     printfn "    luaenv pkg-config dynamic --lua-include # Show include directory path"
     printfn "    luaenv pkg-config static --liblua # Show path to lua54.lib file"
     printfn "    luaenv pkg-config devel --path   # Show paths for installation"
-    printfn "    luaenv pkg-config a6f63bc5 --path-style unix # Use forward slashes for paths. Get installation by UUID (patial match, 8 characters)"
+    printfn "    luaenv pkg-config a6f63bc5 --path-style unix # Use forward slashes for paths. Get installation by UUID (atial match, 8 characters)"
     printfn ""
     printfn "USAGE IN BUILD SYSTEMS:"
     printfn "    Batch file:     for /f %%i in ('luaenv pkg-config dev --cflag') do set CFLAGS=%%i"
@@ -289,6 +312,32 @@ let parseArgs (args: string array) : CliArgs =
             printfn "[ERROR] Missing required argument: <alias|uuid>"
             printfn "Use 'luaenv pkg-config --help' for usage information"
             exit 1
+        | "set-alias" :: "--help" :: rest ->
+            showSetAliasHelp ()
+            exit 0
+        | "set-alias" :: "-h" :: rest ->
+            showSetAliasHelp ()
+            exit 0
+        | "set-alias" :: idOrAlias :: newAlias :: rest when
+            not (String.IsNullOrWhiteSpace(idOrAlias)) ->
+            try
+                // Only validate idOrAlias is not empty, allow empty alias
+                let setAliasOptions = {
+                    IdOrAlias = idOrAlias
+                    NewAlias = newAlias // Even if empty string, this will be properly handled
+                }
+                { acc with Command = Some (SetAlias setAliasOptions) }
+            with
+            | Failure "HELP_REQUESTED" ->
+                { acc with Command = Some Help }
+        | "set-alias" :: [idOrAlias] ->
+            printfn "[ERROR] Missing required argument: <new-alias>"
+            printfn "Use 'luaenv set-alias --help' for usage information"
+            exit 1
+        | "set-alias" :: [] ->
+            printfn "[ERROR] Missing required arguments: <alias|uuid> <new-alias>"
+            printfn "Use 'luaenv set-alias --help' for usage information"
+            exit 1
         | arg :: rest ->
             printfn "[ERROR] Unknown argument: %s" arg
             printfn "Use 'luaenv --help' for available commands"
@@ -308,12 +357,28 @@ let parseArgs (args: string array) : CliArgs =
                 exit 0
             | "--lua-version" :: version :: rest ->
                 parseInstallRec rest ({ acc with LuaVersion = Some version } : InstallOptions)
+            | "--lua-version" :: [] ->
+                printfn "[ERROR] Missing value for option: --lua-version"
+                printfn "Use 'luaenv install --help' for available options"
+                exit 1
             | "--luarocks-version" :: version :: rest ->
                 parseInstallRec rest ({ acc with LuaRocksVersion = Some version } : InstallOptions)
+            | "--luarocks-version" :: [] ->
+                printfn "[ERROR] Missing value for option: --luarocks-version"
+                printfn "Use 'luaenv install --help' for available options"
+                exit 1
             | "--alias" :: alias :: rest ->
                 parseInstallRec rest ({ acc with Alias = Some alias } : InstallOptions)
+            | "--alias" :: [] ->
+                printfn "[ERROR] Missing value for option: --alias"
+                printfn "Use 'luaenv install --help' for available options"
+                exit 1
             | "--name" :: name :: rest ->
                 parseInstallRec rest ({ acc with Name = Some name } : InstallOptions)
+            | "--name" :: [] ->
+                printfn "[ERROR] Missing value for option: --name"
+                printfn "Use 'luaenv install --help' for available options"
+                exit 1
             | "--dll" :: rest ->
                 parseInstallRec rest ({ acc with UseDll = true } : InstallOptions)
             | "--debug" :: rest ->
@@ -590,9 +655,23 @@ let executeCommand (config: BackendConfig) (command: Command) : int =
             printfn "%s" errorMsg
             1
 
-    | Environment _ ->
-        printfn "[ERROR] Environment command not yet implemented"
-        1
+    | Environment ->
+        printfn "[INFO] Environment management commands are implemented in the luaenv.ps1 PowerShell wrapper"
+        printfn "       Please use the wrapper script for commands like 'luaenv activate'"
+        0
+
+    | SetAlias options ->
+        // Validate arguments before calling the backend
+        if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+            printfn "[ERROR] Installation ID or alias cannot be empty"
+            1
+        else
+            printfn "[INFO] Updating installation alias..."
+            match Backend.executeSetAlias config options with
+            | Ok exitCode -> exitCode
+            | Error errorMsg ->
+                printfn "%s" errorMsg
+                1
 
 /// Main entry point
 [<EntryPoint>]

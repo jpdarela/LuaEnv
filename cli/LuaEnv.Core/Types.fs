@@ -95,7 +95,7 @@ module Config =
     let parseConfig (configPath: string) : Result<BackendConfig, string> =
         try
             if not (File.Exists configPath) then
-                Error $"[ERROR] Config file not found: {configPath}"
+                Error (sprintf "[ERROR] Config file not found: %s" configPath)
             else
                 let json = File.ReadAllText configPath
                 let options = JsonSerializerOptions()
@@ -105,20 +105,20 @@ module Config =
                 let config = JsonSerializer.Deserialize<BackendConfig>(json, options)
                 Ok config
         with
-        | ex -> Error $"[ERROR] Failed to parse config file: {ex.Message}"
+        | ex -> Error (sprintf "[ERROR] Failed to parse config file: %s" ex.Message)
 
     /// Validate that required paths exist
     let validateConfig (config: BackendConfig) : Result<BackendConfig, string> =
         let errors = ResizeArray<string>()
 
         if not (Directory.Exists config.BackendDir) then
-            errors.Add $"Backend directory not found: {config.BackendDir}"
+            errors.Add (sprintf "Backend directory not found: %s" config.BackendDir)
 
         if not (Directory.Exists config.ProjectRoot) then
-            errors.Add $"Project root not found: {config.ProjectRoot}"
+            errors.Add (sprintf "Project root not found: %s" config.ProjectRoot)
 
         if config.EmbeddedPython.Available && not (File.Exists config.EmbeddedPython.PythonExe) then
-            errors.Add $"Embedded Python executable not found: {config.EmbeddedPython.PythonExe}"
+            errors.Add (sprintf "Embedded Python executable not found: %s" config.EmbeddedPython.PythonExe)
 
         if errors.Count > 0 then
             Error (String.Join("\n", errors))
@@ -144,7 +144,7 @@ module Config =
 
             let startInfo = ProcessStartInfo()
             startInfo.FileName <- pythonExe
-            startInfo.Arguments <- $"\"{configScript}\" {args}"
+            startInfo.Arguments <- sprintf "\"%s\" %s" configScript args
             startInfo.WorkingDirectory <- config.BackendDir
             startInfo.RedirectStandardOutput <- true
             startInfo.RedirectStandardError <- true
@@ -157,7 +157,7 @@ module Config =
             proc.WaitForExit()
 
             if proc.ExitCode <> 0 then
-                Error $"[ERROR] Backend command failed (exit code {proc.ExitCode}):\n{error}"
+                Error (sprintf "[ERROR] Backend command failed (exit code %d):\n%s" proc.ExitCode error)
             else
                 let options = JsonSerializerOptions()
                 options.PropertyNameCaseInsensitive <- true
@@ -166,9 +166,9 @@ module Config =
                     let response = JsonSerializer.Deserialize<BackendDiscoveryResponse>(output, options)
                     Ok response
                 with
-                | ex -> Error $"[ERROR] Failed to parse backend response: {ex.Message}\nOutput: {output}"
+                | ex -> Error (sprintf "[ERROR] Failed to parse backend response: %s\nOutput: %s" ex.Message output)
         with
-        | ex -> Error $"[ERROR] Failed to execute backend command: {ex.Message}"
+        | ex -> Error (sprintf "[ERROR] Failed to execute backend command: %s" ex.Message)
 
 /// Install command options
 type InstallOptions = {
@@ -189,6 +189,12 @@ type UninstallOptions = {
     Force: bool
 }
 
+/// Set alias command options
+type SetAliasOptions = {
+    IdOrAlias: string
+    NewAlias: string
+}
+
 /// List command options
 type ListOptions = {
     Detailed: bool
@@ -197,34 +203,8 @@ type ListOptions = {
 /// Status command options (simplified - no additional options needed)
 type StatusOptions = unit
 
-type LuaPackageInfo = {
-    Name: string
-    Version: string
-    Description: string option
-    Dependencies: string list
-}
-
-type EnvironmentStatus = {
-    InstallationId: string
-    Name: string
-    Path: string
-    PackageCount: int
-    DiskUsage: int64
-    Packages: LuaPackageInfo list option
-}
-
-type EnvironmentOptions = {
-    InstallationId: string option
-    Alias: string option
-    Detailed: bool
-    ShowPackages: bool
-}
-
-type EnvironmentCommand =
-    | EnvList of EnvironmentOptions
-    | EnvShow of EnvironmentOptions
-    | EnvClean of EnvironmentOptions
-    | EnvReset of EnvironmentOptions
+// Environment-related types have been removed as they are implemented in the luaenv.ps1 wrapper
+// and not used in the CLI core library.
 
 /// Versions command options
 type VersionsOptions = {
@@ -250,9 +230,10 @@ type Command =
     | Status of StatusOptions
     | Versions of VersionsOptions
     | PkgConfig of PkgConfigOptions
+    | SetAlias of SetAliasOptions
     | ShowConfig
     | Help
-    | Environment of EnvironmentCommand
+    | Environment // No parameters needed, command handled by PowerShell wrapper
 
 /// Represents paths information from pkg-config backend
 type PkgConfigPaths = {
@@ -331,7 +312,7 @@ module Backend =
 
             let scriptPath = Path.Combine(config.BackendDir, scriptName)
             if not (File.Exists scriptPath) then
-                Error $"[ERROR] Backend script not found: {scriptPath}"
+                Error (sprintf "[ERROR] Backend script not found: %s" scriptPath)
             else
                 // Use relative script name and set working directory to backend folder
                 let arguments = String.Join(" ", scriptName :: args)
@@ -348,45 +329,87 @@ module Backend =
 
                 Ok proc.ExitCode
         with
-        | ex -> Error $"[ERROR] Failed to execute backend script: {ex.Message}"
+        | ex -> Error (sprintf "[ERROR] Failed to execute backend script: %s" ex.Message)
 
     /// Execute install command via setup_lua.py
     let executeInstall (config: BackendConfig) (options: InstallOptions) : Result<int, string> =
-        let args = ResizeArray<string>()
+        try
+            // Validate all parameters first
+            let validationErrors = ResizeArray<string>()
 
-        // Add version options
-        match options.LuaVersion with
-        | Some version -> args.Add("--lua-version"); args.Add(version)
-        | None -> ()
+            // Check Lua version if provided
+            match options.LuaVersion with
+            | Some version when String.IsNullOrWhiteSpace(version) ->
+                validationErrors.Add("Lua version cannot be empty when specified")
+            | _ -> ()
 
-        match options.LuaRocksVersion with
-        | Some version -> args.Add("--luarocks-version"); args.Add(version)
-        | None -> ()
+            // Check LuaRocks version if provided
+            match options.LuaRocksVersion with
+            | Some version when String.IsNullOrWhiteSpace(version) ->
+                validationErrors.Add("LuaRocks version cannot be empty when specified")
+            | _ -> ()
 
-        // Add build options
-        if options.UseDll then args.Add("--dll")
-        if options.UseDebug then args.Add("--debug")
-        if options.UseX86 then args.Add("--x86")
-        if options.SkipEnvCheck then args.Add("--skip-env-check")
-        if options.SkipTests then args.Add("--skip-tests")
+            // Check alias if provided
+            match options.Alias with
+            | Some alias when String.IsNullOrWhiteSpace(alias) ->
+                validationErrors.Add("Alias cannot be empty when specified")
+            | _ -> ()
 
-        // Add metadata options
-        match options.Name with
-        | Some name -> args.Add("--name"); args.Add($"\"{name}\"")
-        | None -> ()
+            // Check name if provided
+            match options.Name with
+            | Some name when String.IsNullOrWhiteSpace(name) ->
+                validationErrors.Add("Installation name cannot be empty when specified")
+            | _ -> ()
 
-        match options.Alias with
-        | Some alias -> args.Add("--alias"); args.Add(alias)
-        | None -> ()
+            // If there are any validation errors, return them
+            if validationErrors.Count > 0 then
+                Error (sprintf "[ERROR] Invalid parameters: %s" (String.Join(", ", validationErrors)))
+            else
+                // All parameters valid, build argument list
+                let args = ResizeArray<string>()
 
-        executePython config "setup_lua.py" (List.ofSeq args)
+                // Add version options
+                match options.LuaVersion with
+                | Some version -> args.Add("--lua-version"); args.Add(version)
+                | None -> ()
+
+                match options.LuaRocksVersion with
+                | Some version -> args.Add("--luarocks-version"); args.Add(version)
+                | None -> ()
+
+                // Add build options
+                if options.UseDll then args.Add("--dll")
+                if options.UseDebug then args.Add("--debug")
+                if options.UseX86 then args.Add("--x86")
+                if options.SkipEnvCheck then args.Add("--skip-env-check")
+                if options.SkipTests then args.Add("--skip-tests")
+
+                // Add metadata options
+                match options.Name with
+                | Some name -> args.Add("--name"); args.Add($"\"{name}\"")
+                | None -> ()
+
+                match options.Alias with
+                | Some alias -> args.Add("--alias"); args.Add(alias)
+                | None -> ()
+
+                executePython config "setup_lua.py" (List.ofSeq args)
+        with
+        | ex -> Error (sprintf "[ERROR] Failed to execute install command: %s" ex.Message)
 
     /// Execute uninstall command via registry.py
     let executeUninstall (config: BackendConfig) (options: UninstallOptions) : Result<int, string> =
-        let args = ["remove"; options.IdOrAlias]
-        let finalArgs = if options.Force then args @ ["--yes"] else args
-
-        executePython config "registry.py" finalArgs
+        try
+            // Validate required parameters
+            if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+                Error "[ERROR] Installation ID or alias cannot be empty"
+            else
+                // Parameter is valid, call the backend
+                let args = ["remove"; options.IdOrAlias]
+                let finalArgs = if options.Force then args @ ["--yes"] else args
+                executePython config "registry.py" finalArgs
+        with
+        | ex -> Error (sprintf "[ERROR] Failed to execute uninstall command: %s" ex.Message)
 
     /// Execute list command via registry.py (backend) or direct registry access (detailed)
     let executeList (config: BackendConfig) (options: ListOptions) : Result<int, string> =
@@ -457,7 +480,7 @@ module Backend =
                     Ok 1
             with
             | ex ->
-                Error (sprintf "Failed to access registry: %s" ex.Message)
+                Error (sprintf "[ERROR] Failed to access registry: %s" ex.Message)
         else
             // Use backend for standard mode
             let args = ["list"]
@@ -469,61 +492,8 @@ module Backend =
         let args = ["status"]
         executePython config "registry.py" args
 
-    /// Execute environment list command
-    let executeEnvList (config: BackendConfig) (options: EnvironmentOptions) : Result<int, string> =
-        let mutable args = ["env"; "list"]
-
-        // Add detailed and show packages options
-        if options.Detailed then args <- args @ ["--detailed"]
-        if options.ShowPackages then args <- args @ ["--show-packages"]
-
-        // Add installation ID or alias if provided
-        let finalArgs =
-            match options.InstallationId, options.Alias with
-            | Some id, _ -> args @ [id]
-            | None, Some alias -> args @ [alias]
-            | None, None -> args
-
-        executePython config "env_manager.py" finalArgs
-
-    /// Execute environment show command
-    let executeEnvShow (config: BackendConfig) (options: EnvironmentOptions) : Result<int, string> =
-        let mutable args = ["env"; "show"]
-
-        // Add installation ID or alias if provided
-        let finalArgs =
-            match options.InstallationId, options.Alias with
-            | Some id, _ -> args @ [id]
-            | None, Some alias -> args @ [alias]
-            | None, None -> args
-
-        executePython config "env_manager.py" finalArgs
-
-    /// Execute environment clean command
-    let executeEnvClean (config: BackendConfig) (options: EnvironmentOptions) : Result<int, string> =
-        let mutable args = ["env"; "clean"]
-
-        // Add installation ID or alias if provided
-        let finalArgs =
-            match options.InstallationId, options.Alias with
-            | Some id, _ -> args @ [id]
-            | None, Some alias -> args @ [alias]
-            | None, None -> args
-
-        executePython config "env_manager.py" finalArgs
-
-    /// Execute environment reset command
-    let executeEnvReset (config: BackendConfig) (options: EnvironmentOptions) : Result<int, string> =
-        let mutable args = ["env"; "reset"]
-
-        // Add installation ID or alias if provided
-        let finalArgs =
-            match options.InstallationId, options.Alias with
-            | Some id, _ -> args @ [id]
-            | None, Some alias -> args @ [alias]
-            | None, None -> args
-
-        executePython config "env_manager.py" finalArgs
+    // Environment command functions have been removed as they are implemented in the luaenv.ps1 wrapper
+    // and not used in the CLI core library.
 
     /// Execute installed versions command using direct registry access
     let executeInstalledVersions (config: BackendConfig) : Result<int, string> =
@@ -577,7 +547,7 @@ module Backend =
                 Ok 0
         with
         | ex ->
-            Error $"[ERROR] Failed to read registry: {ex.Message}"
+            Error (sprintf "[ERROR] Failed to read registry: %s" ex.Message)
 
     /// Execute versions command
     let executeVersions (config: BackendConfig) (options: VersionsOptions) : Result<int, string> =
@@ -655,112 +625,139 @@ module Backend =
                     Ok 0
                 with
                 | ex ->
-                    Error $"[ERROR] Failed to format version information: {ex.Message}"
+                    Error (sprintf "[ERROR] Failed to format version information: %s" ex.Message)
             | Error errorMsg ->
                 Error errorMsg
         else
             // Direct registry access for installed versions (fast)
             executeInstalledVersions config
 
+    /// Execute set-alias command via registry.py
+    let executeSetAlias (config: BackendConfig) (options: SetAliasOptions) : Result<int, string> =
+        try
+            // Validate required parameters
+            if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+                Error "[ERROR] Installation ID or alias cannot be empty"
+            else if String.IsNullOrWhiteSpace(options.NewAlias) then
+                Error "[ERROR] New alias cannot be empty"
+            else
+                // Both parameters are valid, call the backend with correct subcommand structure
+                // The registry.py expects: alias set <id> <alias>
+                let args = ["alias"; "set"; options.IdOrAlias; options.NewAlias]
+                executePython config "registry.py" args
+        with
+        | ex -> Error (sprintf "[ERROR] Failed to execute set-alias command: %s" ex.Message)
+
     /// Execute pkg-config command for specific installation
     let executePkgConfig (config: BackendConfig) (installation: string) (showCFlag: bool) (showLuaInclude: bool) (showLibLua: bool) (showPaths: bool) (pathStyle: string option) : Result<int, string> =
         try
-            let pythonExe = config.EmbeddedPython.PythonExe
-            let pkgConfigScript = Path.Combine(config.BackendDir, "pkg_config.py")
-
-            // Build arguments based on options
-            let mutable args = $"\"{pkgConfigScript}\" \"{installation}\""
-
-            if showCFlag then
-                args <- args + " --cflag"
-            elif showLuaInclude then
-                args <- args + " --lua-include"
-            elif showLibLua then
-                args <- args + " --liblua"
-            elif showPaths then
-                args <- args + " --path"
+            // Validate required parameters
+            if String.IsNullOrWhiteSpace(installation) then
+                Error "[ERROR] Installation ID or alias cannot be empty"
             else
-                args <- args + " --json"
+                // Check pathStyle if provided
+                match pathStyle with
+                | Some style when String.IsNullOrWhiteSpace(style) ->
+                    Error "[ERROR] Path style cannot be empty when specified"
+                | Some style when not (List.contains style ["windows"; "unix"; "native"]) ->
+                    Error (sprintf "[ERROR] Invalid path style: %s. Must be one of: 'windows', 'unix', 'native'" style)
+                | _ ->
+                    // All parameters are valid, proceed with execution
+                    let pythonExe = config.EmbeddedPython.PythonExe
+                    let pkgConfigScript = Path.Combine(config.BackendDir, "pkg_config.py")
 
-            // Add path style if specified
-            match pathStyle with
-            | Some style -> args <- args + $" --path-style {style}"
-            | None -> ()
+                    // Build arguments based on options
+                    let mutable args = $"\"{pkgConfigScript}\" \"{installation}\""
 
-            let startInfo = ProcessStartInfo()
-            startInfo.FileName <- pythonExe
-            startInfo.Arguments <- args
-            startInfo.WorkingDirectory <- config.BackendDir
-            startInfo.RedirectStandardOutput <- true
-            startInfo.RedirectStandardError <- true
-            startInfo.UseShellExecute <- false
-            startInfo.CreateNoWindow <- true
+                    if showCFlag then
+                        args <- args + " --cflag"
+                    elif showLuaInclude then
+                        args <- args + " --lua-include"
+                    elif showLibLua then
+                        args <- args + " --liblua"
+                    elif showPaths then
+                        args <- args + " --path"
+                    else
+                        args <- args + " --json"
 
-            use proc = Process.Start(startInfo)
-            let output = proc.StandardOutput.ReadToEnd()
-            let errorOutput = proc.StandardError.ReadToEnd()
+                    // Add path style if specified
+                    match pathStyle with
+                    | Some style -> args <- args + $" --path-style {style}"
+                    | None -> ()
 
-            proc.WaitForExit()
+                    let startInfo = ProcessStartInfo()
+                    startInfo.FileName <- pythonExe
+                    startInfo.Arguments <- args
+                    startInfo.WorkingDirectory <- config.BackendDir
+                    startInfo.RedirectStandardOutput <- true
+                    startInfo.RedirectStandardError <- true
+                    startInfo.UseShellExecute <- false
+                    startInfo.CreateNoWindow <- true
 
-            if proc.ExitCode <> 0 then
-                if not (String.IsNullOrWhiteSpace errorOutput) then
-                    Error (errorOutput.Trim())
-                else
-                    Error $"[ERROR] Pkg-config command failed with exit code {proc.ExitCode}"
-            else
-                // If requesting specific flags or paths, just print the output directly
-                if showCFlag || showLuaInclude || showLibLua || showPaths then
-                    printf "%s" output
-                    Ok 0
-                else
-                    // Parse JSON response and format nicely
-                    try
-                        let options = JsonSerializerOptions()
-                        options.PropertyNameCaseInsensitive <- true
-                        options.PropertyNamingPolicy <- JsonNamingPolicy.SnakeCaseLower
+                    use proc = Process.Start(startInfo)
+                    let output = proc.StandardOutput.ReadToEnd()
+                    let errorOutput = proc.StandardError.ReadToEnd()
 
-                        let response = JsonSerializer.Deserialize<PkgConfigResponse>(output, options)
+                    proc.WaitForExit()
 
-                        printfn "PKG-CONFIG INFORMATION"
-                        printfn "Installation: %s" response.Name
-                        match response.Alias with
-                        | Some alias -> printfn "Alias:        %s" alias
-                        | None -> ()
-                        printfn "ID:           %s" response.Id
-                        printfn "Lua Version:  %s" response.LuaVersion
-                        printfn "LuaRocks:     %s" response.LuaRocksVersion
-                        printfn "Build Type:   %s %s" response.BuildType response.BuildConfig
-                        printfn "Architecture: %s" response.Architecture
-                        printfn ""
+                    if proc.ExitCode <> 0 then
+                        if not (String.IsNullOrWhiteSpace errorOutput) then
+                            Error (errorOutput.Trim())
+                        else
+                            Error (sprintf "[ERROR] Pkg-config command failed with exit code %d" proc.ExitCode)
+                    else
+                        // If requesting specific flags or paths, just print the output directly
+                        if showCFlag || showLuaInclude || showLibLua || showPaths then
+                            printf "%s" output
+                            Ok 0
+                        else
+                            // Parse JSON response and format nicely
+                            try
+                                let options = JsonSerializerOptions()
+                                options.PropertyNameCaseInsensitive <- true
+                                options.PropertyNamingPolicy <- JsonNamingPolicy.SnakeCaseLower
 
-                        printfn "COMPILER FLAGS"
-                        printfn "CFLAGS:   %s" response.Flags.CFlags
-                        printfn ""
+                                let response = JsonSerializer.Deserialize<PkgConfigResponse>(output, options)
 
-                        printfn "LINKER FLAGS"
-                        printfn "LIBS:     %s" response.Flags.Libs
-                        printfn "LDFLAGS:  %s" response.Flags.LdFlags
-                        printfn ""
+                                printfn "PKG-CONFIG INFORMATION"
+                                printfn "Installation: %s" response.Name
+                                match response.Alias with
+                                | Some alias -> printfn "Alias:        %s" alias
+                                | None -> ()
+                                printfn "ID:           %s" response.Id
+                                printfn "Lua Version:  %s" response.LuaVersion
+                                printfn "LuaRocks:     %s" response.LuaRocksVersion
+                                printfn "Build Type:   %s %s" response.BuildType response.BuildConfig
+                                printfn "Architecture: %s" response.Architecture
+                                printfn ""
 
-                        printfn "USAGE EXAMPLES"
-                        printfn "For Makefile:"
-                        printfn "  CFLAGS += %s" response.Flags.CFlags
-                        printfn "  LDFLAGS += %s" response.Flags.LdFlags
-                        printfn "  LIBS += %s" response.Flags.Libs
-                        printfn ""
-                        printfn "For CMake:"
-                        printfn "  target_include_directories(myapp PRIVATE \"%s\")" response.Paths.Include
-                        printfn "  target_link_directories(myapp PRIVATE \"%s\")" response.Paths.Lib
-                        printfn "  target_link_libraries(myapp lua54)"
-                        printfn ""
-                        printfn "For single file compilation:"
-                        printfn "  cl.exe /Fe:myapp.exe myapp.c %s %s" response.Flags.CFlags response.Flags.Libs
+                                printfn "COMPILER FLAGS"
+                                printfn "CFLAGS:   %s" response.Flags.CFlags
+                                printfn ""
 
-                        Ok 0
-                    with
-                    | ex ->
-                        Error $"[ERROR] Failed to parse pkg-config response: {ex.Message}"
+                                printfn "LINKER FLAGS"
+                                printfn "LIBS:     %s" response.Flags.Libs
+                                printfn "LDFLAGS:  %s" response.Flags.LdFlags
+                                printfn ""
 
+                                printfn "USAGE EXAMPLES"
+                                printfn "For Makefile:"
+                                printfn "  CFLAGS += %s" response.Flags.CFlags
+                                printfn "  LDFLAGS += %s" response.Flags.LdFlags
+                                printfn "  LIBS += %s" response.Flags.Libs
+                                printfn ""
+                                printfn "For CMake:"
+                                printfn "  target_include_directories(myapp PRIVATE \"%s\")" response.Paths.Include
+                                printfn "  target_link_directories(myapp PRIVATE \"%s\")" response.Paths.Lib
+                                printfn "  target_link_libraries(myapp lua54)"
+                                printfn ""
+                                printfn "For single file compilation:"
+                                printfn "  cl.exe /Fe:myapp.exe myapp.c %s %s" response.Flags.CFlags response.Flags.Libs
+
+                                Ok 0
+                            with
+                            | ex ->
+                                Error (sprintf "[ERROR] Failed to parse pkg-config response: %s" ex.Message)
         with
         | ex ->
-            Error $"[ERROR] Failed to execute pkg-config command: {ex.Message}"
+            Error (sprintf "[ERROR] Failed to execute pkg-config command: %s" ex.Message)

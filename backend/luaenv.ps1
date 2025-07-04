@@ -1,61 +1,28 @@
+#!/usr/bin/env pwsh
 # luaenv.ps1 - Combined LuaEnv CLI wrapper and environment activator
-#
-# Usage:
-#   Without 'activate': Acts as CLI wrapper (forwards to LuaEnv.CLI.exe)
-#   With 'activate': Sets up PowerShell session for Lua development
-#
-# Examples:
-#   .\luaenv.ps1 list                    # CLI command
-#   .\luaenv.ps1 activate --list         # List installations
-#   .\luaenv.ps1 activate --alias dev    # Activate 'dev' installation
-#   .\luaenv.ps1 activate --devshell "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools"
 
 param(
     [Parameter(Position=0)]
-    [string]$Command = "",
+    [string]$Command,
 
     [Parameter(ValueFromRemainingArguments=$true)]
     [string[]]$Arguments
 )
 
-# Define valid commands
-$validCommands = @(
-    "install",
-    "uninstall",
-    "list",
-    "status",
-    "versions",
-    "pkg-config",
-    "config",
-    "help",
-    "--help",
-    "-h",
-    "activate"
-)
+# Get the directory where this script is located (bin directory)
+$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$BinDir = $PSScriptRoot
+$backendDir = $PSScriptRoot
 
-# Validate command
-if ($Command -and $validCommands -notcontains $Command) {
-    Write-Host "[ERROR] Unknown command: '$Command'" -ForegroundColor Red
+# Help command - can be run directly without the CLI
+if ($Command -eq "help" -or $Command -eq "-h" -or $Command -eq "--help" -or $Command -eq "/?") {
     Write-Host ""
-    Write-Host "Available commands:" -ForegroundColor Yellow
-    Write-Host "  CLI commands:    install, uninstall, list, status, versions, pkg-config, config"
-    Write-Host "  Shell command:   activate (PowerShell only)"
-    Write-Host ""
-    Write-Host "Use 'luaenv --help' for more information" -ForegroundColor Gray
-    exit 1
-}
-
-# Handle help at the top level
-if ($Command -eq "--help" -or $Command -eq "-h" -or $Command -eq "help") {
-    Write-Host "LuaEnv - Lua Environment Management Tool" -ForegroundColor Green
-    Write-Host "=======================================" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "USAGE:" -ForegroundColor Yellow
+    Write-Host "LuaEnv - Lua Environment Management Tool"
+    Write-Host "======================================="
+    Write-Host "USAGE:"
     Write-Host "  luaenv <command> [options]"
-    Write-Host ""
-    Write-Host "COMMANDS:" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Environment Management (CLI):" -ForegroundColor Cyan
+    Write-Host "COMMANDS:"
+    Write-Host "  Environment Management (CLI):"
     Write-Host "    install [options]       Install a new Lua environment"
     Write-Host "    uninstall <alias|uuid>  Remove a Lua installation"
     Write-Host "    list                    List all installed Lua environments"
@@ -63,202 +30,99 @@ if ($Command -eq "--help" -or $Command -eq "-h" -or $Command -eq "help") {
     Write-Host "    versions                Show installed and available versions"
     Write-Host "    pkg-config <alias|uuid> Show pkg-config information for C developers"
     Write-Host "    config                  Show current configuration"
+    Write-Host "    set-alias <uuid> <alias> Set or update the alias of an installation"
     Write-Host "    help                    Show CLI help message"
-    Write-Host ""
-    Write-Host "  Shell Integration (PowerShell):" -ForegroundColor Cyan
+    Write-Host "  Shell Integration (PowerShell):"
     Write-Host "    activate [options]      Activate a Lua environment in current shell"
-    Write-Host ""
-    Write-Host "For command-specific help:" -ForegroundColor Yellow
+    Write-Host "For command-specific help:"
     Write-Host "  luaenv <command> --help"
-    Write-Host ""
-    Write-Host "EXAMPLES:" -ForegroundColor Yellow
+    Write-Host "EXAMPLES:"
     Write-Host "  luaenv install --alias dev        # Install Lua with alias 'dev'"
     Write-Host "  luaenv activate --alias dev       # Activate 'dev' environment"
     Write-Host "  luaenv list                       # Show all installations"
     Write-Host "  luaenv activate --list            # List available environments"
-    Write-Host ""
-    Write-Host "Note: 'activate' is a PowerShell-only command that modifies your current shell." -ForegroundColor Gray
-    Write-Host "      All other commands are handled by the LuaEnv CLI application." -ForegroundColor Gray
+    Write-Host "  luaenv set-alias 12345-uuid prod  # Set alias 'prod' for installation with ID 12345-uuid"
+    Write-Host "Note: 'activate' is a PowerShell-only command that modifies your current shell."
+    Write-Host "      All other commands are handled by the LuaEnv CLI application."
     exit 0
 }
 
-# For non-activate commands with --help, delegate to CLI
-if ($Command -and $Command -ne "activate" -and ($Arguments -contains "--help" -or $Arguments -contains "-h")) {
-    function Invoke-LuaEnvCLI {
-        $BinDir = $PSScriptRoot
-        $BackendConfig = Join-Path $BinDir "backend.config"
-        $CliExe = Join-Path $BinDir "cli\LuaEnv.CLI.exe"
-
-        if (-not (Test-Path $BackendConfig)) {
-            Write-Error "[ERROR] Backend configuration not found: $BackendConfig"
-            exit 1
-        }
-
-        if (-not (Test-Path $CliExe)) {
-            Write-Error "[ERROR] CLI executable not found: $CliExe"
-            exit 1
-        }
-
-        $allArgs = @()
-        if ($Command) {
-            $allArgs += $Command
-        }
-        $allArgs += $Arguments
-
-        & $CliExe --config $BackendConfig $allArgs
-    }
-
-    Invoke-LuaEnvCLI
-    exit
-}
-
-# Check if this is an activate command
+# PowerShell-specific activate command - changes the current shell environment
 if ($Command -eq "activate") {
-    # Define valid options for activate command
-    $validActivateOptions = @(
-        "--id", "-Id",
-        "--alias", "-Alias",
-        "--tree", "-Tree",
-        "--devshell", "-DevShell",
-        "--list", "-List",
-        "--environment", "-Environment",
-        "--help", "-Help", "-h"
-    )
+    if ($Arguments -contains "--help" -or $Arguments -contains "-h") {
+        Write-Host ""
+        Write-Host "Usage: luaenv activate [options]"
+        Write-Host ""
+        Write-Host "Activate a Lua environment in the current PowerShell session."
+        Write-Host "This command modifies environment variables in your current shell."
+        Write-Host ""
+        Write-Host "Options:"
+        Write-Host "  --id <uuid>       Activate installation with the specified UUID"
+        Write-Host "  --alias <name>    Activate installation with the specified alias"
+        Write-Host "  --list            List available installations"
+        Write-Host "  --env             Show current environment information"
+        Write-Host "  --tree <path>     Set custom LuaRocks tree path"
+        Write-Host "  --devshell <path> Use custom Visual Studio Developer Shell"
+        Write-Host "  --help, -h        Show this help information"
+        Write-Host ""
+        exit 0
+    }
 
     # Parse activate-specific arguments
     $Id = ""
     $Alias = ""
-    $Tree = ""
-    $DevShell = ""
     $List = $false
     $Environment = $false
+    $Tree = ""
+    $DevShell = ""
     $Help = $false
 
-    # Validate and process arguments for activate command
+    # Process arguments
     for ($i = 0; $i -lt $Arguments.Count; $i++) {
         $arg = $Arguments[$i]
 
-        # Check if it's a flag/option (starts with - or --)
-        if ($arg -match '^-') {
-            # Validate that it's a known option
-            $isValid = $false
-            foreach ($validOption in $validActivateOptions) {
-                if ($arg -match "^$validOption$") {
-                    $isValid = $true
-                    break
-                }
-            }
-
-            if (-not $isValid) {
-                Write-Host "[ERROR] Unknown option for activate command: '$arg'" -ForegroundColor Red
-                Write-Host ""
-                Write-Host "Valid options for 'activate' are:" -ForegroundColor Yellow
-                Write-Host "  --id <uuid>        Use installation by UUID"
-                Write-Host "  --alias <name>     Use installation by alias name"
-                Write-Host "  --tree <path>      Custom LuaRocks package tree path"
-                Write-Host "  --devshell <path>  Path to VS Tools folder"
-                Write-Host "  --list             List all available installations"
-                Write-Host "  --environment      Show current environment information"
-                Write-Host "  --help             Display help information"
-                Write-Host ""
-                Write-Host "Use: luaenv activate --help for more information" -ForegroundColor Gray
-                exit 1
-            }
-        }
-
         switch -regex ($arg) {
-            '^(--id|-Id)$' {
-                if ($i + 1 -lt $Arguments.Count) {
-                    $Id = $Arguments[++$i]
-                }
-                else {
-                    Write-Host "[ERROR] Option '$arg' requires a value" -ForegroundColor Red
+            "--id|-Id" {
+                if ($i + 1 -ge $Arguments.Count) {
+                    Write-Error "Missing value for $arg option"
                     exit 1
                 }
+                $Id = $Arguments[++$i]
             }
-            '^(--alias|-Alias)$' {
-                if ($i + 1 -lt $Arguments.Count) {
-                    $Alias = $Arguments[++$i]
-                }
-                else {
-                    Write-Host "[ERROR] Option '$arg' requires a value" -ForegroundColor Red
+            "--alias|-Alias" {
+                if ($i + 1 -ge $Arguments.Count) {
+                    Write-Error "Missing value for $arg option"
                     exit 1
                 }
+                $Alias = $Arguments[++$i]
             }
-            '^(--tree|-Tree)$' {
-                if ($i + 1 -lt $Arguments.Count) {
-                    $Tree = $Arguments[++$i]
-                }
-                else {
-                    Write-Host "[ERROR] Option '$arg' requires a value" -ForegroundColor Red
-                    exit 1
-                }
-            }
-            '^(--devshell|-DevShell)$' {
-                if ($i + 1 -lt $Arguments.Count) {
-                    $DevShell = $Arguments[++$i]
-                }
-                else {
-                    Write-Host "[ERROR] Option '$arg' requires a value" -ForegroundColor Red
-                    exit 1
-                }
-            }
-            '^(--list|-List)$' {
+            "--list|-List" {
                 $List = $true
             }
-            '^(--environment|-Environment)$' {
+            "--env|-Env" {
                 $Environment = $true
             }
-            '^(--help|-Help|-h)$' {
+            "--tree|-Tree" {
+                if ($i + 1 -ge $Arguments.Count) {
+                    Write-Error "Missing value for $arg option"
+                    exit 1
+                }
+                $Tree = $Arguments[++$i]
+            }
+            "--devshell|-DevShell" {
+                if ($i + 1 -ge $Arguments.Count) {
+                    Write-Error "Missing value for $arg option"
+                    exit 1
+                }
+                $DevShell = $Arguments[++$i]
+            }
+            "--help|-h" {
                 $Help = $true
             }
+            default {
+                Write-Warning "Unexpected argument: $arg"
+            }
         }
-    }
-
-    # Display help information if requested
-    if ($Help) {
-        Write-Host "luaenv activate - LuaEnv Environment Setup" -ForegroundColor Green
-        Write-Host "=========================================" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "DESCRIPTION:" -ForegroundColor Yellow
-        Write-Host "  Sets up the current PowerShell session to use a Lua installation from the LuaEnv registry."
-        Write-Host "  Automatically configures Visual Studio Developer Shell, PATH, and Lua module paths."
-        Write-Host ""
-        Write-Host "USAGE:" -ForegroundColor Yellow
-        Write-Host "  luaenv activate [options]"
-        Write-Host ""
-        Write-Host "OPTIONS:" -ForegroundColor Yellow
-        Write-Host "  --id <uuid>        Use installation by UUID (full or partial, minimum 8 characters)"
-        Write-Host "  --alias <name>     Use installation by alias name"
-        Write-Host "  --tree <path>      Custom LuaRocks package tree path"
-        Write-Host "  --devshell <path>  Path to VS Tools folder containing Launch-VsDevShell.ps1"
-        Write-Host "                     (saves path to .vspath.txt for future use)"
-        Write-Host "  --list             List all available installations"
-        Write-Host "  --environment      Show current environment information"
-        Write-Host "  --help             Display this help information"
-        Write-Host ""
-        Write-Host "  Note: Both Unix-style (--option) and PowerShell-style (-Option) are supported"
-        Write-Host ""
-        Write-Host "EXAMPLES:" -ForegroundColor Yellow
-        Write-Host "  List available installations:"
-        Write-Host "  luaenv activate --list" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Use default installation:"
-        Write-Host "  luaenv activate" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Use installation by alias:"
-        Write-Host "  luaenv activate --alias dev" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Use installation by partial UUID:"
-        Write-Host "  luaenv activate --id a1b2c3d4" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Use installation with custom LuaRocks tree:"
-        Write-Host "  luaenv activate --alias dev --tree 'C:\MyProject\lua_modules'" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Set custom Visual Studio path:"
-        Write-Host "  luaenv activate --devshell 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools'" -ForegroundColor Cyan
-        Write-Host ""
-        return
     }
 
     # Include all the activate functionality from luaenv2.ps1
@@ -293,18 +157,18 @@ if ($Command -eq "activate") {
                     return $registry.installations.$installationId
                 }
             }
-            Write-Host "[ERROR] Alias '$alias' not found" -ForegroundColor Red
+
+            Write-Host "[ERROR] Installation with alias '$alias' not found" -ForegroundColor Red
             return $null
         }
 
-        # Try ID if provided
+        # Try direct ID match
         if ($id) {
-            # Try exact match first
             if ($registry.installations.PSObject.Properties.Name -contains $id) {
                 return $registry.installations.$id
             }
 
-            # Try partial match (minimum 8 characters)
+            # Try to match partial UUID (minimum 8 chars)
             if ($id.Length -ge 8) {
                 $matches = @()
                 foreach ($installationId in $registry.installations.PSObject.Properties.Name) {
@@ -348,15 +212,13 @@ if ($Command -eq "activate") {
         }
 
         $installations = @()
-        if ($registry.installations) {
-            foreach ($prop in $registry.installations.PSObject.Properties) {
-                $installations += $prop.Value
-            }
+        foreach ($key in $registry.installations.PSObject.Properties.Name) {
+            $installations += $registry.installations.$key
         }
 
         if ($installations.Count -eq 0) {
             Write-Host "[INFO] No installations found" -ForegroundColor Yellow
-            Write-Host "[INFO] Run 'luaenv install' to create your first installation" -ForegroundColor Yellow
+            Write-Host "[INFO] Run 'luaenv install --alias my-lua' to create your first installation" -ForegroundColor Yellow
             return
         }
 
@@ -364,19 +226,59 @@ if ($Command -eq "activate") {
         Write-Host ""
 
         foreach ($installation in $installations) {
-            $isDefault = $registry.default_installation -eq $installation.id
-            $status = if ($isDefault) { "[DEFAULT]" } else { "[$($installation.status.ToUpper())]" }
-            $aliasInfo = if ($installation.alias) { " (alias: $($installation.alias))" } else { "" }
-            $archInfo = if ($installation.architecture) { $installation.architecture } else { "x64" }
+            $defaultMark = if ($registry.default_installation -eq $installation.id) { " [DEFAULT]" } else { "" }
+            $aliasList = ""
 
-            Write-Host "  $status $($installation.name)$aliasInfo" -ForegroundColor $(if ($isDefault) { "Green" } else { "White" })
+            # Find all aliases for this installation
+            $aliases = @()
+            foreach ($key in $registry.aliases.PSObject.Properties.Name) {
+                if ($registry.aliases.$key -eq $installation.id) {
+                    $aliases += $key
+                }
+            }
+
+            if ($aliases.Count -gt 0) {
+                $aliasList = " (alias: $($aliases -join ", "))"
+            }
+
+            $status = $installation.status.ToUpper()
+            $statusColor = switch ($status) {
+                "ACTIVE" { "Green" }
+                "BUILDING" { "Yellow" }
+                "BROKEN" { "Red" }
+                default { "Gray" }
+            }
+
+            Write-Host "  [$status]$defaultMark $($installation.name)$aliasList" -ForegroundColor $statusColor
             Write-Host "    ID: $($installation.id)" -ForegroundColor Gray
             Write-Host "    Lua: $($installation.lua_version), LuaRocks: $($installation.luarocks_version)" -ForegroundColor Gray
-            Write-Host "    Build: $($installation.build_type) $($installation.build_config) ($archInfo)" -ForegroundColor Gray
+            Write-Host "    Build: $($installation.build_type.ToUpper()) $($installation.build_config)" -ForegroundColor Gray
             Write-Host "    Path: $($installation.installation_path)" -ForegroundColor Gray
+
             if ($installation.last_used) {
-                Write-Host "    Last used: $($installation.last_used)" -ForegroundColor Gray
+                try {
+                    $lastUsed = [DateTime]::Parse($installation.last_used)
+                    $timeAgo = (Get-Date) - $lastUsed
+                    if ($timeAgo.TotalDays -gt 1) {
+                        $usedInfo = "{0:N0} days ago" -f $timeAgo.TotalDays
+                    }
+                    elseif ($timeAgo.TotalHours -gt 1) {
+                        $usedInfo = "{0:N0} hours ago" -f $timeAgo.TotalHours
+                    }
+                    else {
+                        $usedInfo = "{0:N0} minutes ago" -f $timeAgo.TotalMinutes
+                    }
+                    Write-Host "    Last used: $usedInfo" -ForegroundColor Gray
+                }
+                catch {
+                    # Ignore date parsing errors
+                }
             }
+
+            if ($installation.packages -and $installation.packages.count -gt 0) {
+                Write-Host "    Packages: $($installation.packages.count)" -ForegroundColor Gray
+            }
+
             Write-Host ""
         }
     }
@@ -388,7 +290,7 @@ if ($Command -eq "activate") {
         if ($env:LUAENV_CURRENT) {
             Write-Host "  Active Installation: $env:LUAENV_CURRENT" -ForegroundColor Green
         } else {
-            Write-Host "  No LuaEnv installation active" -ForegroundColor Yellow
+            Write-Host "  No active installation" -ForegroundColor Yellow
         }
 
         if ($env:LUA_PATH) {
@@ -406,18 +308,18 @@ if ($Command -eq "activate") {
         # Test if lua and luarocks are available
         try {
             $luaVersion = & lua -v 2>&1
-            Write-Host "  Lua Version: $luaVersion" -ForegroundColor Green
+            Write-Host "  Lua: $luaVersion" -ForegroundColor Green
         }
         catch {
-            Write-Host "  Lua: Not available in PATH" -ForegroundColor Red
+            Write-Host "  Lua: Not in PATH" -ForegroundColor Yellow
         }
 
         try {
-            $luarocksVersion = & luarocks --version 2>&1 | Select-Object -First 1
-            Write-Host "  LuaRocks Version: $luarocksVersion" -ForegroundColor Green
+            $luarocksVersion = & luarocks --version 2>&1
+            Write-Host "  LuaRocks: $luarocksVersion" -ForegroundColor Green
         }
         catch {
-            Write-Host "  LuaRocks: Not available in PATH" -ForegroundColor Red
+            Write-Host "  LuaRocks: Not in PATH" -ForegroundColor Yellow
         }
     }
 
@@ -427,13 +329,13 @@ if ($Command -eq "activate") {
 
         if (Test-Path $configPath) {
             try {
-                $vsPath = Get-Content $configPath -Raw | ForEach-Object { $_.Trim() }
-                if ($vsPath -and (Test-Path $vsPath)) {
-                    return $vsPath
+                $path = Get-Content $configPath -Raw
+                if ($path -and (Test-Path $path)) {
+                    return $path
                 }
             }
             catch {
-                Write-Host "[WARNING] Failed to read .vspath.txt: $_" -ForegroundColor Yellow
+                # Silently ignore errors
             }
         }
 
@@ -447,20 +349,19 @@ if ($Command -eq "activate") {
         $configPath = Join-Path $PSScriptRoot ".vspath.txt"
 
         try {
-            # Write path to config file
-            Set-Content -Path $configPath -Value $VsPath -Force
-            Write-Host "[OK] Saved Visual Studio path to .vspath.txt" -ForegroundColor Green
+            $VsPath | Set-Content $configPath -Force
+            Write-Host "[INFO] Visual Studio path saved to config: $VsPath" -ForegroundColor Green
             return $true
         }
         catch {
-            Write-Host "[ERROR] Failed to save .vspath.txt: $_" -ForegroundColor Red
+            Write-Host "[ERROR] Failed to save Visual Studio path: $_" -ForegroundColor Red
             return $false
         }
     }
 
     function Find-VisualStudioDeveloperShell {
         param(
-            [string]$Architecture = "x64",  # Default to x64
+            [string]$Architecture = "x64",
             [string]$CustomPath = ""        # Custom VS Tools path
         )
         # Find and initialize Visual Studio Developer Shell.
@@ -474,16 +375,24 @@ if ($Command -eq "activate") {
         if ($CustomPath) {
             $launchPath = Join-Path $CustomPath "Launch-VsDevShell.ps1"
             if (Test-Path $launchPath) {
-                Write-Host "[OK] Found Visual Studio Developer Shell at custom path: $launchPath"
-                Write-Host "[INFO] Configuring for $Architecture build ($vsArch toolset)"
-                & $launchPath -Arch $vsArch -SkipAutomaticLocation >$null 2>&1
-                # Save the custom path for future use
-                Set-VsPathConfig -VsPath $CustomPath
-                return $true
+                Write-Host "[INFO] Using custom VS Developer Shell: $launchPath"
+                try {
+                    # Launch VS Developer Shell and import environment
+                    & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+
+                    # Save path for future use
+                    Set-VsPathConfig -VsPath $CustomPath
+
+                    return $true
+                }
+                catch {
+                    Write-Host "[ERROR] Failed to initialize VS Developer Shell: $_" -ForegroundColor Red
+                    return $false
+                }
             }
             else {
-                Write-Host "[ERROR] Launch-VsDevShell.ps1 not found at: $CustomPath" -ForegroundColor Red
-                return $false
+                Write-Host "[ERROR] Custom VS Developer Shell not found: $launchPath" -ForegroundColor Red
             }
         }
 
@@ -492,13 +401,19 @@ if ($Command -eq "activate") {
         if ($configPath) {
             $launchPath = Join-Path $configPath "Launch-VsDevShell.ps1"
             if (Test-Path $launchPath) {
-                Write-Host "[OK] Found Visual Studio Developer Shell from config: $launchPath"
-                Write-Host "[INFO] Configuring for $Architecture build ($vsArch toolset)"
-                & $launchPath -Arch $vsArch -SkipAutomaticLocation >$null 2>&1
-                return $true
+                Write-Host "[INFO] Using VS Developer Shell from config: $launchPath"
+                try {
+                    # Launch VS Developer Shell and import environment
+                    & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+                    return $true
+                }
+                catch {
+                    Write-Host "[ERROR] Failed to initialize VS Developer Shell: $_" -ForegroundColor Red
+                }
             }
             else {
-                Write-Host "[WARNING] Configured VS path no longer valid: $configPath" -ForegroundColor Yellow
+                Write-Host "[WARNING] VS Developer Shell from config not found: $launchPath" -ForegroundColor Yellow
             }
         }
 
@@ -507,19 +422,24 @@ if ($Command -eq "activate") {
         if (Test-Path $vswherePath) {
             Write-Host "[INFO] Searching for Visual Studio installation using vswhere..."
             try {
-                $vsPath = & $vswherePath -latest -property installationPath 2>$null
-                if ($vsPath) {
-                    $launchPath = Join-Path $vsPath "Common7\Tools\Launch-VsDevShell.ps1"
+                $vsInstallPath = & $vswherePath -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+                if ($vsInstallPath) {
+                    $launchPath = Join-Path $vsInstallPath "Common7\Tools\Launch-VsDevShell.ps1"
                     if (Test-Path $launchPath) {
-                        Write-Host "[OK] Found Visual Studio Developer Shell via vswhere: $launchPath"
-                        Write-Host "[INFO] Configuring for $Architecture build ($vsArch toolset)"
-                        & $launchPath -Arch $vsArch -SkipAutomaticLocation >$null 2>&1
+                        Write-Host "[INFO] Using VS Developer Shell found by vswhere: $launchPath"
+                        & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                        Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+
+                        # Save path for future use
+                        $vsToolsPath = Join-Path $vsInstallPath "Common7\Tools"
+                        Set-VsPathConfig -VsPath $vsToolsPath
+
                         return $true
                     }
                 }
             }
             catch {
-                Write-Host "[WARNING] vswhere failed: $_"
+                Write-Host "[ERROR] Failed to use vswhere: $_" -ForegroundColor Yellow
             }
         }
 
@@ -535,10 +455,20 @@ if ($Command -eq "activate") {
 
         foreach ($vsPath in $vsPaths) {
             if (Test-Path $vsPath) {
-                Write-Host "[OK] Found Visual Studio Developer Shell: $vsPath"
-                Write-Host "[INFO] Configuring for $Architecture build ($vsArch toolset)"
-                & $vsPath -Arch $vsArch -SkipAutomaticLocation >$null 2>&1
-                return $true
+                Write-Host "[INFO] Using VS Developer Shell: $vsPath"
+                try {
+                    & $vsPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+
+                    # Save path for future use
+                    $vsToolsPath = Split-Path -Parent $vsPath
+                    Set-VsPathConfig -VsPath $vsToolsPath
+
+                    return $true
+                }
+                catch {
+                    Write-Host "[WARNING] Failed to initialize VS Developer Shell: $_" -ForegroundColor Yellow
+                }
             }
         }
 
@@ -678,14 +608,6 @@ local_by_default = true
 
         Write-Host "[SUCCESS] You can now use 'lua' and 'luarocks' commands in this shell session." -ForegroundColor Green
 
-        # Update last used timestamp
-        try {
-            & python -c "from registry import LuaEnvRegistry; LuaEnvRegistry().update_last_used('$($installation.id)')" 2>$null
-        }
-        catch {
-            # Silently ignore registry update failures
-        }
-
         return $true
     }
 
@@ -728,42 +650,41 @@ local_by_default = true
         exit 1
     }
 }
-else {
-    # CLI wrapper functionality - delegate all validation to the CLI executable
 
-    function Invoke-LuaEnvCLI {
-        # Get the directory where this script is located (bin directory)
-        $BinDir = $PSScriptRoot
+# CLI wrapper functionality - delegate all validation to the CLI executable
 
-        # Set the backend config path
-        $BackendConfig = Join-Path $BinDir "backend.config"
+function Invoke-LuaEnvCLI {
+    # Get the directory where this script is located (bin directory)
+    $BinDir = $PSScriptRoot
 
-        # Set the CLI executable path
-        $CliExe = Join-Path $BinDir "cli\LuaEnv.CLI.exe"
+    # Set the backend config path
+    $BackendConfig = Join-Path $BinDir "backend.config"
 
-        # Check if config exists
-        if (-not (Test-Path $BackendConfig)) {
-            Write-Error "[ERROR] Backend configuration not found: $BackendConfig"
-            exit 1
-        }
+    # Set the CLI executable path
+    $CliExe = Join-Path $BinDir "cli\LuaEnv.CLI.exe"
 
-        # Check if CLI exists
-        if (-not (Test-Path $CliExe)) {
-            Write-Error "[ERROR] CLI executable not found: $CliExe"
-            exit 1
-        }
-
-        # Build arguments array
-        $allArgs = @()
-        if ($Command) {
-            $allArgs += $Command
-        }
-        $allArgs += $Arguments
-
-        # Execute CLI with config and pass through all arguments
-        & $CliExe --config $BackendConfig $allArgs
+    # Check if config exists
+    if (-not (Test-Path $BackendConfig)) {
+        Write-Error "[ERROR] Backend configuration not found: $BackendConfig"
+        exit 1
     }
 
-    # Call the CLI function
-    Invoke-LuaEnvCLI
+    # Check if CLI exists
+    if (-not (Test-Path $CliExe)) {
+        Write-Error "[ERROR] CLI executable not found: $CliExe"
+        exit 1
+    }
+
+    # Build arguments array
+    $allArgs = @()
+    if ($Command) {
+        $allArgs += $Command
+    }
+    $allArgs += $Arguments
+
+    # Execute CLI with config and pass through all arguments
+    & $CliExe --config $BackendConfig $allArgs
 }
+
+# Call the CLI function
+Invoke-LuaEnvCLI
