@@ -152,7 +152,8 @@ def create_extraction_callback():
     return move_callback
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the script."""
     # Check for command line arguments
     if len(sys.argv) > 1:
         if sys.argv[1] in ['--config', '-c', '--show-config']:
@@ -327,3 +328,7 @@ if __name__ == "__main__":
     else:
         print(f"[ERROR] {message}")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

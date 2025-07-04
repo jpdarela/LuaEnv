@@ -28,9 +28,6 @@ cli/*/obj/
 cli/.fake/
 cli/packages/
 cli/paket-files/
-*.dll
-*.exe
-*.pdb
 *.so
 *.cache
 

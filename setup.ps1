@@ -7,6 +7,9 @@
     Bootstrap script for LuaEnv installation. Downloads embedded Python if needed
     and manages the complete LuaEnv installation lifecycle.
 
+.PARAMETER BuildCli
+    Build the CLI application before installation. Runs build_cli.ps1 with auto-detection.
+
 .PARAMETER Python
     Force install/reinstall embedded Python only. Does not run installation.
 
@@ -20,6 +23,10 @@
 .EXAMPLE
     .\setup.ps1
     Check for Python, install if needed, then run LuaEnv installation
+
+.EXAMPLE
+    .\setup.ps1 -BuildCli
+    Build CLI application then run normal installation
 
 .EXAMPLE
     .\setup.ps1 -Python
@@ -36,6 +43,9 @@
 
 [CmdletBinding(DefaultParameterSetName='Default')]
 param(
+    [Parameter(ParameterSetName='BuildCli')]
+    [switch]$BuildCli,
+
     [Parameter(ParameterSetName='Python')]
     [switch]$Python,
 
@@ -56,12 +66,42 @@ $PythonDir = Join-Path $ProjectRoot "python"
 $PythonExe = Join-Path $PythonDir "python.exe"
 $TempZip = Join-Path $ProjectRoot "python-temp.zip"
 $InstallScript = Join-Path $ProjectRoot "install.py"
+$BuildCliScript = Join-Path $ProjectRoot "build_cli.ps1"
 
 # Logging functions
 function Write-Info($msg) { Write-Host "[INFO] $msg" -ForegroundColor White }
 function Write-OK($msg) { Write-Host "[OK] $msg" -ForegroundColor Green }
 function Write-Err($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 function Write-Warn($msg) { Write-Host "[WARNING] $msg" -ForegroundColor Yellow }
+
+function Invoke-CliBuild {
+    if (-not (Test-Path $BuildCliScript)) {
+        Write-Err "Build script not found: $BuildCliScript"
+        return $false
+    }
+
+    Write-Info "CLI Build"
+    Write-Info "========="
+    Write-Info "Running: .\build_cli.ps1 -WarmUp (auto-detect architecture with JIT warm-up)"
+
+    try {
+        & $BuildCliScript -WarmUp
+        $exitCode = $LASTEXITCODE
+        if ($null -eq $exitCode) { $exitCode = 0 }
+
+        if ($exitCode -eq 0) {
+            Write-OK "CLI build and warm-up completed successfully"
+            return $true
+        } else {
+            Write-Err "CLI build failed with exit code: $exitCode"
+            return $false
+        }
+
+    } catch {
+        Write-Err "Failed to run CLI build: $_"
+        return $false
+    }
+}
 
 function Show-Help {
     Write-Host @"
@@ -74,6 +114,7 @@ embedded Python and setting up the LuaEnv environment.
 
 USAGE:
     .\setup.ps1                 # Normal installation
+    .\setup.ps1 -BuildCli       # Build CLI then install
     .\setup.ps1 -Python         # Python setup only
     .\setup.ps1 -Reset          # Complete reset (DANGEROUS)
     .\setup.ps1 -Help           # Show this help
@@ -86,6 +127,13 @@ MODES:
     • Run install.py to create ~/.luaenv structure
     • Install PowerShell scripts and CLI binaries
     • Configure backend with embedded Python paths
+
+  -BuildCli
+    • Build the CLI application using build_cli.ps1 (auto-detect architecture)
+    • Includes JIT warm-up for optimal first-run performance
+    • Then perform normal installation steps
+    • Ensures you have the latest CLI build before installation
+    • Equivalent to running .\build_cli.ps1 -WarmUp then .\setup.ps1
 
   -Python
     • Force download/install embedded Python
@@ -269,6 +317,30 @@ try {
             exit 0
         }
 
+        'BuildCli' {
+            Write-Info "Mode: Build CLI then install"
+
+            # Step 1: Build CLI application
+            if (-not (Invoke-CliBuild)) {
+                Write-Err "Failed to build CLI application"
+                exit 1
+            }
+
+            # Step 2: Ensure Python is available (install if missing)
+            if (-not (Install-EmbeddedPython)) {
+                Write-Err "Failed to setup embedded Python"
+                exit 1
+            }
+
+            # Step 3: Run LuaEnv installation
+            if (-not (Invoke-LuaEnvInstall @())) {
+                Write-Err "LuaEnv installation failed"
+                exit 1
+            }
+
+            Write-OK "CLI build and LuaEnv installation completed successfully!"
+        }
+
         'Python' {
             Write-Info "Mode: Python installation only"
             if (-not (Install-EmbeddedPython -ForceReinstall)) {
@@ -339,7 +411,7 @@ try {
     }
 
     # Final success message (for modes that complete installation)
-    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset')) {
+    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli')) {
         Write-Info ""
         Write-OK "LuaEnv is now ready to use!"
         Write-Info "Next steps:"

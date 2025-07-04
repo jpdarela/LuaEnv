@@ -37,21 +37,21 @@ from backend.utils import print_message, print_success, print_error, print_warni
 from backend.registry import LuaEnvRegistry
 
 # Project structure constants
-PROJECT_ROOT = Path(__file__).parent.absolute()
-BACKEND_DIR = PROJECT_ROOT / "backend"
-CLI_DIR = PROJECT_ROOT / "cli"
+PROJECT_ROOT = Path(__file__).parent.absolute() # Root directory of the project
+BACKEND_DIR = PROJECT_ROOT / "backend" # Directory containing backend modules
+CLI_DIR = PROJECT_ROOT / "cli" # Directory containing CLI-related files
 
 # LuaEnv directory structure MATCHES THE DEFAULT IN THE backend.registry.py
-LUAENV_DIR = Path.home() / ".luaenv"
-BIN_DIR = LUAENV_DIR / "bin"
-REGISTRY_FILE = LUAENV_DIR / 'registry.json'
+LUAENV_DIR = Path.home() / ".luaenv" # Default installation directory
+BIN_DIR = LUAENV_DIR / "bin" # Destination for installed scripts and binaries
+REGISTRY_FILE = LUAENV_DIR / 'registry.json' # Explicitly set registry file path (this is the default in backend.registry.py)
 
 # Embedded Python paths
 PYTHON_DIR = PROJECT_ROOT / "python"
 PYTHON_EXE = PYTHON_DIR / "python.exe"
 
 # CLI binaries directory
-CLI_BIN_DIR = PROJECT_ROOT / 'publish'
+CLI_BIN_DIR = PROJECT_ROOT / 'win64'
 
 # Create an instance of LuaEnvRegistry
 REGISTRY = LuaEnvRegistry(REGISTRY_FILE)

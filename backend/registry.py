@@ -600,7 +600,6 @@ class LuaEnvRegistry:
         except Exception as e:
             print(f"[ERROR] Failed to update backend config: {e}")
 
-
     def install_scripts(self, force: bool = False) -> Path:
         """Install LuaEnv scripts to the global bin directory.
 

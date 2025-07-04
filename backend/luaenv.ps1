@@ -33,20 +33,15 @@ $validCommands = @(
     "activate"
 )
 
-# Define valid global options that can be used with CLI commands
-$validGlobalOptions = @(
-    "--config"
-)
-
 # Validate command
 if ($Command -and $validCommands -notcontains $Command) {
     Write-Host "[ERROR] Unknown command: '$Command'" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Valid commands are:" -ForegroundColor Yellow
-    Write-Host "  CLI commands:     install, uninstall, list, status, versions, pkg-config, config, help"
-    Write-Host "  Script command:   activate"
+    Write-Host "Available commands:" -ForegroundColor Yellow
+    Write-Host "  CLI commands:    install, uninstall, list, status, versions, pkg-config, config"
+    Write-Host "  Shell command:   activate (PowerShell only)"
     Write-Host ""
-    Write-Host "For help, use: .\luaenv.ps1 --help" -ForegroundColor Gray
+    Write-Host "Use 'luaenv --help' for more information" -ForegroundColor Gray
     exit 1
 }
 
@@ -56,30 +51,65 @@ if ($Command -eq "--help" -or $Command -eq "-h" -or $Command -eq "help") {
     Write-Host "=======================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "USAGE:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv.ps1 <command> [options]"
+    Write-Host "  luaenv <command> [options]"
     Write-Host ""
-    Write-Host "CLI COMMANDS (forwarded to LuaEnv.CLI.exe):" -ForegroundColor Yellow
-    Write-Host "  install [options]              Install a new Lua environment"
-    Write-Host "  uninstall <alias|uuid>         Remove a Lua installation"
-    Write-Host "  list                           List all installed Lua environments"
-    Write-Host "  status                         Show system status and registry information"
-    Write-Host "  versions                       Show installed and available versions"
-    Write-Host "  pkg-config <alias|uuid>        Show pkg-config information for C developers"
-    Write-Host "  config                         Show current configuration"
-    Write-Host "  help                           Show CLI help message"
+    Write-Host "COMMANDS:" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "SCRIPT COMMANDS:" -ForegroundColor Yellow
-    Write-Host "  activate [options]             Activate a Lua environment in current shell"
+    Write-Host "  Environment Management (CLI):" -ForegroundColor Cyan
+    Write-Host "    install [options]       Install a new Lua environment"
+    Write-Host "    uninstall <alias|uuid>  Remove a Lua installation"
+    Write-Host "    list                    List all installed Lua environments"
+    Write-Host "    status                  Show system status and registry information"
+    Write-Host "    versions                Show installed and available versions"
+    Write-Host "    pkg-config <alias|uuid> Show pkg-config information for C developers"
+    Write-Host "    config                  Show current configuration"
+    Write-Host "    help                    Show CLI help message"
     Write-Host ""
-    Write-Host "For command-specific help, use:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv.ps1 <command> --help"
+    Write-Host "  Shell Integration (PowerShell):" -ForegroundColor Cyan
+    Write-Host "    activate [options]      Activate a Lua environment in current shell"
+    Write-Host ""
+    Write-Host "For command-specific help:" -ForegroundColor Yellow
+    Write-Host "  luaenv <command> --help"
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\luaenv.ps1 install --help" -ForegroundColor Cyan
-    Write-Host "  .\luaenv.ps1 activate --help" -ForegroundColor Cyan
-    Write-Host "  .\luaenv.ps1 list" -ForegroundColor Cyan
-    Write-Host "  .\luaenv.ps1 activate --alias dev" -ForegroundColor Cyan
+    Write-Host "  luaenv install --alias dev        # Install Lua with alias 'dev'"
+    Write-Host "  luaenv activate --alias dev       # Activate 'dev' environment"
+    Write-Host "  luaenv list                       # Show all installations"
+    Write-Host "  luaenv activate --list            # List available environments"
+    Write-Host ""
+    Write-Host "Note: 'activate' is a PowerShell-only command that modifies your current shell." -ForegroundColor Gray
+    Write-Host "      All other commands are handled by the LuaEnv CLI application." -ForegroundColor Gray
     exit 0
+}
+
+# For non-activate commands with --help, delegate to CLI
+if ($Command -and $Command -ne "activate" -and ($Arguments -contains "--help" -or $Arguments -contains "-h")) {
+    function Invoke-LuaEnvCLI {
+        $BinDir = $PSScriptRoot
+        $BackendConfig = Join-Path $BinDir "backend.config"
+        $CliExe = Join-Path $BinDir "cli\LuaEnv.CLI.exe"
+
+        if (-not (Test-Path $BackendConfig)) {
+            Write-Error "[ERROR] Backend configuration not found: $BackendConfig"
+            exit 1
+        }
+
+        if (-not (Test-Path $CliExe)) {
+            Write-Error "[ERROR] CLI executable not found: $CliExe"
+            exit 1
+        }
+
+        $allArgs = @()
+        if ($Command) {
+            $allArgs += $Command
+        }
+        $allArgs += $Arguments
+
+        & $CliExe --config $BackendConfig $allArgs
+    }
+
+    Invoke-LuaEnvCLI
+    exit
 }
 
 # Check if this is an activate command
@@ -131,7 +161,7 @@ if ($Command -eq "activate") {
                 Write-Host "  --environment      Show current environment information"
                 Write-Host "  --help             Display help information"
                 Write-Host ""
-                Write-Host "Use: .\luaenv.ps1 activate --help for more information" -ForegroundColor Gray
+                Write-Host "Use: luaenv activate --help for more information" -ForegroundColor Gray
                 exit 1
             }
         }
@@ -195,7 +225,7 @@ if ($Command -eq "activate") {
         Write-Host "  Automatically configures Visual Studio Developer Shell, PATH, and Lua module paths."
         Write-Host ""
         Write-Host "USAGE:" -ForegroundColor Yellow
-        Write-Host "  .\luaenv.ps1 activate [options]"
+        Write-Host "  luaenv activate [options]"
         Write-Host ""
         Write-Host "OPTIONS:" -ForegroundColor Yellow
         Write-Host "  --id <uuid>        Use installation by UUID (full or partial, minimum 8 characters)"
@@ -211,22 +241,22 @@ if ($Command -eq "activate") {
         Write-Host ""
         Write-Host "EXAMPLES:" -ForegroundColor Yellow
         Write-Host "  List available installations:"
-        Write-Host "  .\luaenv.ps1 activate --list" -ForegroundColor Cyan
+        Write-Host "  luaenv activate --list" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use default installation:"
-        Write-Host "  .\luaenv.ps1 activate" -ForegroundColor Cyan
+        Write-Host "  luaenv activate" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation by alias:"
-        Write-Host "  .\luaenv.ps1 activate --alias dev" -ForegroundColor Cyan
+        Write-Host "  luaenv activate --alias dev" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation by partial UUID:"
-        Write-Host "  .\luaenv.ps1 activate --id a1b2c3d4" -ForegroundColor Cyan
+        Write-Host "  luaenv activate --id a1b2c3d4" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Use installation with custom LuaRocks tree:"
-        Write-Host "  .\luaenv.ps1 activate --alias dev --tree 'C:\MyProject\lua_modules'" -ForegroundColor Cyan
+        Write-Host "  luaenv activate --alias dev --tree 'C:\MyProject\lua_modules'" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "  Set custom Visual Studio path:"
-        Write-Host "  .\luaenv.ps1 activate --devshell 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools'" -ForegroundColor Cyan
+        Write-Host "  luaenv activate --devshell 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools'" -ForegroundColor Cyan
         Write-Host ""
         return
     }
@@ -238,7 +268,7 @@ if ($Command -eq "activate") {
 
         if (-not (Test-Path $registryPath)) {
             Write-Host "[ERROR] LuaEnv registry not found at: $registryPath" -ForegroundColor Red
-            Write-Host "[INFO] Run 'luaenv.ps1 install' to create your first installation" -ForegroundColor Yellow
+            Write-Host "[INFO] Run 'luaenv install' to create your first installation" -ForegroundColor Yellow
             return $null
         }
 
@@ -326,7 +356,7 @@ if ($Command -eq "activate") {
 
         if ($installations.Count -eq 0) {
             Write-Host "[INFO] No installations found" -ForegroundColor Yellow
-            Write-Host "[INFO] Run 'luaenv.ps1 install' to create your first installation" -ForegroundColor Yellow
+            Write-Host "[INFO] Run 'luaenv install' to create your first installation" -ForegroundColor Yellow
             return
         }
 
@@ -588,7 +618,7 @@ if ($Command -eq "activate") {
             New-Item -ItemType Directory -Path $luarocksConfigDir -Force | Out-Null
         }
 
-        $luarocksConfigFile = Join-Path $luarocksConfigDir "config.lua"
+        $luarocksConfigFile = Join-Path $luarocksConfigDir "$($installation.id)-config.lua"
         $luaIncDir = Join-Path $installPath "include"
         $luaLibDir = Join-Path $installPath "lib"
 
@@ -603,6 +633,11 @@ lua_incdir = "$($luaIncDir.Replace('\', '\\'))"
 lua_libdir = "$($luaLibDir.Replace('\', '\\'))"
 lua_bindir = "$($luaBinPath.Replace('\', '\\'))"
 lua_lib = "lua54.lib"
+
+-- Environment isolation settings
+local_cache = "$($luarocksTree.Replace('\', '\\'))\\cache"
+home_tree = ""
+local_by_default = true
 "@
 
         # Write config file without BOM
@@ -617,12 +652,20 @@ lua_lib = "lua54.lib"
         # Display version information
         try {
             Write-Host "[INFO] Lua version:" -ForegroundColor Yellow
-            & lua -v
-            Write-Host "[INFO] LuaRocks version:" -ForegroundColor Yellow
-            & luarocks --version | Select-Object -First 1
+            $luaVersion = & lua -v 2>&1
+            Write-Host "  $luaVersion" -ForegroundColor Green
         }
         catch {
-            Write-Host "[WARNING] Could not verify installation" -ForegroundColor Yellow
+            Write-Host "  [WARNING] Could not verify Lua installation: $_" -ForegroundColor Yellow
+        }
+
+        try {
+            Write-Host "[INFO] LuaRocks version:" -ForegroundColor Yellow
+            $luarocksVersion = & luarocks --version 2>&1 | Select-Object -First 1
+            Write-Host "  $luarocksVersion" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  [WARNING] Could not verify LuaRocks installation: $_" -ForegroundColor Yellow
         }
 
         Write-Host "[INFO] Environment variables set:" -ForegroundColor Yellow
@@ -632,6 +675,7 @@ lua_lib = "lua54.lib"
         Write-Host "  LUAROCKS_CONFIG: $env:LUAROCKS_CONFIG" -ForegroundColor Gray
         Write-Host "  PATH updated with Lua and LuaRocks directories" -ForegroundColor Gray
         Write-Host ""
+
         Write-Host "[SUCCESS] You can now use 'lua' and 'luarocks' commands in this shell session." -ForegroundColor Green
 
         # Update last used timestamp
@@ -685,66 +729,7 @@ lua_lib = "lua54.lib"
     }
 }
 else {
-    # CLI wrapper functionality (from luaenv.ps1)
-    # For CLI commands, validate that no invalid options are passed
-
-    # Define known CLI command options
-    $cliCommandOptions = @{
-        "install" = @("--help", "--alias", "--build", "--config", "--arch", "--luarocks", "--update", "--set-default")
-        "uninstall" = @("--help")
-        "list" = @("--help", "--json", "--detailed")
-        "status" = @("--help")
-        "versions" = @("--help")
-        "pkg-config" = @("--help")
-        "config" = @("--help")
-    }
-
-    # Check if we know about this command's options
-    if ($Command -and $cliCommandOptions.ContainsKey($Command)) {
-        $validOptions = $cliCommandOptions[$Command] + $validGlobalOptions
-
-        # Validate all arguments that look like options
-        for ($i = 0; $i -lt $Arguments.Count; $i++) {
-            $arg = $Arguments[$i]
-
-            # If it looks like an option (starts with -)
-            if ($arg -match '^-') {
-                $isValid = $false
-
-                # Check against valid options for this command
-                foreach ($validOption in $validOptions) {
-                    if ($arg -eq $validOption) {
-                        $isValid = $true
-                        break
-                    }
-                }
-
-                # Special case: --config requires a value
-                if ($arg -eq "--config" -and $i + 1 -lt $Arguments.Count) {
-                    $i++ # Skip the next argument as it's the config value
-                }
-
-                if (-not $isValid) {
-                    Write-Host "[ERROR] Unknown option '$arg' for command '$Command'" -ForegroundColor Red
-                    Write-Host ""
-                    Write-Host "Valid options for '$Command' are:" -ForegroundColor Yellow
-                    foreach ($opt in $cliCommandOptions[$Command]) {
-                        Write-Host "  $opt" -ForegroundColor Gray
-                    }
-                    if ($validGlobalOptions.Count -gt 0) {
-                        Write-Host ""
-                        Write-Host "Global options:" -ForegroundColor Yellow
-                        foreach ($opt in $validGlobalOptions) {
-                            Write-Host "  $opt" -ForegroundColor Gray
-                        }
-                    }
-                    Write-Host ""
-                    Write-Host "For help, use: .\luaenv.ps1 $Command --help" -ForegroundColor Gray
-                    exit 1
-                }
-            }
-        }
-    }
+    # CLI wrapper functionality - delegate all validation to the CLI executable
 
     function Invoke-LuaEnvCLI {
         # Get the directory where this script is located (bin directory)
