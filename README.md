@@ -1,5 +1,7 @@
 # LuaEnv - Lua Environment Management for Windows
 
+Under development.
+
 A Lua environment management system for Windows that provides automated installation, building, and configuration of Lua and LuaRocks using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing integration with C/C++ development workflows.
 
 # Table of Contents
@@ -121,7 +123,7 @@ Dependencies are automatically managed:
 
 LuaEnv uses a PowerShell wrapper script system that provides seamless integration between PowerShell and the F# CLI application.
 
-### Wrapper Script Architecture
+## Wrapper Script Architecture
 
 The CLI system uses a multi-layer architecture:
 
@@ -135,7 +137,7 @@ The wrapper automatically:
 - Handles PowerShell-specific environment activation
 - Provides consistent error handling and help
 
-### Primary Interface: luaenv Command
+## Primary Interface: luaenv Command
 
 After installation, use the `luaenv` command from the `~/.luaenv/bin` directory:
 
@@ -170,7 +172,7 @@ luaenv config                        # Show current configuration
 luaenv help                          # Show help information
 ```
 
-### Environment Activation
+## Environment Activation
 
 ```powershell
 # Activate environment in current PowerShell session
@@ -189,7 +191,7 @@ setenv.ps1                           # Launch new VS Developer Shell
 setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 ```
 
-### What Environment Activation Does
+## What Environment Activation Does
 
 1. **Visual Studio Setup**: Automatically configures MSVC toolchain using `setenv.ps1`
 2. **PATH Configuration**: Adds Lua and LuaRocks executables to PATH
@@ -197,7 +199,7 @@ setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 4. **LuaRocks Config**: Configures LuaRocks for package compilation
 5. **Session Variables**: Sets environment markers for current session
 
-### Available CLI Commands
+## Available CLI Commands
 
 - **install**: Install new Lua environment with version and build options
 - **uninstall**: Remove existing installation by alias or UUID
@@ -210,22 +212,22 @@ setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 - **set-alias**: Set or update an alias for an installation
 - **help**: Display help information for commands
 
-## Environment Isolation
+# Environment Isolation
 
 LuaEnv provides complete environment isolation through a UUID-based registry system and separate installation directories.
 
-### Installation Separation
+## Installation Separation
 - **Unique UUIDs**: Each installation has a unique identifier stored in the registry
 - **Separate Directories**: `~/.luaenv/installations/{uuid}/` for each environment
 - **Independent Configurations**: Separate build configurations and package trees
 - **Version Independence**: Different Lua/LuaRocks versions per environment
 
-### Package Isolation
+## Package Isolation
 - **Dedicated LuaRocks Trees**: Each environment has its own package tree in the installation directory (Can be overridden with luaenv activate --tree)
 - **Module Path Isolation**: `LUA_PATH` and `LUA_CPATH` are environment-specific during activation
 - **No Cross-Contamination**: Packages installed in one environment don't affect others
 
-### Available Versions od Lua and LuaRocks
+# Available Versions od Lua and LuaRocks
 - **Build Settings**: Static vs DLL, Debug vs Release configurations per environment
 
 # Project Structure
@@ -349,11 +351,11 @@ lua_msvc_build/
     └── build/                # Build artifacts cache
 ```
 
-### Tests
+# Tests
 
 Not completed yet.
 
-### CLI Development Testing Workflow
+### CLI Development and manual testing workflow
 
 Check the --help output for the CLI commands to understand their usage and options.
 
@@ -374,13 +376,13 @@ $env:PATH += ";$HOME\.luaenv\bin"
 # Verify PATH update
 $env:PATH -split ';' | Where-Object { $_ -like "*luaenv*" }
 
-# in general, the scripts can be called witout the file extension
+# If in the path, the scripts can be called witout the file extension
 # e.g.
 luaenv <command> # instead of luaenv.ps1
 luaenv-pkg-config <command> # instead of luaenv-pkg-config.cmd
 ```
 
-## Architecture Guidelines
+# Architecture Guidelines
 
 - **Backend Scripts**: Designed to run from `backend/` directory with relative imports
 - **Dual-Context Design**: Support both CLI execution and module import patterns
@@ -388,18 +390,17 @@ luaenv-pkg-config <command> # instead of luaenv-pkg-config.cmd
 - **Configuration-Driven**: Use `build_config.txt` as single source of truth
 - **Error Recovery**: Include comprehensive error handling and cleanup
 
-## Contributing
+# Contributing
 Contributions are welcome!
 
-## License
+# License
 This project is in public domain and can be used freely without restrictions. However, contributions are appreciated and will be acknowledged in the project documentation.
 
-## Use of LLMs via GitHub Copilot
+# Use of LLMs via GitHub Copilot
 This project uses GitHub Copilot for code suggestions and improvements. The code is generated based on the context provided by the user and is not directly copied from any source. The use of Copilot is intended to enhance productivity and code quality, but the final implementation is reviewed and modified by the project maintainers to ensure correctness and adherence to project standards.
 
 ## Notes on the backend system
 
 This project started as a simple set of scripts to download and build Lua and LuaRocks on Windows using the MSVC toolchain. Over time, it evolved into a more complex system with a Python backend that manages downloads, builds, and configurations. The backend is designed to be modular and extensible, allowing for easy addition of new features and improvements.
 
-The backend system can be used independently of the CLI, allowing for flexible integration with other tools and workflows. It provides a robust foundation for managing Lua environments on Windows, with a focus on reliability, performance, and ease of use.
-
+The backend system can be used independently of the CLI, allowing for flexible integration with other tools and workflows. It provides a robust foundation for managing Lua environments on Windows, with a focus on reliability, performance, and ease of use. Check the `backend/` directory for (outdated) documentation on the backend components and their usage.
