@@ -445,14 +445,8 @@ module Backend =
                             printfn "    Build: %s %s (%s)" installation.build_type installation.build_config installation.architecture
                             printfn "    Created: %s" installation.created
 
-                            if installation.last_used.IsSome then
-                                printfn "    Last Used: %s" installation.last_used.Value
-                            else
-                                printfn "    Last Used: Never"
-
                             printfn "    Installation Path: %s" installation.installation_path
                             printfn "    Environment Path: %s" installation.environment_path
-                            printfn "    Packages: %d installed" installation.packages.count
 
                             if not (List.isEmpty installation.tags) then
                                 let tagsStr = String.Join(", ", installation.tags)

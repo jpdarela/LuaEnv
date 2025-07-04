@@ -468,28 +468,6 @@ class LuaEnvRegistry:
             return self.registry["installations"][default_id]
         return None
 
-    def update_last_used(self, installation_id: str) -> None:
-        """Update last used timestamp for installation."""
-        if installation_id in self.registry["installations"]:
-            self.registry["installations"][installation_id]["last_used"] = \
-                datetime.now(timezone.utc).isoformat()
-            self._save_registry()  # Save the registry after updating timestamp
-
-    def update_package_info(self, installation_id: str, package_count: int) -> None:
-        """Update package information for an installation.
-
-        Args:
-            installation_id: Installation UUID
-            package_count: Number of installed packages
-        """
-        if installation_id in self.registry["installations"]:
-            self.registry["installations"][installation_id]["packages"] = {
-                "count": package_count,
-                "last_updated": datetime.now(timezone.utc).isoformat()
-            }
-            self._save_registry()
-            print(f"[INFO] Updated package count for installation: {package_count} packages")
-
     def update_status(self, installation_id: str, status: str) -> None:
         """Update installation status.
 

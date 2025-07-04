@@ -378,7 +378,7 @@ if ($Command -eq "activate") {
                 Write-Host "[INFO] Using custom VS Developer Shell: $launchPath"
                 try {
                     # Launch VS Developer Shell and import environment
-                    & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    & $launchPath -Arch $vsArch -SkipAutomaticLocation
                     Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                     # Save path for future use
@@ -404,7 +404,7 @@ if ($Command -eq "activate") {
                 Write-Host "[INFO] Using VS Developer Shell from config: $launchPath"
                 try {
                     # Launch VS Developer Shell and import environment
-                    & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    & $launchPath -Arch $vsArch -SkipAutomaticLocation
                     Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
                     return $true
                 }
@@ -427,7 +427,7 @@ if ($Command -eq "activate") {
                     $launchPath = Join-Path $vsInstallPath "Common7\Tools\Launch-VsDevShell.ps1"
                     if (Test-Path $launchPath) {
                         Write-Host "[INFO] Using VS Developer Shell found by vswhere: $launchPath"
-                        & $launchPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                        & $launchPath -Arch $vsArch -SkipAutomaticLocation
                         Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                         # Save path for future use
@@ -457,7 +457,8 @@ if ($Command -eq "activate") {
             if (Test-Path $vsPath) {
                 Write-Host "[INFO] Using VS Developer Shell: $vsPath"
                 try {
-                    & $vsPath -Arch $vsArch -SkipAutomaticLocation -DevCmdArguments "-no_logo"
+                    & $vsPath -Arch $vsArch -SkipAutomaticLocation
+
                     Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                     # Save path for future use
@@ -506,6 +507,9 @@ if ($Command -eq "activate") {
         Write-Host "[INFO] Installation: $installPath" -ForegroundColor Gray
         Write-Host "[INFO] Environment: $envPath" -ForegroundColor Gray
 
+        # Save original system PATH before any modifications
+        $originalSystemPath = $env:PATH
+
         # Find and setup Visual Studio Developer Shell with correct architecture
         $vsFound = Find-VisualStudioDeveloperShell -Architecture $architecture -CustomPath $customDevShell
 
@@ -533,7 +537,22 @@ if ($Command -eq "activate") {
         # Add Lua and LuaRocks to PATH
         $luaBinPath = Join-Path $installPath "bin"
         $luarocksBinPath = Join-Path $installPath "luarocks"
-        $env:PATH = "$luaBinPath;$luarocksBinPath;$env:PATH"
+
+        # Use a smarter PATH handling approach that preserves both VS Developer environment and original system paths
+        # This ensures that both Lua/LuaRocks tools AND system tools like code, git, etc. remain available
+        $currentPath = $env:PATH
+
+        # Extract VS-specific paths (added by VS Developer Shell) by comparing with original system PATH
+        $vsPathEntries = @()
+        foreach ($path in $currentPath.Split(';')) {
+            if ($originalSystemPath.Split(';') -notcontains $path) {
+                $vsPathEntries += $path
+            }
+        }
+
+        # Rebuild PATH with: Lua bins first, then VS paths, then original system paths
+        # This ensures both VS Developer tools and system tools are available
+        $env:PATH = "$luaBinPath;$luarocksBinPath;" + ($vsPathEntries -join ';') + ";$originalSystemPath"
 
         # Configure Lua module paths
         $luaLibPath = Join-Path $luarocksTree "lib\lua\5.4"
@@ -644,6 +663,8 @@ local_by_default = true
         if (-not $success) {
             exit 1
         }
+        # Exit after successful activation to prevent passing the 'activate' command to CLI
+        exit 0
     }
     catch {
         Write-Host "[ERROR] Script failed: $_" -ForegroundColor Red
