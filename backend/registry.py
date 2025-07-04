@@ -617,7 +617,6 @@ class LuaEnvRegistry:
         # Scripts to install
         scripts_to_install = [
             ("setenv.ps1", "Visual Studio environment setup script"),
-            ("use-lua.ps1", "Registry-aware Lua environment activation script"),
             ("luaenv.ps1", "LuaEnv CLI wrapper and environment activator"),
             ("backend.config", "Backend configuration for LuaEnv"),
         ]
@@ -678,10 +677,10 @@ class LuaEnvRegistry:
 
         print(f"\n[IMPORTANT] Add to PATH: {scripts_path}")
         print(f"[INFO] After adding to PATH, you can use:")
-        print(f"  use-lua.ps1 -List")
-        print(f"  use-lua.ps1 -Alias <name>")
         print(f"  setenv.ps1")
         print(f"  luaenv.ps1 status")
+        print(f"  luaenv.ps1 activate --list")
+        print(f"  luaenv.ps1 activate --alias <name>")
         print(f"[INFO] For registry/install commands, use: luaenv.ps1 help")
 
         return scripts_path
@@ -709,15 +708,14 @@ class LuaEnvRegistry:
    - Add: {scripts_path}
 
 4. VERIFY INSTALLATION:
-   Get-Command use-lua.ps1
    Get-Command setenv.ps1
    Get-Command luaenv.ps1
 
 5. USAGE:
-   use-lua.ps1 -List
-   use-lua.ps1 -Alias <name>
    setenv.ps1
    luaenv.ps1 status  (CLI commands)
+   luaenv.ps1 activate --list
+   luaenv.ps1 activate --alias <name>
 """
         return instructions
 
@@ -731,7 +729,7 @@ class LuaEnvRegistry:
             "scripts_status": {}
         }
 
-        scripts_to_check = ["use-lua.ps1", "setenv.ps1", "luaenv.ps1"]
+        scripts_to_check = ["setenv.ps1", "luaenv.ps1"]
 
         for script_name in scripts_to_check:
             script_path = scripts_path / script_name
@@ -1008,7 +1006,7 @@ def main():
             print(f"[OK] Scripts directory exists: {scripts_path}")
 
             # Check individual scripts
-            scripts = ['setenv.ps1', 'use-lua.ps1']
+            scripts = ['setenv.ps1', 'luaenv.ps1']
             for script in scripts:
                 script_path = scripts_path / script
                 if script_path.exists():

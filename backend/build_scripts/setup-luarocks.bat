@@ -207,8 +207,7 @@ echo LuaRocks Setup Complete!
 echo ====================================================================
 
 echo.
-echo Check the script use-lua.ps1 in the installation directory for
-echo setting up your PowerShell environment to use LuaRocks with
-echo your Lua installation.
+echo Use 'luaenv.ps1 activate --alias <name>' to set up your PowerShell
+echo environment to use LuaRocks with your Lua installation.
 
 echo Configuration saved. You can now use LuaRocks with your Lua build!

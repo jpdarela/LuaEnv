@@ -190,7 +190,6 @@ def verify_installation() -> Dict[str, bool]:
 
     # Check scripts
     scripts_to_check = [
-        ("use-lua.ps1", BIN_DIR / "use-lua.ps1"),
         ("setenv.ps1", BIN_DIR / "setenv.ps1"),
         ("luaenv.ps1", BIN_DIR / "luaenv.ps1")
     ]

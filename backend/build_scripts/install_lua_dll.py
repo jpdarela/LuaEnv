@@ -223,8 +223,8 @@ class LuaDLLInstaller:
 
 # Environment Setup:
 # -----------------
-# To use Lua from anywhere, use the use-lua.ps1 script provided in the installation directory.
-# You can run it in PowerShell to set up the environment variables for the current session.
+# To use Lua environments, use 'luaenv.ps1 activate --alias <name>' to set up the environment
+# variables for the current session. You can run it in PowerShell to configure the environment.
 # For permanent setup, add the bin and the luarocks directories to your PATH environment variable.
 
 # """

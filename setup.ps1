@@ -166,7 +166,7 @@ WHAT GETS INSTALLED:
        • cache/                # Download cache
 
   3. Scripts and Tools
-     • PowerShell scripts (use-lua.ps1, setenv.ps1, luaenv.ps1)
+     • PowerShell scripts (setenv.ps1, luaenv.ps1)
      • Backend configuration (backend.config JSON)
 
 AFTER INSTALLATION:
