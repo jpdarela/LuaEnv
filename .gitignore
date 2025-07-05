@@ -1,4 +1,4 @@
-# Python build system artifacts
+# Backend files
 backend/downloads/
 backend/extracted
 backend/rocks/
@@ -10,7 +10,10 @@ backend/.lua_install_info.txt
 backend/tests/__pycache__/
 backend/__pycache__/
 backend/version_cache.json
-
+backend/*.exe
+/*.exe
+/*.obj
+/*.xml
 # Sandbox folder
 sdb
 
@@ -20,6 +23,12 @@ sdb
 # Embeded Python files
 python
 .pythonenv
+
+# REadline files
+readline/
+lreadline/
+
+
 
 # F# / .NET build artifacts
 publish/

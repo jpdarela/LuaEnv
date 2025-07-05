@@ -1,4 +1,8 @@
 #!/usr/bin/env pwsh
+
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 # luaenv.ps1 - Combined LuaEnv CLI wrapper and environment activator
 
 param(
@@ -407,7 +411,7 @@ if ($Command -eq "activate") {
         # Determine VS arch parameter based on architecture
         $vsArch = if ($Architecture -eq "x86") { "x86" } else { "amd64" }
 
-        Write-Host "[INFO] Setting up Visual Studio Developer Shell for $Architecture architecture..."
+        # Write-Host "[INFO] Setting up Visual Studio Developer Shell for $Architecture architecture..."
 
         # Priority 1: Try custom path if provided
         if ($CustomPath) {
@@ -417,7 +421,7 @@ if ($Command -eq "activate") {
                 try {
                     # Launch VS Developer Shell and import environment
                     & $launchPath -Arch $vsArch -SkipAutomaticLocation
-                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+                    # Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                     # Save path for future use, but only if explicitly provided via --devshell
                     if ($SavePathToConfig) {
@@ -445,7 +449,7 @@ if ($Command -eq "activate") {
                 try {
                     # Launch VS Developer Shell and import environment
                     & $launchPath -Arch $vsArch -SkipAutomaticLocation
-                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+                    # Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
                     return $true
                 }
                 catch {
@@ -460,15 +464,15 @@ if ($Command -eq "activate") {
         # Priority 3: Try using vswhere to find VS installation
         $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
         if (Test-Path $vswherePath) {
-            Write-Host "[INFO] Searching for Visual Studio installation using vswhere..."
+            # Write-Host "[INFO] Searching for Visual Studio installation using vswhere..."
             try {
                 $vsInstallPath = & $vswherePath -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
                 if ($vsInstallPath) {
                     $launchPath = Join-Path $vsInstallPath "Common7\Tools\Launch-VsDevShell.ps1"
                     if (Test-Path $launchPath) {
-                        Write-Host "[INFO] Using VS Developer Shell found by vswhere: $launchPath"
+                        # Write-Host "[INFO] Using VS Developer Shell found by vswhere: $launchPath"
                         & $launchPath -Arch $vsArch -SkipAutomaticLocation
-                        Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+                        # Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                         # Save path for future use only if explicitly requested
                         if ($SavePathToConfig) {
@@ -481,7 +485,7 @@ if ($Command -eq "activate") {
                 }
             }
             catch {
-                Write-Host "[ERROR] Failed to use vswhere: $_" -ForegroundColor Yellow
+                # Write-Host "[ERROR] Failed to use vswhere: $_" -ForegroundColor Yellow
             }
         }
 
@@ -501,7 +505,7 @@ if ($Command -eq "activate") {
                 try {
                     & $vsPath -Arch $vsArch -SkipAutomaticLocation
 
-                    Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
+                    # Write-Host "[OK] Visual Studio Developer Shell initialized" -ForegroundColor Green
 
                     # Save path for future use only if explicitly requested
                     if ($SavePathToConfig) {
@@ -546,10 +550,10 @@ if ($Command -eq "activate") {
             return $false
         }
 
-        Write-Host "[INFO] Setting up environment for: $($installation.name)" -ForegroundColor Green
-        Write-Host "[INFO] Architecture: $architecture" -ForegroundColor Gray
-        Write-Host "[INFO] Installation: $installPath" -ForegroundColor Gray
-        Write-Host "[INFO] Environment: $envPath" -ForegroundColor Gray
+        # Write-Host "[INFO] Setting up environment for: $($installation.name)" -ForegroundColor Green
+        # Write-Host "[INFO] Architecture: $architecture" -ForegroundColor Gray
+        # Write-Host "[INFO] Installation: $installPath" -ForegroundColor Gray
+        # Write-Host "[INFO] Environment: $envPath" -ForegroundColor Gray
 
         # Save original system PATH before any modifications
         $originalSystemPath = $env:PATH
@@ -642,36 +646,36 @@ local_by_default = true
         $env:LUAROCKS_CONFIG = $luarocksConfigFile
         $env:LUAROCKS_SYSCONFDIR = $luarocksConfigDir
 
-        Write-Host "[OK] Lua environment configured successfully!" -ForegroundColor Green
+        # Write-Host "[OK] Lua environment configured successfully!" -ForegroundColor Green
 
-        # Display version information
-        try {
-            Write-Host "[INFO] Lua version:" -ForegroundColor Yellow
-            $luaVersion = & lua -v 2>&1
-            Write-Host "  $luaVersion" -ForegroundColor Green
-        }
-        catch {
-            Write-Host "  [WARNING] Could not verify Lua installation: $_" -ForegroundColor Yellow
-        }
+        # # Display version information
+        # try {
+        #     Write-Host "[INFO] Lua version:" -ForegroundColor Yellow
+        #     $luaVersion = & lua -v 2>&1
+        #     Write-Host "  $luaVersion" -ForegroundColor Green
+        # }
+        # catch {
+        #     Write-Host "  [WARNING] Could not verify Lua installation: $_" -ForegroundColor Yellow
+        # }
 
-        try {
-            Write-Host "[INFO] LuaRocks version:" -ForegroundColor Yellow
-            $luarocksVersion = & luarocks --version 2>&1 | Select-Object -First 1
-            Write-Host "  $luarocksVersion" -ForegroundColor Green
-        }
-        catch {
-            Write-Host "  [WARNING] Could not verify LuaRocks installation: $_" -ForegroundColor Yellow
-        }
+        # try {
+        #     Write-Host "[INFO] LuaRocks version:" -ForegroundColor Yellow
+        #     $luarocksVersion = & luarocks --version 2>&1 | Select-Object -First 1
+        #     Write-Host "  $luarocksVersion" -ForegroundColor Green
+        # }
+        # catch {
+        #     Write-Host "  [WARNING] Could not verify LuaRocks installation: $_" -ForegroundColor Yellow
+        # }
 
-        Write-Host "[INFO] Environment variables set:" -ForegroundColor Yellow
-        Write-Host "  LUAENV_CURRENT: $env:LUAENV_CURRENT" -ForegroundColor Gray
-        Write-Host "  LUA_PATH: $env:LUA_PATH" -ForegroundColor Gray
-        Write-Host "  LUA_CPATH: $env:LUA_CPATH" -ForegroundColor Gray
-        Write-Host "  LUAROCKS_CONFIG: $env:LUAROCKS_CONFIG" -ForegroundColor Gray
-        Write-Host "  PATH updated with Lua and LuaRocks directories" -ForegroundColor Gray
-        Write-Host ""
+        # Write-Host "[INFO] Environment variables set:" -ForegroundColor Yellow
+        # Write-Host "  LUAENV_CURRENT: $env:LUAENV_CURRENT" -ForegroundColor Gray
+        # Write-Host "  LUA_PATH: $env:LUA_PATH" -ForegroundColor Gray
+        # Write-Host "  LUA_CPATH: $env:LUA_CPATH" -ForegroundColor Gray
+        # Write-Host "  LUAROCKS_CONFIG: $env:LUAROCKS_CONFIG" -ForegroundColor Gray
+        # Write-Host "  PATH updated with Lua and LuaRocks directories" -ForegroundColor Gray
+        # Write-Host ""
 
-        Write-Host "[SUCCESS] You can now use 'lua' and 'luarocks' commands in this shell session." -ForegroundColor Green
+        # Write-Host "[SUCCESS] You can now use 'lua' and 'luarocks' commands in this shell session." -ForegroundColor Green
 
         return $true
     }
@@ -689,7 +693,6 @@ local_by_default = true
             Write-Host "[ERROR] No arguments provided to 'activate' command" -ForegroundColor Red
             Write-Host "[INFO] Usage: luaenv activate <alias> or luaenv activate --alias <name>" -ForegroundColor Yellow
             Write-Host "[INFO] Run 'luaenv activate --help' for more information" -ForegroundColor Yellow
-            Write-Host "[INFO] Available installations:" -ForegroundColor Yellow
             Show-Installations $registry
             exit 1
         }
@@ -729,6 +732,9 @@ local_by_default = true
         if (-not $success) {
             exit 1
         }
+        # Remove duplicate entries from PATH
+        $uniquePaths = $env:PATH -split ';' | Select-Object -Unique
+        $env:PATH = $uniquePaths -join ';'
         # Exit after successful activation to prevent passing the 'activate' command to CLI
         exit 0
     }
@@ -775,3 +781,4 @@ function Invoke-LuaEnvCLI {
 
 # Call the CLI function
 Invoke-LuaEnvCLI
+

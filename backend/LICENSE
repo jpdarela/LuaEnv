@@ -1,0 +1,55 @@
+LuaEnv
+=======
+
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+
+
+# Third-Party Software Notices
+
+This project includes the following third-party components:
+
+## Python
+
+This software includes Python, which is licensed under the Python Software Foundation License (PSF).
+For more information about Python licensing, visit: https://www.python.org/psf/license/
+
+Python is Copyright © 2001-2025 Python Software Foundation; All Rights Reserved.
+
+The embedded Python distribution is not modified from its original form and is not shipped with the LuaEnv installer.
+It is used solely for the purpose of providing a Python interpreter for LuaEnv scripts and tools. It is downloaded
+from the official Python website during the installation process.
+
+## .NET Runtime and Libraries
+
+When distributed as a self-contained application, this software includes the .NET Runtime and libraries,
+which are licensed primarily under the MIT License.
+
+The .NET runtime and libraries are Copyright © .NET Foundation and Contributors.
+
+For more information about .NET licensing, visit: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+
+The full text of the MIT License can be found at: https://opensource.org/licenses/MIT
+

@@ -1,3 +1,6 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 """
 LuaEnv Installation and Management Script
 
@@ -291,12 +294,15 @@ def main():
         sys.exit(1)
 
     # Reset if requested
+    # We dont want to continue with installation if reset is requested
+    # We only delete the .luaenv directory and exit. THe registry does the installation
     if args.reset:
         if not reset_installation():
             print_error("Reset failed")
             sys.exit(1)
         print_success("Reset completed successfully")
         return  # Exit after reset, don't continue with installation
+
 
     # Install CLI binaries if requested
     if args.cli:

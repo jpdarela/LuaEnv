@@ -11,10 +11,10 @@ rem This script assumes that you have an installation of lua made with luaenv wi
 echo [INFO] Setting up environment variables from luaenv...
 
 rem Capture the compiler flags
-for /f "delims=" %%i in ('luaenv-pkg-config dev --cflag --path-style windows') do set CFLAGS=%%i
+for /f "delims=" %%i in ('luaconfig dev --cflag --path-style windows') do set CFLAGS=%%i
 
 rem Capture the library path
-for /f "delims=" %%i in ('luaenv-pkg-config dev --liblua --path-style windows') do set LUA_LIB=%%i
+for /f "delims=" %%i in ('luaconfig dev --liblua --path-style windows') do set LUA_LIB=%%i
 
 echo [DEBUG] CFLAGS: %CFLAGS%
 echo [DEBUG] LUA_LIB: %LUA_LIB%

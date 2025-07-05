@@ -6,7 +6,7 @@
 # Key integration points:
 # 1. Temporary Files: nmake does not have a built-in way to execute a command
 #    and use its output directly. The common workaround, demonstrated here,
-#    to call  external script to run `luaenv-pkg-config`
+#    to call  external script to run `luaconfig`
 #    and write the output to temporary files (`cflags.tmp`, `lua_lib.tmp`).
 # 2. `!INCLUDE`: The makefile then uses the `!INCLUDE` directive to import these
 #    temporary files, which define the `CFLAGS` and `LUA_LIB` variables.
@@ -23,11 +23,11 @@
 
 CC = cl.exe
 
-# Using luaenv-pkg-config for dynamic Lua paths with Windows path style
+# Using luaconfig for dynamic Lua paths with Windows path style
 # Execute pkg-config commands with Windows-style double backslashes for nmake compatibility
-!IF [luaenv-pkg-config dev --cflag --path-style windows > cflags.tmp] == 0
+!IF [luaconfig dev --cflag --path-style windows > cflags.tmp] == 0
 !ENDIF
-!IF [luaenv-pkg-config dev --liblua --path-style windows > lua_lib.tmp] == 0
+!IF [luaconfig dev --liblua --path-style windows > lua_lib.tmp] == 0
 !ENDIF
 
 # Read the temp files into variables using for loops

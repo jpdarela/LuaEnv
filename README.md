@@ -150,32 +150,31 @@ luaenv install --dll --debug         # Create DLL build with debug symbols
 luaenv uninstall dev                 # Remove installation
 luaenv status                        # Show system status
 ```
-A separete script ```luaenv-pkg-config``` also installet to ~/.luaenv provides package configuration capabilites for C/C++ integration. See the `examples/build_systems/` directory for usage examples.
+A separete executable ```luaconfig```, also installed to ~/.luaenv provides package configuration capabilites for C/C++ integration. See the `examples/build_systems/` directory for usage examples.
 
 ```powershell
-luaenv-pkg-config dev --cflag        # Get MSVC compiler flags
-luaenv-pkg-config dev --lua-include  # Get include directory
-luaenv-pkg-config dev --liblua       # Get library file path
-luaenv-pkg-config dev --json         # JSON output for build systems
+## There are two separate commands for MSVC pkg-config support
+luaconfig --help       # Get help on the pkg-config command
+
+# A batch script that wrapps the CLI for package configuration. Will be abandoned in the future
+luaenv-pkg-config --help  # Get help on the pkg-config command
+
+# Use luaconfig instead
+luaconfig dev --cflag    # Get MSVC compiler flags (prepeded with /I for include directories)
+luaconfig dev --lua-include  # Get include directory
+luaconfig dev --liblua       # Get library file path
 ```
-
-A separate command can be used to print the path the the header files and libraries of the Lua installation:
-
-```powershell
-luaenv-pkg-config --help         # Get help on the pkg-config command
-```
-
 ```powershell
 # System information (commands have extra options and comprehensive help)
-luaenv versions                      # Show version information
-luaenv config                        # Show current configuration
-luaenv help                          # Show help information
+luaenv versions    # Show version information
+luaenv config      # Show current configuration
+luaenv help        # Show help information
 ```
 
 ## Environment Activation
 
 ```powershell
-# Activate environment in current PowerShell session
+# Activate environment in current PowerShell session. THe MSVC toolchain is configured automatically based on the current Lua isntallation configuration.
 luaenv activate  --help              # Show help for activation command
 luaenv activate  dev                 # Activate environment aliased as 'dev'. Shorthand for
 luaenv activate --alias dev          # Activate environment by alias
@@ -185,7 +184,7 @@ luaenv activate --id a1b2c3d4
 
 luaenv activate --list               # List available environments
 
-# Visual Studio environment setup
+# Visual Studio environment setup - Can be helpful for C/C++ development. Not used in luaenv activate
 setenv.ps1 -Current                  # Configure MSVC toolchain in current session
 setenv.ps1                           # Launch new VS Developer Shell
 setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds

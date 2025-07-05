@@ -1,4 +1,7 @@
-﻿open System
+﻿// This is free and unencumbered software released into the public domain.
+// For more details, see the LICENSE file in the project root.
+
+open System
 open LuaEnv.Core
 open LuaEnv.Core.Config
 open LuaEnv.Core.Backend
@@ -210,42 +213,50 @@ let showPkgConfigHelp () =
     printfn "LuaEnv CLI - Pkg-Config Command"
     printfn ""
     printfn "USAGE:"
-    printfn "    luaenv pkg-config <alias|uuid> [options]"
+    printfn "    luaenv pkg-config <alias|uuid> [options] # Cannot be called from build systems because it needs PowerShell to run"
+    printfn ""
+    printfn "Alternatively, use either the command script or the standalone executable:"
+    printfn "    luaenv-pkg-config.cmd <alias|uuid> [options]"
+    printfn "    luaconfig.exe <alias|uuid> [options]"
     printfn ""
     printfn "DESCRIPTION:"
-    printfn "    Generate pkg-config style information for C developers to integrate"
-    printfn "    Lua installations into their build systems."
+    printfn "    Prints pkg-config style information for Lua installations."
+    printfn "    Use the wrapper script or executable to ensure proper path handling in build systems."
     printfn ""
     printfn "ARGUMENTS:"
-    printfn "    <alias|uuid>                   Installation alias or UUID (full or partial)"
+    printfn "    <alias|uuid>                   Installation alias (exact match) or UUID (full or partial with minimum 8 characters)"
     printfn ""
     printfn "OPTIONS:"
     printfn "    --cflag                        Show compiler flag with /I prefix"
     printfn "    --lua-include                  Show include directory path only"
     printfn "    --liblua                       Show resolved path to lua54.lib file only"
+    printfn "    --libdir                       Show lib directory path only"
     printfn "    --path                         Show installation paths only"
     printfn "    --path-style <style>           Output path style ('windows', 'unix', or 'native')"
-    printfn "    --help, -h                     Show this help message"
     printfn ""
     printfn "EXAMPLES:"
-    printfn "    luaenv pkg-config dev          # Show all pkg-config information"
-    printfn "    luaenv pkg-config old_x86 --cflag  # Show compiler flag (/I\"path\")"
-    printfn "    luaenv pkg-config dynamic --lua-include # Show include directory path"
-    printfn "    luaenv pkg-config static --liblua # Show path to lua54.lib file"
-    printfn "    luaenv pkg-config devel --path   # Show paths for installation"
-    printfn "    luaenv pkg-config a6f63bc5 --path-style unix # Use forward slashes for paths. Get installation by UUID (atial match, 8 characters)"
+    printfn "    luaconfig.exe <alias|uuid>                     # Show all pkg-config information"
+    printfn "    luaconfig.exe <alias|uuid> --cflag             # Show compiler flag (/I\"path\")"
+    printfn "    luaconfig.exe <alias|uuid> --lua-include       # Show include directory path"
+    printfn "    luaconfig.exe <alias|uuid> --liblua            # Show path to lua54.lib file"
+    printfn "    luaconfig.exe <alias|uuid> --libdir            # Show lib directory path"
+    printfn "    luaconfig.exe <alias|uuid> --path              # Show paths for installation"
+    printfn "    luaconfig.exe <alias|uuid> --path-style unix   # Different path style output (unix /, windows \\\\, native \\)"
     printfn ""
-    printfn "USAGE IN BUILD SYSTEMS:"
-    printfn "    Batch file:     for /f %%i in ('luaenv pkg-config dev --cflag') do set CFLAGS=%%i"
-    printfn "    PowerShell:     $cflags = luaenv pkg-config dev --cflag"
-    printfn "    nmake:          !IF [luaenv pkg-config dev --cflag > temp.txt] == 0"
-    printfn "    CMake:          execute_process(COMMAND luaenv pkg-config dev --cflag ...)"
+    printfn "EXAMPLES FOR BUILD SYSTEMS:"
+    printfn "    luaconfig <alias|uuid> --cflag                     # Use the standalone executable (recommended)"
+    printfn "    luaenv-pkg-config.cmd <alias|uuid> --liblua        # Use the command script"
     printfn ""
     printfn "NOTE: For DLL builds, ensure lua54.dll is available at runtime by:"
     printfn "      - Copying lua54.dll to your application directory, or"
     printfn "      - Adding the DLL directory to your system PATH, or"
     printfn "      - Using SetDllDirectory() in your application code"
     printfn "      Use '--path' to see the DLL location for dynamically linked builds."
+    printfn ""
+    printfn "NOTE: Use luaenv activate <alias|uuid> to update the PATH"
+    printfn "      of the current shell. This will expose the lua54.dll."
+    printfn ""
+
 
 /// Command line argument parsing
 type CliArgs = {
@@ -559,6 +570,8 @@ let parseArgs (args: string array) : CliArgs =
                 parsePkgConfigRec rest { acc with ShowLuaInclude = true }
             | "--liblua" :: rest ->
                 parsePkgConfigRec rest { acc with ShowLibLua = true }
+            | "--libdir" :: rest ->
+                parsePkgConfigRec rest { acc with ShowLibDir = true }
             | "--path" :: rest ->
                 parsePkgConfigRec rest { acc with ShowPaths = true }
             | "--path-style" :: style :: rest when List.contains style ["windows"; "unix"; "native"] ->
@@ -577,7 +590,15 @@ let parseArgs (args: string array) : CliArgs =
                 exit 1
 
         try
-            parsePkgConfigRec args { Installation = installation; ShowCFlag = false; ShowLuaInclude = false; ShowLibLua = false; ShowPaths = false; PathStyle = None }
+            parsePkgConfigRec args { Installation = installation;
+            ShowCFlag = false;
+            ShowLuaInclude = false;
+            ShowLibLua = false;
+            ShowLibDir = false;
+            ShowPaths = false;
+            PathStyle = None
+            }
+
         with
         | Failure "HELP_REQUESTED" ->
             // This will cause the parent parser to return Help command
@@ -667,7 +688,7 @@ let executeCommand (config: BackendConfig) (command: Command) : int =
             1
 
     | PkgConfig options ->
-        match executePkgConfig config options.Installation options.ShowCFlag options.ShowLuaInclude options.ShowLibLua options.ShowPaths options.PathStyle with
+        match executePkgConfig config options.Installation options.ShowCFlag options.ShowLuaInclude options.ShowLibLua options.ShowLibDir options.ShowPaths options.PathStyle with
         | Ok exitCode -> exitCode
         | Error errorMsg ->
             printfn "%s" errorMsg
@@ -684,7 +705,6 @@ let executeCommand (config: BackendConfig) (command: Command) : int =
             printfn "[ERROR] Installation ID or alias cannot be empty"
             1
         else
-            printfn "[INFO] Updating installation alias..."
             match executeSetAlias config options with
             | Ok exitCode -> exitCode
             | Error errorMsg ->

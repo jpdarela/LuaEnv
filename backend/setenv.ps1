@@ -1,3 +1,13 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
+# setenv.ps1 - PowerShell script to set up Visual Studio Developer Environment
+# This script automatically finds and configures the Visual Studio Developer Environment
+# for building native C/C++ projects. It searches for Visual Studio installations and
+# sets up the necessary environment variables (PATH, INCLUDE, LIB, etc.) required for
+# compilation using MSVC compiler toolchain.
+
+
 param(
 
     [Alias("h")]

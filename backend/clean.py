@@ -1,3 +1,5 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
 """
 Smart cleanup script for Lua MSVC Build System
 
@@ -5,6 +7,16 @@ This script safely removes temporary files and directories created during the bu
 It uses the configuration system to work with any Lua/LuaRocks versions and protects
 important files when installations are in the project directory.
 """
+
+DEPRECATED = True
+
+import warnings
+if DEPRECATED:
+    warnings.warn(
+        "This script is deprecated and will be removed in future versions.",
+        DeprecationWarning
+    )
+
 
 import shutil
 import sys

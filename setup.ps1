@@ -1,3 +1,6 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -13,6 +16,9 @@
 .PARAMETER Python
     Force install/reinstall embedded Python only. Does not run installation.
 
+.PARAMETER LuaConfig
+    Build the luaconfig.exe tool before installation. Compiles the C program for pkg-config support.
+
 .PARAMETER Reset
     DANGEROUS: Completely removes existing installation and recreates it.
     This will delete your ~/.luaenv folder and all configurations.
@@ -27,6 +33,10 @@
 .EXAMPLE
     .\setup.ps1 -BuildCli
     Build CLI application then run normal installation
+
+.EXAMPLE
+    .\setup.ps1 -LuaConfig
+    Build luaconfig tool then run normal installation
 
 .EXAMPLE
     .\setup.ps1 -Python
@@ -45,6 +55,9 @@
 param(
     [Parameter(ParameterSetName='BuildCli')]
     [switch]$BuildCli,
+
+    [Parameter(ParameterSetName='LuaConfig')]
+    [switch]$LuaConfig,
 
     [Parameter(ParameterSetName='Python')]
     [switch]$Python,
@@ -74,35 +87,6 @@ function Write-OK($msg) { Write-Host "[OK] $msg" -ForegroundColor Green }
 function Write-Err($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 function Write-Warn($msg) { Write-Host "[WARNING] $msg" -ForegroundColor Yellow }
 
-function Invoke-CliBuild {
-    if (-not (Test-Path $BuildCliScript)) {
-        Write-Err "Build script not found: $BuildCliScript"
-        return $false
-    }
-
-    Write-Info "CLI Build"
-    Write-Info "========="
-    Write-Info "Running: .\build_cli.ps1 -WarmUp (auto-detect architecture with JIT warm-up)"
-
-    try {
-        & $BuildCliScript -WarmUp
-        $exitCode = $LASTEXITCODE
-        if ($null -eq $exitCode) { $exitCode = 0 }
-
-        if ($exitCode -eq 0) {
-            Write-OK "CLI build and warm-up completed successfully"
-            return $true
-        } else {
-            Write-Err "CLI build failed with exit code: $exitCode"
-            return $false
-        }
-
-    } catch {
-        Write-Err "Failed to run CLI build: $_"
-        return $false
-    }
-}
-
 function Show-Help {
     Write-Host @"
 
@@ -115,6 +99,7 @@ embedded Python and setting up the LuaEnv environment.
 USAGE:
     .\setup.ps1                 # Normal installation
     .\setup.ps1 -BuildCli       # Build CLI then install
+    .\setup.ps1 -LuaConfig      # Build LuaConfig tool then install
     .\setup.ps1 -Python         # Python setup only
     .\setup.ps1 -Reset          # Complete reset (DANGEROUS)
     .\setup.ps1 -Help           # Show this help
@@ -134,6 +119,13 @@ MODES:
     • Then perform normal installation steps
     • Ensures you have the latest CLI build before installation
     • Equivalent to running .\build_cli.ps1 -WarmUp then .\setup.ps1
+
+  -LuaConfig
+    • Build the LuaConfig tool (C program for pkg-config support)
+    • Compiles luaconfig.c with security and optimization flags
+    • Then perform normal installation steps
+    • Ensures you have the LuaConfig support for pkg-config functionality
+    • Useful for C/C++ development with Lua
 
   -Python
     • Force download/install embedded Python
@@ -185,6 +177,125 @@ TROUBLESHOOTING:
     • For help: Run .\setup.ps1 -Help
 
 "@ -ForegroundColor Cyan
+}
+
+function Invoke-CliBuild {
+    if (-not (Test-Path $BuildCliScript)) {
+        Write-Err "Build script not found: $BuildCliScript"
+        return $false
+    }
+
+    # Check if .NET SDK is installed and available in the path
+    $dotnetAvailable = $null
+    $requiredVersion = 9
+
+    try {
+        $dotnetVersion = (dotnet --version 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $dotnetVersion) {
+            $dotnetAvailable = $true
+            # Extract major version number
+            $majorVersion = [int]($dotnetVersion.Split('.')[0])
+            if ($majorVersion -lt $requiredVersion) {
+                Write-Warn ".NET SDK version $dotnetVersion found, but version $requiredVersion or higher is required"
+                Write-Info "Please update your .NET SDK from https://dotnet.microsoft.com/download"
+                return $false
+            }
+        } else {
+            $dotnetAvailable = $false
+        }
+    } catch {
+        $dotnetAvailable = $false
+    }
+
+    if (-not $dotnetAvailable) {
+        Write-Err ".NET SDK not found in PATH"
+        Write-Warn "To build the CLI application, you need .NET SDK $requiredVersion or higher"
+        Write-Info "Options to fix this issue:"
+        Write-Info "  1. Install .NET SDK from https://dotnet.microsoft.com/download"
+        Write-Info "  2. Ensure the 'dotnet' command is in your PATH"
+        Write-Info "  3. Restart your terminal after installation"
+        return $false
+    }
+
+    Write-Info "CLI Build"
+    Write-Info "========="
+    Write-Info "Running: .\build_cli.ps1 -WarmUp (auto-detect architecture with JIT warm-up)"
+
+    try {
+        & $BuildCliScript -WarmUp
+        $exitCode = $LASTEXITCODE
+        if ($null -eq $exitCode) { $exitCode = 0 }
+
+        if ($exitCode -eq 0) {
+            Write-OK "CLI build and warm-up completed successfully"
+            return $true
+        } else {
+            # Check if the error is likely due to .NET SDK issues
+            if ($exitCode -eq 9009) {  # Command not found error
+                Write-Err "Build command failed: Could not execute a required .NET command"
+                Write-Warn "This could indicate a problem with your .NET SDK installation"
+                Write-Info "Please ensure you have .NET SDK $requiredVersion or higher installed"
+                Write-Info "Download from: https://dotnet.microsoft.com/download"
+            } else {
+                Write-Err "CLI build failed with exit code: $exitCode"
+            }
+            return $false
+        }
+
+    } catch {
+        Write-Err "Failed to run CLI build: $_"
+        Write-Info "If the error is related to missing .NET SDK tools, please ensure you have"
+        Write-Info ".NET SDK version $requiredVersion or higher installed"
+        return $false
+    }
+}
+
+function Invoke-LuaConfigBuild {
+    # Source file path
+    $luaConfigSourcePath = Join-Path $ProjectRoot "luaconfig.c"
+    $luaConfigExe = Join-Path $ProjectRoot "luaconfig.exe"
+
+    # Verify the source file exists
+    if (-not (Test-Path $luaConfigSourcePath)) {
+        Write-Err "LuaConfig source file not found: $luaConfigSourcePath"
+        return $false
+    }
+
+    Write-Info "LuaConfig Build"
+    Write-Info "==============="
+    Write-Info "Compiling luaconfig.c with optimization flags..."
+
+    try {
+        # Change to project directory to ensure proper execution context
+        $currentLocation = Get-Location
+        Set-Location -Path $ProjectRoot
+
+        # Execute cl.exe directly in the current PowerShell session
+        # This ensures we use the cl.exe that's already in the environment
+        # if the compiled executable is already in the folder, remove it.
+        $luaConfigExe = Join-Path $ProjectRoot "luaconfig.exe"
+        if (Test-Path $luaConfigExe) {
+            Write-Info "Removing existing luaconfig.exe..."
+            Remove-Item $luaConfigExe -Force
+        }
+        cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE
+        $exitCode = $LASTEXITCODE
+
+        # Restore original location
+        Set-Location -Path $currentLocation
+
+        if ($exitCode -eq 0) {
+                Write-OK "LuaConfig tool built successfully"
+        } else {
+            Write-Err "LuaConfig build failed with exit code: $exitCode"
+            return $false
+        }
+    } catch {
+        Write-Err "Failed to compile luaconfig.c: $_"
+        Write-Info "Error details: $($_.Exception.Message)"
+        Write-Info "If the compiler wasn't found, please run this script from a Visual Studio Developer Command Prompt"
+        return $false
+    }
 }
 
 function Test-EmbeddedPython {
@@ -333,12 +444,36 @@ try {
             }
 
             # Step 3: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @())) {
+            if (-not (Invoke-LuaEnvInstall @("--cli", "--force"))) {
                 Write-Err "LuaEnv installation failed"
                 exit 1
             }
 
             Write-OK "CLI build and LuaEnv installation completed successfully!"
+        }
+
+        'LuaConfig' {
+            Write-Info "Mode: LuaConfig build then install"
+
+            # Step 1: Build LuaConfig tool
+            if (-not (Invoke-LuaConfigBuild)) {
+                Write-Err "Failed to build LuaConfig tool"
+                exit 1
+            }
+
+            # Step 2: Ensure Python is available (install if missing)
+            if (-not (Install-EmbeddedPython)) {
+                Write-Err "Failed to setup embedded Python"
+                exit 1
+            }
+
+            # Step 3: Run LuaEnv installation
+            if (-not (Invoke-LuaEnvInstall @("--cli", "--force"))) {
+                Write-Err "LuaEnv installation failed"
+                exit 1
+            }
+
+            Write-OK "LuaConfig build completed successfully!"
         }
 
         'Python' {
@@ -383,7 +518,7 @@ try {
 
             # Recreate installation
             Write-Info "Recreating LuaEnv installation..."
-            if (-not (Invoke-LuaEnvInstall @())) {
+            if (-not (Invoke-LuaEnvInstall @("--force"))) {
                 Write-Err "Failed to recreate installation"
                 exit 1
             }
@@ -401,7 +536,7 @@ try {
             }
 
             # Step 2: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @())) {
+            if (-not (Invoke-LuaEnvInstall @("--force"))) {
                 Write-Err "LuaEnv installation failed"
                 exit 1
             }
@@ -411,7 +546,7 @@ try {
     }
 
     # Final success message (for modes that complete installation)
-    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli')) {
+    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli', 'LuaConfig')) {
         Write-Info ""
         Write-OK "LuaEnv is now ready to use!"
         Write-Info "Next steps:"
