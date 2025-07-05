@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
 """
 LuaEnv Pkg-Config Backend
 
@@ -12,6 +15,7 @@ Options:
     --cflag         Show compiler flag with /I prefix
     --lua-include   Show include directory path
     --liblua        Show resolved path to lua54.lib file
+    --libdir        Show lib directory path
     --path          Show installation paths
     --json          Output in JSON format
     --help          Show this help message
@@ -21,6 +25,7 @@ Examples:
     python pkg_config.py dev --cflag        # Show compiler flag (/I"path")
     python pkg_config.py dev --lua-include  # Show include directory path
     python pkg_config.py dev --liblua       # Show path to lua54.lib file
+    python pkg_config.py dev --libdir       # Show lib directory path
     python pkg_config.py 12345678 --path    # Show paths for partial UUID
     python pkg_config.py dev --json         # Output in JSON format
     python pkg_config.py dev --lua-include --path-style unix # Show include path with forward slashes
@@ -276,7 +281,7 @@ class LuaPkgConfig:
     def show_info(self, id_or_alias: str, show_cflag: bool = False,
                   show_lua_include: bool = False, show_liblua: bool = False,
                   show_paths: bool = False, json_output: bool = False,
-                  path_style: str = 'native') -> bool:
+                  path_style: str = 'native', show_libdir: bool = False) -> bool:
         """Show pkg-config information for installation.
 
         Args:
@@ -287,6 +292,7 @@ class LuaPkgConfig:
             show_paths: Show only paths
             json_output: Output in JSON format
             path_style: Path style for output ('windows', 'unix', 'native')
+            show_libdir: Show only lib directory path
 
         Returns:
             True if successful, False if error
@@ -335,6 +341,10 @@ class LuaPkgConfig:
             else:
                 print_error("[ERROR] lua54.lib not found in installation")
                 return False
+            return True
+
+        if show_libdir:
+            print(self._normalize_path(info["paths"]["lib"], path_style))
             return True
 
         if show_paths:
@@ -450,6 +460,7 @@ Examples:
   python pkg_config.py dev --cflag        # Show compiler flag (/I"path")
   python pkg_config.py dev --lua-include  # Show include directory path
   python pkg_config.py dev --liblua       # Show path to lua54.lib file
+  python pkg_config.py dev --libdir       # Show lib directory path
   python pkg_config.py 12345678 --path    # Show paths for partial UUID
   python pkg_config.py dev --json         # Output in JSON format
   python pkg_config.py dev --lua-include --path-style unix # Show include path with forward slashes
@@ -486,6 +497,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--libdir",
+        action="store_true",
+        help="Show lib directory path only"
+    )
+
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output in JSON format"
@@ -501,9 +518,9 @@ Examples:
     args = parser.parse_args()
 
     # Validate arguments
-    flag_count = sum([args.cflag, args.lua_include, args.liblua, args.path])
+    flag_count = sum([args.cflag, args.lua_include, args.liblua, args.path, args.libdir])
     if flag_count > 1:
-        print_error("[ERROR] Only one of --cflag, --lua-include, --liblua, --path can be specified")
+        print_error("[ERROR] Only one of --cflag, --lua-include, --liblua, --path, --libdir can be specified")
         return 1
 
     try:
@@ -515,7 +532,8 @@ Examples:
             show_liblua=args.liblua,
             show_paths=args.path,
             json_output=args.json,
-            path_style=args.path_style
+            path_style=args.path_style,
+            show_libdir=args.libdir
         )
 
         return 0 if success else 1

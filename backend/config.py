@@ -1,19 +1,13 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 """
-Configuration file for Lua MSVC Build System
+Configuration file for LuaEnv
 
 This file reads configuration from build_config.txt and provides
 functions to access version information and URLs for Lua and LuaRocks.
 
-Users should edit build_config.txt (not this file) to change versions.
-
-QUICK START - To use different versions:
-1. Open build_config.txt in any text editor
-2. Change LUA_VERSION to your desired Lua version (e.g., "5.4.7", "5.3.6")
-3. Change LUAROCKS_VERSION to your desired LuaRocks version (e.g., "3.11.1", "3.10.0")
-4. Change LUAROCKS_PLATFORM if needed ("windows-64" or "windows-32")
-5. Save the file and run the scripts normally
-
-The scripts will automatically use the versions specified in build_config.txt
+The scripts use the versions specified in build_config.txt
 """
 
 import os
@@ -217,7 +211,7 @@ def check_version_compatibility():
         if major != 5:
             warnings.append(f"Lua major version {major} may not be compatible with this build system (designed for Lua 5.x)")
 
-        if minor < 4:
+        if minor < 3:
             warnings.append(f"Lua {LUA_VERSION} is older than 5.4 - some features may not work as expected")
 
     except ValueError:
@@ -302,7 +296,8 @@ def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=Fa
 
     # Common Lua versions to check (most recent first)
     versions_to_check = [
-        "5.4.8", "5.4.7", "5.4.6", "5.4.5", "5.4.4", "5.4.3", "5.4.2", "5.4.1", "5.4.0"]
+        "5.4.8", "5.4.7", "5.4.6", "5.4.5", "5.4.4", "5.4.3", "5.4.2", "5.4.1", "5.4.0",
+        "5.3.6", "5.3.5", "5.3.4", "5.3.3", "5.3.2", "5.3.1", "5.3.0"]
 
     available_versions = []
     checked_count = 0

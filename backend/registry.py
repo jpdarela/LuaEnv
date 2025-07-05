@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 """
 LuaEnv Registry Management System
 
@@ -667,7 +671,7 @@ class LuaEnvRegistry:
             ("setenv.ps1", "Visual Studio environment setup script"),
             ("luaenv.ps1", "LuaEnv CLI wrapper and environment activator"),
             ("luaenv-pkg-config.cmd", "Command wrapper for lua pkg-config in build systems"),
-            ("backend.config", "Backend configuration for LuaEnv"),
+            ("backend.config", "Backend configuration for LuaEnv")
         ]
 
         installed_scripts = []
@@ -840,6 +844,7 @@ class LuaEnvRegistry:
 
     def install_fsharp_cli_with_deps(self, publish_dir_path: Path, force: bool = False) -> bool:
         """Install F# CLI with all dependencies from publish directory.
+           Install luaconfig executable to scripts path.
 
         Args:
             publish_dir_path: Path to the publish directory containing all files
@@ -848,8 +853,21 @@ class LuaEnvRegistry:
         Returns:
             bool: True if successful, False otherwise
         """
+        # Get backend directory
+        backend_dir = get_backend_dir()
+
+        # Find luaconfig executable
+        project_root = backend_dir.parent  # backend is inside project root
+        luaconfig_exe = project_root / "luaconfig.exe"
+
         scripts_path = self.get_scripts_path()
         cli_dir = scripts_path / "cli"
+
+        # Ensure luaconfig exists
+        if not luaconfig_exe.exists():
+            print(f"[ERROR] luaconfig executable not found: {luaconfig_exe}")
+            print("[INFO] Please build the project (setup.ps1) first to generate luaconfig.exe")
+            return False
 
         if not publish_dir_path.exists():
             print(f"[ERROR] Publish directory not found: {publish_dir_path}")
@@ -865,6 +883,13 @@ class LuaEnvRegistry:
             print("[INFO] Use --force to overwrite")
             return True
 
+        try:
+            # Copy luaconfig to scripts path
+            shutil.copy2(luaconfig_exe, scripts_path / "luaconfig.exe")
+            print(f"[OK] Copied luaconfig to scripts path: {scripts_path / 'luaconfig.exe'}")
+        except Exception as e:
+            print(f"[ERROR] Failed to copy luaconfig: {e}")
+            return False
         try:
             # Remove existing CLI directory if it exists
             if cli_dir.exists():

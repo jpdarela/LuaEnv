@@ -1,3 +1,6 @@
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 """
 Move build scripts to the lua and luarocks directories in the extracted folder.
 This script now uses the configuration system and extracted folder structure

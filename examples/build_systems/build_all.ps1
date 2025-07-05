@@ -143,16 +143,6 @@ $buildResults = @{
             Files = @()
         }
     }
-    "msbuild" = @{
-        Tested = $false
-        Success = $false
-        Executables = @()
-        Details = @{
-            Method = "Uses MSBuild targets to execute luaenv pkg-config"
-            PathStyle = "windows"
-            Files = @()
-        }
-    }
 }
 
 # Function to collect file info
@@ -458,85 +448,6 @@ if (Test-Path $gnuMakePath) {
 } else {
     Write-Host "[WARNING] GNU Make not found at path: $gnuMakePath, skipping GNU Make test" -ForegroundColor Yellow
 }
-
-Write-Host "`n===============================================" -ForegroundColor Green
-Write-Host "Testing MSBuild (.vcxproj)" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-
-# Check for Visual Studio MSBuild
-$msbuildPath = $null
-$vsWherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-
-if (Test-Path $vsWherePath) {
-    $msbuildPath = & $vsWherePath -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-}
-
-if (-not $msbuildPath) {
-    # Try to find MSBuild in common locations
-    $commonPaths = @(
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe",
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
-    )
-
-    foreach ($path in $commonPaths) {
-        if (Test-Path $path) {
-            $msbuildPath = $path
-            break
-        }
-    }
-}
-
-if (-not $msbuildPath) {
-    # Last resort - check if MSBuild is in the path
-    $msbuildInPath = Get-Command MSBuild -ErrorAction SilentlyContinue
-    if ($msbuildInPath) {
-        $msbuildPath = $msbuildInPath.Source
-    }
-}
-
-if (Test-Path "LuaEnvTest.vcxproj" -and $msbuildPath) {
-    $buildResults["msbuild"].Tested = $true
-    Write-Host "[INFO] Testing MSBuild with pkg-config integration..." -ForegroundColor Cyan
-
-    # Clean any previous build artifacts
-    if (Test-Path ".\x64") { Remove-Item -Recurse -Force .\x64 }
-    if (Test-Path ".\luaenv.props") { Remove-Item -Force .\luaenv.props }
-    if (Test-Path ".\main_msbuild.exe") { Remove-Item -Force .\main_msbuild.exe }
-
-    # Build using MSBuild
-    Write-Host "[INFO] Building with MSBuild..." -ForegroundColor Cyan
-    & $msbuildPath LuaEnvTest.vcxproj /p:Configuration=Release /p:Platform=x64 /v:minimal
-
-    if ($LASTEXITCODE -eq 0 -and (Test-Path ".\x64\Release\LuaEnvTest.exe")) {
-        # Copy to standard naming convention
-        Copy-Item ".\x64\Release\LuaEnvTest.exe" ".\main_msbuild.exe"
-
-        Write-Host "[SUCCESS] MSBuild compilation successful!" -ForegroundColor Green
-        Write-Host "[INFO] Testing executable..." -ForegroundColor Cyan
-        $output = .\main_msbuild.exe
-        Write-Host $output
-
-        # Update build results
-        $buildResults["msbuild"].Success = $true
-        Add-ExecutableInfo -BuildSystem "msbuild" -FilePath "main_msbuild.exe" -Description "MSBuild built executable"
-    } else {
-        Write-Host "[ERROR] MSBuild compilation failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-        $buildResults["msbuild"].Success = $false
-    }
-} else {
-    if (-not (Test-Path "LuaEnvTest.vcxproj")) {
-        Write-Host "[WARNING] LuaEnvTest.vcxproj not found, skipping MSBuild test" -ForegroundColor Yellow
-    } else {
-        Write-Host "[WARNING] MSBuild not found, skipping MSBuild test" -ForegroundColor Yellow
-    }
-}
-
 Write-Host "`n===============================================" -ForegroundColor Green
 Write-Host "Summary of tests" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
@@ -584,7 +495,6 @@ $nameMap = @{
     "batch" = "Batch Script (.bat)"
     "powershell" = "PowerShell Script (.ps1)"
     "gnumake" = "GNU Make with Unix paths"
-    "msbuild" = "Visual Studio Project (.vcxproj)"
 }
 
 # Print header

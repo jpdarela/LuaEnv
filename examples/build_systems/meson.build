@@ -5,7 +5,7 @@
 #
 # Key integration points:
 # 1. `run_command`: This is the standard Meson function to execute external
-#    commands. It's used here to call `luaenv pkg-config`.
+#    commands. It's used here to call `luaconfig`.
 # 2. `--path-style windows`: This argument is crucial. It ensures that `luaenv`
 #    outputs paths with backslashes (`\`), which Meson and the underlying
 #    MSVC compiler expect on Windows.
@@ -32,17 +32,17 @@ else
   c_args = ['-Wall', '-Wextra', '-DNDEBUG']
 endif
 
-# LuaEnv pkg-config integration for Windows/MSVC
+# Luaconfig integration for Windows/MSVC
 # define the lueenv alias for the Lua environment
 luaenv_alias = 'dev'  # This should match your luaenv alias
-# define the luaenv-pkg-config command
-luaenv_pkg_config_cmd = ['luaenv-pkg-config', luaenv_alias] # .cmd file extension is not needed in Meson
+# define the luaconfig command
+luaenv_pkg_config_cmd = ['luaconfig', luaenv_alias] # .cmd file extension is not needed in Meson
 
 lua_dep = dependency('', required: false)  # Placeholder
 
 if host_machine.system() == 'windows'
   fs = import('fs')
-  # Use luaenv pkg-config to get Lua paths with Windows-style paths for Meson
+  # Use luaconfig to get Lua paths with Windows-style paths for Meson
   lua_include_cmd = run_command(luaenv_pkg_config_cmd, '--lua-include', '--path-style', 'windows', check: false)
   lua_lib_cmd = run_command(luaenv_pkg_config_cmd, '--liblua', '--path-style', 'windows', check: false)
 
@@ -63,7 +63,7 @@ if host_machine.system() == 'windows'
       dependencies: cc.find_library('lua54', dirs: lua_lib_dir)
     )
   else
-    warning('luaenv pkg-config failed, attempting fallback methods')
+    warning('luaconfig failed, attempting fallback methods')
     # Fallback to traditional pkg-config or manual paths
     lua_dep = dependency('lua', required: false)
   endif

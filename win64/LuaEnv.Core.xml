@@ -162,7 +162,7 @@
  Registry access module for direct JSON operations
 </summary>
 </member>
-<member name="M:LuaEnv.Core.Backend.executePkgConfig(LuaEnv.Core.BackendConfig,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.String})">
+<member name="M:LuaEnv.Core.Backend.executePkgConfig(LuaEnv.Core.BackendConfig,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.String})">
 <summary>
  Execute pkg-config command for specific installation
 </summary>

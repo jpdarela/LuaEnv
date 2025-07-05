@@ -16,8 +16,8 @@ ifeq ($(OS),Windows_NT)
     TARGET_EXT = .exe
     OBJ_EXT = .obj
     # Get Lua configuration from luaenv pkg-config with unix path style
-    LUA_CFLAGS := $(shell luaenv-pkg-config dev --cflag --path-style unix)
-    LUA_LIB := $(shell luaenv-pkg-config dev --liblua --path-style unix)
+    LUA_CFLAGS := $(shell luaconfig dev --cflag --path-style unix)
+    LUA_LIB := $(shell luaconfig dev --liblua --path-style unix)
 
     # MSVC-specific flags
     CFLAGS = /TC /W4 -D_CRT_SECURE_NO_WARNINGS $(LUA_CFLAGS)

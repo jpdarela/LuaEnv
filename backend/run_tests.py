@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# This is free and unencumbered software released into the public domain.
+# For more details, see the LICENSE file in the project root.
+
 """
 Simple test runner for Lua MSVC Build System tests.
 

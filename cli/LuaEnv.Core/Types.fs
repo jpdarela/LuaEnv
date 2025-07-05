@@ -1,3 +1,6 @@
+// This is free and unencumbered software released into the public domain.
+// For more details, see the LICENSE file in the project root.
+
 namespace LuaEnv.Core
 
 open System
@@ -217,6 +220,7 @@ type PkgConfigOptions = {
     Installation: string
     ShowCFlag: bool
     ShowLuaInclude: bool
+    ShowLibDir: bool
     ShowLibLua: bool
     ShowPaths: bool
     PathStyle: string option
@@ -645,7 +649,7 @@ module Backend =
     /// Execute pkg-config command for specific installation
 // Fix the executePkgConfig function to properly display all output from pkg_config.py
 
-    let executePkgConfig (config: BackendConfig) (installation: string) (showCFlag: bool) (showLuaInclude: bool) (showLibLua: bool) (showPaths: bool) (pathStyle: string option) : Result<int, string> =
+    let executePkgConfig (config: BackendConfig) (installation: string) (showCFlag: bool) (showLuaInclude: bool) (showLibLua: bool) (showLibDir: bool) (showPaths: bool) (pathStyle: string option) : Result<int, string> =
         try
             // Validate required parameters
             if String.IsNullOrWhiteSpace(installation) then
@@ -671,6 +675,8 @@ module Backend =
                         args <- args + " --lua-include"
                     elif showLibLua then
                         args <- args + " --liblua"
+                    elif showLibDir then
+                        args <- args + " --libdir"
                     elif showPaths then
                         args <- args + " --path"
                     // No --json flag for full output format
