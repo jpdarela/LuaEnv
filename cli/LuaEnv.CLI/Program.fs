@@ -30,6 +30,8 @@ let showHelp () =
     printfn "    versions                       Show installed and available versions"
     printfn "    pkg-config <alias|uuid>        Show pkg-config information for C developers"
     printfn "    set-alias <alias|uuid> <new>   Set or update an installation alias"
+    printfn "    remove-alias <alias|uuid> [alias]  Remove an alias from an installation"
+    printfn "    default <alias|uuid>           Set the default Lua installation"
     printfn "    config                         Show current configuration"
     printfn "    help                           Show this help message"
     printfn ""
@@ -40,6 +42,9 @@ let showHelp () =
     printfn "    luaenv status --help"
     printfn "    luaenv versions --help"
     printfn "    luaenv pkg-config --help"
+    printfn "    luaenv set-alias --help"
+    printfn "    luaenv remove-alias --help"
+    printfn "    luaenv default --help"
     printfn ""
     printfn "DIRECT INVOCATION (NOT RECOMMENDED):"
     printfn "    LuaEnv.CLI.exe --config <path> <command> [options]"
@@ -163,21 +168,46 @@ let showSetAliasHelp () =
     printfn "LuaEnv CLI - Set-Alias Command"
     printfn ""
     printfn "USAGE:"
-    printfn "    luaenv set-alias <alias|uuid> <new-alias>"
+    printfn "    luaenv set-alias <uuid> <alias>"
     printfn ""
     printfn "DESCRIPTION:"
     printfn "    Set or update an alias for a Lua installation."
     printfn ""
     printfn "ARGUMENTS:"
-    printfn "    <alias|uuid>                   Installation alias or UUID to modify"
-    printfn "    <new-alias>                    New alias to assign to the installation"
+    printfn "    <uuid>                         Installation UUID"
+    printfn "    <alias>                        Alias name"
     printfn ""
-    printfn "OPTIONS:"
-    printfn "    --help, -h                     Show this help message"
+
+/// Display help information for the remove-alias command
+let showRemoveAliasHelp () =
+    printfn "LuaEnv CLI - Remove-Alias Command"
+    printfn ""
+    printfn "USAGE:"
+    printfn "    luaenv remove-alias <alias|uuid> [alias]"
+    printfn ""
+    printfn "DESCRIPTION:"
+    printfn "    Remove an alias from a Lua installation."
+    printfn ""
+    printfn "ARGUMENTS:"
+    printfn "    <alias|uuid>                   Installation alias or UUID"
+
+/// Display help information for the default command
+let showDefaultHelp () =
+    printfn "LuaEnv CLI - Default Command"
+    printfn ""
+    printfn "USAGE:"
+    printfn "    luaenv default <alias|uuid>"
+    printfn ""
+    printfn "DESCRIPTION:"
+    printfn "    Set the default Lua installation to be used when no specific"
+    printfn "    installation is requested during activation."
+    printfn ""
+    printfn "ARGUMENTS:"
+    printfn "    <alias|uuid>                   Installation alias or UUID to set as default"
     printfn ""
     printfn "EXAMPLES:"
-    printfn "    luaenv set-alias fe5253dd-ee2d-488a-9a38-70534ae9d2e6 dev-lua54"
-    printfn "    luaenv set-alias old-alias new-alias"
+    printfn "    luaenv default dev             # Set 'dev' installation as default"
+    printfn "    luaenv default 1234abcd        # Set installation with UUID starting with 1234abcd as default"
     printfn ""
 
 /// Display versions-specific help
@@ -366,6 +396,56 @@ let parseArgs (args: string array) : CliArgs =
         | "set-alias" :: [] ->
             printfn "[ERROR] Missing required arguments: <alias|uuid> <new-alias>"
             printfn "Use 'luaenv set-alias --help' for usage information"
+            exit 1
+        | "remove-alias" :: "--help" :: rest ->
+            showRemoveAliasHelp ()
+            exit 0
+        | "remove-alias" :: "-h" :: rest ->
+            showRemoveAliasHelp ()
+            exit 0
+        | "remove-alias" :: idOrAlias :: aliasToRemove :: rest when
+            not (String.IsNullOrWhiteSpace(idOrAlias)) ->
+            try
+                let removeAliasOptions = {
+                    IdOrAlias = idOrAlias
+                    AliasToRemove = Some aliasToRemove // Even if empty string, this will be properly handled
+                }
+                { acc with Command = Some (RemoveAlias removeAliasOptions) }
+            with
+            | Failure "HELP_REQUESTED" ->
+                { acc with Command = Some Help }
+        | "remove-alias" :: [idOrAlias] when not (String.IsNullOrWhiteSpace(idOrAlias)) ->
+            try
+                let removeAliasOptions = {
+                    IdOrAlias = idOrAlias
+                    AliasToRemove = None
+                }
+                { acc with Command = Some (RemoveAlias removeAliasOptions) }
+            with
+            | Failure "HELP_REQUESTED" ->
+                { acc with Command = Some Help }
+        | "remove-alias" :: [] ->
+            printfn "[ERROR] Missing required argument: <alias|uuid> [alias]"
+            printfn "Use 'luaenv remove-alias --help' for usage information"
+            exit 1
+        | "default" :: "--help" :: rest ->
+            showDefaultHelp ()
+            exit 0
+        | "default" :: "-h" :: rest ->
+            showDefaultHelp ()
+            exit 0
+        | "default" :: idOrAlias :: rest when not (String.IsNullOrWhiteSpace(idOrAlias)) ->
+            try
+                let defaultOptions = {
+                    IdOrAlias = idOrAlias
+                }
+                { acc with Command = Some (Default defaultOptions) }
+            with
+            | Failure "HELP_REQUESTED" ->
+                { acc with Command = Some Help }
+        | "default" :: [] ->
+            printfn "[ERROR] Missing required argument: <alias|uuid>"
+            printfn "Use 'luaenv default --help' for usage information"
             exit 1
         | arg :: rest ->
             printfn "[ERROR] Unknown argument: %s" arg
@@ -706,6 +786,30 @@ let executeCommand (config: BackendConfig) (command: Command) : int =
             1
         else
             match executeSetAlias config options with
+            | Ok exitCode -> exitCode
+            | Error errorMsg ->
+                printfn "%s" errorMsg
+                1
+
+    | RemoveAlias options ->
+        // Validate arguments before calling the backend
+        if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+            printfn "[ERROR] Installation ID or alias cannot be empty"
+            1
+        else
+            match executeRemoveAlias config options with
+            | Ok exitCode -> exitCode
+            | Error errorMsg ->
+                printfn "%s" errorMsg
+                1
+
+    | Default options ->
+        // Validate arguments before calling the backend
+        if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+            printfn "[ERROR] Installation ID or alias cannot be empty"
+            1
+        else
+            match executeDefault config options with
             | Ok exitCode -> exitCode
             | Error errorMsg ->
                 printfn "%s" errorMsg

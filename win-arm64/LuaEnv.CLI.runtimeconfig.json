@@ -1,10 +1,10 @@
 {
   "runtimeOptions": {
-    "tfm": "net9.0",
+    "tfm": "net8.0",
     "includedFrameworks": [
       {
         "name": "Microsoft.NETCore.App",
-        "version": "9.0.6"
+        "version": "8.0.17"
       }
     ],
     "configProperties": {

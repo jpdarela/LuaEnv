@@ -69,7 +69,7 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 
 - **Visual Studio 2019/2022** with C++ development tools (Community, Professional, or Enterprise)
 - **PowerShell 7** (install via winget `winget install Microsoft.PowerShell`)
-- **.NET SDK 9.0+** (for CLI building, optional - pre-built binaries are included for [amd64](./win64/), [arm64](./win-arm64/), and [x86](./win-x86/) architectures)
+- **.NET SDK 8.0+** (for CLI building, optional - pre-built binaries are included for [amd64](./win64/), [arm64](./win-arm64/), and [x86](./win-x86/) architectures)
 - **Internet connection** (for downloading Lua/LuaRocks sources and embedded Python)
 
 ## Installation Steps
@@ -102,7 +102,7 @@ Note: Check the [execution policy of your PowerShell session](https://learn.micr
 .\setup.ps1 -Bootstrap
 
 # The script offer some useful options to control the installation process, facilitating development and testing.
-# Build the CLI application and deploy it to ~/.luaenv/bin - Requires .NET SDK 9.0+
+# Build the CLI application and deploy it to ~/.luaenv/bin - Requires .NET SDK 8.0+
 .\setup.ps1 -BuildCli -WarmUp
 
 # Complete setup (deploys CLI, backend scripts, and configuration)
@@ -185,18 +185,21 @@ USAGE:
 COMMANDS:
 
   Environment Management (CLI):
-    install [options]          Install a new Lua environment
-    uninstall <alias|uuid>     Remove a Lua installation
-    list                       List all installed Lua environments
-    status                     Show system status and registry information
-    versions                   Show installed and available versions
-    pkg-config <alias|uuid>    Show pkg-config information for C developers
-    config                     Show current configuration
-    set-alias <uuid> <alias>   Set or update the alias of an installation
-    help                       Show CLI help message
+    install [options]                  Install a new Lua environment
+    uninstall <alias|uuid>             Remove a Lua installation
+    list                               List all installed Lua environments
+    status                             Show system status and registry information
+    versions                           Show installed and available versions
+    default <alias|uuid>               Set the default Lua installation
+    pkg-config <alias|uuid>            Show pkg-config information for C developers
+    config                             Show current configuration
+    set-alias <uuid> <alias>           Set or update the alias of an installation
+    remove-alias <alias|uuid> [alias]  Remove an alias from an installation
+    help                               Show CLI help message
 
   Shell Integration (PowerShell):
-    activate [alias|options] Activate a Lua environment in the current shell
+    activate [alias|options]      Activate a Lua environment in current shell
+    local [<alias|uuid>|--unset]  Set/show/unset local version in current directory
 
 For command-specific help:
   luaenv <command> --help
@@ -204,11 +207,17 @@ For command-specific help:
 EXAMPLES:
   luaenv install --alias dev           # Install Lua with alias 'dev'
   luaenv activate dev                  # Activate 'dev' environment (shorthand)
-  luaenv activate --alias dev          # Activate 'dev' environment
+  luaenv activate                      # Activate using .lua-version or default
+  luaenv local dev                     # Set local version to 'dev' in current directory
+  luaenv local                         # Display current local version
+  luaenv local --unset                 # Remove local version
+  luaenv default dev                   # Set 'dev' installation as global default
   luaenv list                          # Show all installations
   luaenv activate --list               # List available environments
   luaenv set-alias 1234abcd prod       # Set alias 'prod' for installation
-                                         with UUID 1234abcd-... (matches first 8 chars)
+                                         with UUID 1234abcd (matches first 8 chars)
+  luaenv remove-alias dev              # Remove the 'dev' alias
+  luaenv remove-alias 1234abcd prod    # Remove alias 'prod' from installation with UUID 1234abcd
 
 Note: 'activate' is a PowerShell-only command that modifies your current shell.
       All other commands are handled by the LuaEnv CLI application.

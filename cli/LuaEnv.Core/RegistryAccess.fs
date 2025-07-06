@@ -80,10 +80,20 @@ module RegistryAccess =
         registry.installations
         |> Map.toList
         |> List.map (fun (id, installation) ->
-            let alias =
+            // Collect all aliases that point to this installation ID
+            let aliases =
                 registry.aliases
-                |> Map.tryFindKey (fun _ aliasId -> aliasId = id)
-            { installation with alias = alias })
+                |> Map.toList
+                |> List.filter (fun (_, aliasId) -> aliasId = id)
+                |> List.map fst
+
+            // Convert list of aliases to a single comma-separated string
+            let aliasString =
+                match aliases with
+                | [] -> None
+                | _ -> Some (String.concat ", " aliases)
+
+            { installation with alias = aliasString })
         |> List.sortBy (fun i -> i.created)
 
     /// Get default installation if set
@@ -91,10 +101,20 @@ module RegistryAccess =
         match registry.default_installation with
         | Some defaultId when registry.installations.ContainsKey defaultId ->
             let installation = registry.installations.[defaultId]
-            let alias =
+            // Collect all aliases that point to this installation ID
+            let aliases =
                 registry.aliases
-                |> Map.tryFindKey (fun _ aliasId -> aliasId = defaultId)
-            Some { installation with alias = alias }
+                |> Map.toList
+                |> List.filter (fun (_, aliasId) -> aliasId = defaultId)
+                |> List.map fst
+
+            // Convert list of aliases to a single comma-separated string
+            let aliasString =
+                match aliases with
+                | [] -> None
+                | _ -> Some (String.concat ", " aliases)
+
+            Some { installation with alias = aliasString }
         | _ -> None
 
     /// Validate installation paths exist

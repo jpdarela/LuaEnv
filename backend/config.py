@@ -278,7 +278,7 @@ def validate_current_configuration():
 
     return all_valid, results
 
-def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=False, use_stderr=False):
+def get_available_lua_versions(max_versions=9, use_cache=True, force_refresh=False, use_stderr=False):
     """
     Try to discover available Lua versions by checking common version patterns.
     This is a best-effort approach since there's no API.
@@ -320,11 +320,11 @@ def get_available_lua_versions(max_versions=10, use_cache=True, force_refresh=Fa
 
         # Rate limiting: wait between requests to be respectful
         if checked_count < max_versions:  # Don't wait after the last check
-            time.sleep(0.05)  # 500ms delay between requests
+            time.sleep(0.1)  # 500ms delay between requests
 
     return available_versions
 
-def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_cache=True, force_refresh=False, use_stderr=False):
+def get_available_luarocks_versions(platform="windows-64", max_versions=9, use_cache=True, force_refresh=False, use_stderr=False):
     """
     Try to discover available LuaRocks versions by checking common version patterns.
     """
@@ -364,7 +364,7 @@ def get_available_luarocks_versions(platform="windows-64", max_versions=8, use_c
 
         # Rate limiting: wait between requests to be respectful
         if checked_count < max_versions:  # Don't wait after the last check
-            time.sleep(0.5)  # 500ms delay between requests
+            time.sleep(0.1)  # 500ms delay between requests
 
     return available_versions
 
@@ -559,15 +559,15 @@ if __name__ == "__main__":
         elif sys.argv[1] in ['--help', '-h']:
             print("Lua MSVC Build System Configuration")
             print("Usage:")
-            print("  python config.py                    # Show current configuration")
-            print("  python config.py --check            # Validate current download URLs")
-            print("  python config.py --discover         # Discover available versions (use cache)")
-            print("  python config.py --discover --refresh # Discover versions (refresh cache)")
-            print("  python config.py --discover --json  # Output version data as JSON")
+            print("  python config.py                             # Show current configuration")
+            print("  python config.py --check                     # Validate current download URLs")
+            print("  python config.py --discover                  # Discover available versions (use cache)")
+            print("  python config.py --discover --refresh        # Discover versions (refresh cache)")
+            print("  python config.py --discover --json           # Output version data as JSON")
             print("  python config.py --discover --json --refresh # JSON output with fresh data")
-            print("  python config.py --cache-info       # Show cache information")
-            print("  python config.py --clear-cache      # Clear version cache")
-            print("  python config.py --help             # Show this help")
+            print("  python config.py --cache-info                # Show cache information")
+            print("  python config.py --clear-cache               # Clear version cache")
+            print("  python config.py --help                      # Show this help")
             print()
             print("Cache Management:")
             print(f"  - Cache expires after {CACHE_EXPIRY_HOURS} hours")

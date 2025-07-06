@@ -57,6 +57,11 @@
  List command options
 </summary>
 </member>
+<member name="T:LuaEnv.Core.RemoveAliasOptions">
+<summary>
+ Remove alias command options
+</summary>
+</member>
 <member name="T:LuaEnv.Core.SetAliasOptions">
 <summary>
  Set alias command options
@@ -165,6 +170,11 @@
 <member name="M:LuaEnv.Core.Backend.executePkgConfig(LuaEnv.Core.BackendConfig,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Microsoft.FSharp.Core.FSharpOption{System.String})">
 <summary>
  Execute pkg-config command for specific installation
+</summary>
+</member>
+<member name="M:LuaEnv.Core.Backend.executeRemoveAlias(LuaEnv.Core.BackendConfig,LuaEnv.Core.RemoveAliasOptions)">
+<summary>
+ Execute remove-alias command via registry.py
 </summary>
 </member>
 <member name="M:LuaEnv.Core.Backend.executeSetAlias(LuaEnv.Core.BackendConfig,LuaEnv.Core.SetAliasOptions)">

@@ -198,6 +198,17 @@ type SetAliasOptions = {
     NewAlias: string
 }
 
+/// Remove alias command options
+type RemoveAliasOptions = {
+    IdOrAlias: string
+    AliasToRemove: string option
+}
+
+/// Default installation command options
+type DefaultOptions = {
+    IdOrAlias: string
+}
+
 /// List command options
 type ListOptions = {
     Detailed: bool
@@ -235,6 +246,8 @@ type Command =
     | Versions of VersionsOptions
     | PkgConfig of PkgConfigOptions
     | SetAlias of SetAliasOptions
+    | RemoveAlias of RemoveAliasOptions
+    | Default of DefaultOptions
     | ShowConfig
     | Help
     | Environment // No parameters needed, command handled by PowerShell wrapper
@@ -481,6 +494,7 @@ module Backend =
                 Error (sprintf "[ERROR] Failed to access registry: %s" ex.Message)
         else
             // Use backend for standard mode
+            // printfn "Fetching installation list from backend..."
             let args = ["list"]
             executePython config "registry.py" args
 
@@ -645,6 +659,62 @@ module Backend =
                 executePython config "registry.py" args
         with
         | ex -> Error (sprintf "[ERROR] Failed to execute set-alias command: %s" ex.Message)
+
+    /// Execute remove-alias command via registry.py
+    let executeRemoveAlias (config: BackendConfig) (options: RemoveAliasOptions) : Result<int, string> =
+        try
+            // Validate required parameter
+            if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+                Error "[ERROR] Alias or installation ID cannot be empty"
+            else
+                // Handle the two use cases:
+                // 1. UUID + mandatory alias to remove
+                // 2. Alias (with optional second alias to remove)
+
+                // Try to find if IdOrAlias is a UUID (full or partial)
+                let isUuid =
+                    Guid.TryParse(options.IdOrAlias, ref Unchecked.defaultof<Guid>)
+                    || (options.IdOrAlias.Length >= 4 && options.IdOrAlias.ToLower() |> Seq.forall (fun c -> "0123456789abcdef-".Contains(c)))
+
+                if isUuid then
+                    // Case 1: UUID provided, so second argument (alias) is required
+                    match options.AliasToRemove with
+                    | None ->
+                        Error "[ERROR] When specifying an installation ID, you must provide an alias to remove"
+                    | Some aliasToRemove ->
+                        if String.IsNullOrWhiteSpace(aliasToRemove) then
+                            Error "[ERROR] Alias to remove cannot be empty"
+                        else
+                            // Call registry.py to remove the specific alias
+                            // We use "alias remove <alias>" because registry.py doesn't support
+                            // removing a specific alias from a specific installation directly
+                            let args = ["alias"; "remove"; aliasToRemove]
+                            executePython config "registry.py" args
+                else
+                    // Case 2: Alias provided, so remove that alias
+                    // If a second alias is provided, validate and use that instead
+                    let aliasToRemove =
+                        match options.AliasToRemove with
+                        | Some alias when not (String.IsNullOrWhiteSpace(alias)) -> alias
+                        | _ -> options.IdOrAlias
+
+                    // Call registry.py to remove the alias
+                    let args = ["alias"; "remove"; aliasToRemove]
+                    executePython config "registry.py" args
+        with
+        | ex -> Error (sprintf "[ERROR] Failed to execute remove-alias command: %s" ex.Message)
+
+    /// Execute 'default' command to set the default Lua installation
+    let executeDefault (config: BackendConfig) (options: DefaultOptions) : Result<int, string> =
+        try
+            // Validate required parameter
+            if String.IsNullOrWhiteSpace(options.IdOrAlias) then
+                Error "[ERROR] Alias or installation ID cannot be empty"
+            else
+                // Call the registry.py script with 'default' command and the provided ID/alias
+                executePython config "registry.py" ["default"; options.IdOrAlias]
+        with
+        | ex -> Error $"[ERROR] Failed to set default installation: {ex.Message}"
 
     /// Execute pkg-config command for specific installation
 // Fix the executePkgConfig function to properly display all output from pkg_config.py

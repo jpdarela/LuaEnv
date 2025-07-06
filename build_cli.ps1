@@ -6,9 +6,10 @@
 # This script assumes you are running it from the root of the LuaEnv project
 
 param(
-    [string]$Target = "auto",  # auto, win64, win-x86, win-arm64, or all
+    [string]$Target = "auto",  # auto, win64, win-x86, win-arm64, all, or clean
     [switch]$SelfContained = $false,
     [switch]$WarmUp = $false,
+    [switch]$Clean = $false,
     [switch]$Help = $false
 )
 
@@ -24,6 +25,55 @@ function Get-HostArchitecture {
             return "win64"
         }
     }
+}
+
+# Function to clean all intermediate build files
+function Invoke-Clean {
+    param([switch]$Verbose = $false)
+
+    Write-Host "Cleaning intermediate build files..." -ForegroundColor Cyan
+
+    # Clean each project with dotnet clean
+    $projects = @("cli/LuaEnv.CLI", "cli/LuaEnv.Core")
+
+    foreach ($project in $projects) {
+        Write-Host "  Cleaning project: $project" -ForegroundColor Gray
+
+        # Clean both Debug and Release configurations
+        & dotnet clean $project -c Debug -v minimal
+        & dotnet clean $project -c Release -v minimal
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Clean command returned non-zero exit code for $project"
+        }
+
+        # Also manually clean bin and obj folders for complete cleanup
+        $projectPath = (Resolve-Path $project).Path
+        $binDir = Join-Path $projectPath "bin"
+        $objDir = Join-Path $projectPath "obj"
+
+        if (Test-Path $binDir) {
+            Write-Host "  Cleaning $binDir" -ForegroundColor Gray
+            Remove-Item -Path $binDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        if (Test-Path $objDir) {
+            Write-Host "  Cleaning $objDir" -ForegroundColor Gray
+            Remove-Item -Path $objDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Clean output directories as well
+    $outputDirs = @("win64") #, "win-x86", "win-arm64")
+
+    foreach ($dir in $outputDirs) {
+        if (Test-Path $dir) {
+            Write-Host "  Cleaning output directory: $dir" -ForegroundColor Gray
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host "Cleanup completed successfully!" -ForegroundColor Green
 }
 
 # Function to warm up JIT compilation for a build
@@ -79,16 +129,21 @@ if ($Help) {
     Write-Host "  Supports Windows x64, x86 (32-bit), and ARM64 targets."
     Write-Host ""
     Write-Host "USAGE:" -ForegroundColor Yellow
-    Write-Host "  .\build_cli.ps1 [-Target <platform>] [-SelfContained] [-Help]"
+    Write-Host "  .\build_cli.ps1 [-Target <platform>] [-SelfContained] [-Clean] [-WarmUp] [-Help]"
     Write-Host ""
     Write-Host "PARAMETERS:" -ForegroundColor Yellow
     Write-Host "  -Target <platform>     Target platform to build for"
-    Write-Host "                         Options: auto, win64, win-x86, win-arm64, all"
+    Write-Host "                         Options: auto, win64, win-x86, win-arm64, all, clean"
     Write-Host "                         Default: auto (detects current Windows architecture)"
+    Write-Host "                         Use 'clean' to only clean without building"
     Write-Host ""
     Write-Host "  -SelfContained         Include .NET runtime in the output"
     Write-Host "                         Makes the app portable but increases size"
     Write-Host "                         Default: false (requires .NET runtime on target)"
+    Write-Host ""
+    Write-Host "  -Clean                 Clean all intermediate build files before building"
+    Write-Host "                         Removes bin, obj folders and build outputs"
+    Write-Host "                         Ensures a clean build environment"
     Write-Host ""
     Write-Host "  -WarmUp                Run JIT warm-up after building"
     Write-Host "                         Executes the CLI to trigger JIT compilation"
@@ -98,11 +153,13 @@ if ($Help) {
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
     Write-Host "  .\build_cli.ps1"                                    # Auto-detect and build for current arch
-    Write-Host "  .\build_cli.ps1 -WarmUp"                            # Build and warm up JIT
+    Write-Host "  .\build_cli.ps1 -Clean"                             # Clean and build
+    Write-Host "  .\build_cli.ps1 -Target clean"                      # Only clean, don't build
+    Write-Host "  .\build_cli.ps1 -Clean -WarmUp"                     # Clean, build and warm up JIT
     Write-Host "  .\build_cli.ps1 -Target win64"                      # Force build for Windows x64
     Write-Host "  .\build_cli.ps1 -Target win-x86"                    # Build for Windows x86 (32-bit)
     Write-Host "  .\build_cli.ps1 -Target win-arm64 -SelfContained"   # Self-contained Windows ARM64
-    Write-Host "  .\build_cli.ps1 -Target all -WarmUp"                # Build all platforms and warm up
+    Write-Host "  .\build_cli.ps1 -Target all -Clean -WarmUp"         # Clean and build all platforms and warm up
     Write-Host "  .\build_cli.ps1 -Help"                              # Show this help
     Write-Host ""
     Write-Host "OUTPUT DIRECTORIES:" -ForegroundColor Yellow
@@ -111,11 +168,29 @@ if ($Help) {
     Write-Host "  win-arm64/    - Windows ARM64 build"
     Write-Host ""
     Write-Host "REQUIREMENTS:" -ForegroundColor Yellow
-    Write-Host "  - .NET SDK 9.0 or later"
+    Write-Host "  - .NET SDK 8.0 or later"
     Write-Host "  - F# compiler (included with .NET SDK)"
     Write-Host "  - Internet connection (for package restoration)"
     Write-Host ""
     return
+}
+
+# Handle clean-only target
+if ($Target -eq "clean") {
+    Invoke-Clean
+    Write-Host "Clean completed successfully!" -ForegroundColor Green
+    return
+}
+
+# Clean if requested as a flag
+if ($Clean) {
+    Invoke-Clean
+}
+
+# Auto-detect target if set to "auto"
+if ($Target -eq "auto") {
+    $Target = Get-HostArchitecture
+    Write-Host "Auto-detected architecture: $Target" -ForegroundColor Cyan
 }
 
 # Standard JIT build (fast startup after first run)

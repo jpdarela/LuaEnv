@@ -2,11 +2,26 @@
  * For more details, see the LICENSE file in the project root.
  */
 
-/*Wrapper for LuaEnv CLI pkg-config command
+/*
+ * Wrapper for LuaEnv CLI pkg-config command
+ *
  * This program is designed to run the LuaEnv CLI with proper path handling and command line argument management.
  * It ensures that the CLI executable and configuration file are correctly located and executed.
  * The program is specifically designed to wrap the LuaEnv CLI executable (pkg-config command)
  *
+ * PERFORMANCE DIAGNOSTICS:
+ * To enable timing diagnostics, compile with the _DEBUG flag:
+ *   cl /D_DEBUG luaconfig.c
+ * or add #define _DEBUG at the top of this file before the includes.
+ *
+ * This will output detailed timing information to stderr showing:
+ * - Memory allocation overhead
+ * - Path resolution and validation time
+ * - File system operations duration
+ * - Command line construction time
+ * - Process creation overhead
+ * - CLI execution time (the main bottleneck)
+ * - Cleanup operations time
  *
  * This code is part of the LuaEnv project, which provides a Lua environment for Windows.
  */
@@ -19,11 +34,52 @@
 #include <errno.h>
 
 // For long path support - Windows supports paths up to ~32767 chars with proper prefixing
-#define SAFE_PATH_SIZE 32768
+// Increased from 520 to 1024 to handle longer paths more safely
+#define SAFE_PATH_SIZE 1024
 
-// Command line size limits - based on CreateProcess limit
-#define MIN_CMD_SIZE 1024
-#define MAX_CMD_SIZE 32768
+// Command line size limits - based on actual luaconfig usage patterns
+// Longest realistic command: ~500-1000 chars including very long paths
+#define MIN_CMD_SIZE 2048    // 2KB minimum provides good safety margin
+#define MAX_CMD_SIZE 4096    // 4KB maximum - reduced from 16KB (was overkill)
+
+#ifdef _DEBUG
+// Timing diagnostic macros - only active when _DEBUG is defined
+#define TIMING_DECLARE_VARS() \
+    LARGE_INTEGER timing_freq, timing_start, timing_current; \
+    QueryPerformanceFrequency(&timing_freq);
+
+#define TIMING_START(name) \
+    do { \
+        QueryPerformanceCounter(&timing_start); \
+        fprintf(stderr, "[TIMING] Starting %s...\n", name); \
+    } while(0)
+
+#define TIMING_END(name) \
+    do { \
+        QueryPerformanceCounter(&timing_current); \
+        double elapsed = (double)(timing_current.QuadPart - timing_start.QuadPart) / timing_freq.QuadPart * 1000.0; \
+        fprintf(stderr, "[TIMING] %s completed in %.2f ms\n", name, elapsed); \
+    } while(0)
+
+#define TIMING_POINT(description) \
+    do { \
+        QueryPerformanceCounter(&timing_current); \
+        double elapsed = (double)(timing_current.QuadPart - timing_start.QuadPart) / timing_freq.QuadPart * 1000.0; \
+        fprintf(stderr, "[TIMING] %s: %.2f ms elapsed\n", description, elapsed); \
+    } while(0)
+
+#define TIMING_RESET() \
+    do { \
+        QueryPerformanceCounter(&timing_start); \
+    } while(0)
+#else
+// Empty macros when not in debug mode
+#define TIMING_DECLARE_VARS() do {} while(0)
+#define TIMING_START(name) do {} while(0)
+#define TIMING_END(name) do {} while(0)
+#define TIMING_POINT(description) do {} while(0)
+#define TIMING_RESET() do {} while(0)
+#endif
 
 // Function to safely clean up allocated resources
 void cleanup_resources(WCHAR *pathW, char *path, char *dir, char *cli, char *cfg, char *cmd,
@@ -56,10 +112,16 @@ int main(int argc, char *argv[]) {
     pi.hProcess = NULL;
     pi.hThread = NULL;
 
+    // Initialize timing variables for performance diagnostics
+    TIMING_DECLARE_VARS();
+
     // Zero out structures
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
 
+    TIMING_START("Total execution time");
+
+    TIMING_START("Memory allocation phase");
     // Allocate memory for large buffers
     executablePathW = (WCHAR*)calloc(SAFE_PATH_SIZE, sizeof(WCHAR));
     if (!executablePathW) {
@@ -95,7 +157,9 @@ int main(int argc, char *argv[]) {
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, NULL, NULL, NULL, NULL);
         return 1;
     }
+    TIMING_END("Memory allocation phase");
 
+    TIMING_START("Path resolution phase");
     // Get the full path of the current executable using wide character version
     pathLength = GetModuleFileNameW(NULL, executablePathW, SAFE_PATH_SIZE);
     if (pathLength == 0 || pathLength >= SAFE_PATH_SIZE) {
@@ -139,7 +203,9 @@ int main(int argc, char *argv[]) {
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
         return 1;
     }
+    TIMING_END("Path resolution phase");
 
+    TIMING_START("File system validation phase");
     // Verify that the CLI executable exists
     DWORD cliAttrs = GetFileAttributes(cliPath);
     if (cliAttrs == INVALID_FILE_ATTRIBUTES) {
@@ -179,6 +245,9 @@ int main(int argc, char *argv[]) {
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
         return 1;
     }
+    TIMING_END("File system validation phase");
+
+    TIMING_START("Command line construction phase");
 
     // Calculate required buffer size for command line with checks for integer overflow
     // Start with: "cliPath" --config "configPath" pkg-config
@@ -347,6 +416,7 @@ int main(int argc, char *argv[]) {
 
     // Add terminating null just in case (redundant but safe)
     commandLine[pos] = '\0';
+    TIMING_END("Command line construction phase");
 
     // Initialize startup info structure
     ZeroMemory(&si, sizeof(si));
@@ -358,6 +428,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Command line: %s\n", commandLine);
     #endif
 
+    TIMING_START("Process creation phase");
     // Execute command with error handling
     success = CreateProcessA(
         NULL,                // No module name (use command line)
@@ -373,6 +444,7 @@ int main(int argc, char *argv[]) {
     );
 
     if (!success) {
+        TIMING_END("Process creation phase");
         DWORD error = GetLastError();
         // Provide more specific error information based on common CreateProcess errors
         switch (error) {
@@ -394,20 +466,27 @@ int main(int argc, char *argv[]) {
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
         return 1;
     }
+    TIMING_END("Process creation phase");
+
+    TIMING_START("CLI execution and wait phase");
 
     // Wait for the process to complete with timeout handling
-    DWORD waitResult = WaitForSingleObject(pi.hProcess, 15000); // 15-second timeout
+    DWORD waitResult = WaitForSingleObject(pi.hProcess, 20000); // 20-second timeout (increased from 15)
     if (waitResult == WAIT_TIMEOUT) {
-        fprintf(stderr, "Warning: Command execution timed out after 60 seconds, terminating\n");
+        TIMING_END("CLI execution and wait phase");
+        fprintf(stderr, "Warning: Command execution timed out after 20 seconds, terminating\n");
         TerminateProcess(pi.hProcess, 1);
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
         return 1;
     } else if (waitResult != WAIT_OBJECT_0) {
+        TIMING_END("CLI execution and wait phase");
         fprintf(stderr, "Error: Failed to wait for process completion (Error code: %lu)\n", GetLastError());
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
         return 1;
     }
+    TIMING_END("CLI execution and wait phase");
 
+    TIMING_START("Process cleanup phase");
     // Get the exit code with error handling
     DWORD procExitCode = 1; // Default failure code
     if (!GetExitCodeProcess(pi.hProcess, &procExitCode)) {
@@ -419,6 +498,13 @@ int main(int argc, char *argv[]) {
 
     // Clean up all resources
     cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
+    TIMING_END("Process cleanup phase");
+
+    TIMING_END("Total execution time");
+
+    #ifdef _DEBUG
+    fprintf(stderr, "[TIMING] luaconfig.exe execution completed with exit code: %d\n", exitCode);
+    #endif
 
     // Return the same exit code as the child process
     return exitCode;

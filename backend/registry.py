@@ -834,7 +834,19 @@ class LuaEnvRegistry:
             print("[INFO] Installations:")
             for installation in installations:
                 status_mark = "[ACTIVE]" if installation["status"] == "active" else f"[{installation['status'].upper()}]"
-                alias_info = f" (alias: {installation['alias']})" if installation['alias'] else ""
+
+                # Collect all aliases that point to this installation
+                all_aliases = []
+                for alias, inst_id in self.registry["aliases"].items():
+                    if inst_id == installation["id"]:
+                        all_aliases.append(alias)
+
+                # Create a comma-separated string of all aliases
+                if all_aliases:
+                    alias_info = f" (alias: {', '.join(all_aliases)})"
+                else:
+                    alias_info = ""
+
                 print(f"  {status_mark} {installation['name']}{alias_info}")
                 print(f"    ID: {installation['id']}")
                 print(f"    Lua: {installation['lua_version']}, LuaRocks: {installation['luarocks_version']}")
@@ -986,7 +998,19 @@ def main():
             print(f"[INFO] Found {len(installations)} installations:")
             for installation in installations:
                 status_mark = "[DEFAULT]" if registry.get_default() and installation["id"] == registry.get_default()["id"] else f"[{installation['status'].upper()}]"
-                alias_info = f" (alias: {installation['alias']})" if installation['alias'] else ""
+
+                # Collect all aliases that point to this installation
+                all_aliases = []
+                for alias, inst_id in registry.registry["aliases"].items():
+                    if inst_id == installation["id"]:
+                        all_aliases.append(alias)
+
+                # Create a comma-separated string of all aliases
+                if all_aliases:
+                    alias_info = f" (alias: {', '.join(all_aliases)})"
+                else:
+                    alias_info = ""
+
                 print(f"  {status_mark} {installation['name']}{alias_info}")
                 print(f"    ID: {installation['id']}")
                 print(f"    Lua: {installation['lua_version']}, LuaRocks: {installation['luarocks_version']}")

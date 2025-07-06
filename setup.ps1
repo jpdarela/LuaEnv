@@ -333,6 +333,8 @@ function Invoke-LuaConfigBuild {
             Remove-Item $luaConfigExe -Force
         }
         cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE
+        # Comment above and uncomment below to enable debug and time diagnostics printing
+        # cl.exe /D_DEBUG luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE
         $exitCode = $LASTEXITCODE
 
         # Restore original location
