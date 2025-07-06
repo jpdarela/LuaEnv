@@ -19,6 +19,11 @@
 .PARAMETER LuaConfig
     Build the luaconfig.exe tool before installation. Compiles the C program for pkg-config support.
 
+.PARAMETER Bootstrap
+    Install pre-built components only, skipping CLI build. Downloads embedded Python,
+    installs scripts and CLI binaries from win64 folder. Use for deployments where
+    build tools are not available on the target system.
+
 .PARAMETER Reset
     DANGEROUS: Completely removes existing installation and recreates it.
     This will delete your ~/.luaenv folder and all configurations.
@@ -43,6 +48,10 @@
     Force download/install embedded Python only
 
 .EXAMPLE
+    .\setup.ps1 -Bootstrap
+    Install pre-built components only (for deployment to systems without build tools)
+
+.EXAMPLE
     .\setup.ps1 -Reset
     WARNING: Complete reset - removes ~/.luaenv and recreates it
 
@@ -62,6 +71,9 @@ param(
     [Parameter(ParameterSetName='Python')]
     [switch]$Python,
 
+    [Parameter(ParameterSetName='Bootstrap')]
+    [switch]$Bootstrap,
+
     [Parameter(ParameterSetName='Reset')]
     [switch]$Reset,
 
@@ -73,7 +85,35 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $PythonVersion = "3.13.5"
-$PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
+
+# Function to detect current architecture
+function Get-HostArchitecture {
+    $arch = $env:PROCESSOR_ARCHITECTURE
+    switch ($arch) {
+        "AMD64" { return "win64" }
+        "ARM64" { return "win-arm64" }
+        "x86"   { return "win-x86" }
+        default {
+            Write-Warning "Unknown architecture: $arch, defaulting to win64"
+            return "win64"
+        }
+    }
+}
+
+
+# Function to get the appropriate Python URL based on architecture
+function Get-PythonUrlForArchitecture {
+    $arch = Get-HostArchitecture
+    switch ($arch) {
+        "win64" { return "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip" }
+        "win-arm64" { return "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-arm64.zip" }
+        "win-x86" { return "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-win32.zip" }
+        default { return "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip" } # Default to amd64
+    }
+}
+
+# Set paths and URLs
+$PythonUrl = Get-PythonUrlForArchitecture
 $ProjectRoot = $PSScriptRoot
 $PythonDir = Join-Path $ProjectRoot "python"
 $PythonExe = Join-Path $PythonDir "python.exe"
@@ -100,6 +140,7 @@ USAGE:
     .\setup.ps1                 # Normal installation
     .\setup.ps1 -BuildCli       # Build CLI then install
     .\setup.ps1 -LuaConfig      # Build LuaConfig tool then install
+    .\setup.ps1 -Bootstrap      # Install pre-built components only
     .\setup.ps1 -Python         # Python setup only
     .\setup.ps1 -Reset          # Complete reset (DANGEROUS)
     .\setup.ps1 -Help           # Show this help
@@ -119,6 +160,15 @@ MODES:
     • Then perform normal installation steps
     • Ensures you have the latest CLI build before installation
     • Equivalent to running .\build_cli.ps1 -WarmUp then .\setup.ps1
+
+  -Bootstrap
+    • For deployment to systems without build tools (.NET SDK)
+    • Downloads and extracts architecture-specific embedded Python (ARM64, x64, x86)
+    • Installs scripts and pre-built CLI binaries directly
+    • Skips all build steps (CLI, LuaConfig)
+    • Uses architecture-specific folder (win64, win-arm64, win-x86) for CLI binaries
+    • Automatically detects host architecture and uses appropriate binaries
+    • Useful for distributing to end users without development environment
 
   -LuaConfig
     • Build the LuaConfig tool (C program for pkg-config support)
@@ -217,17 +267,21 @@ function Invoke-CliBuild {
         return $false
     }
 
+    # Get the appropriate architecture for the build
+    $targetArch = Get-HostArchitecture
+
     Write-Info "CLI Build"
     Write-Info "========="
-    Write-Info "Running: .\build_cli.ps1 -WarmUp (auto-detect architecture with JIT warm-up)"
+    Write-Info "Running: .\build_cli.ps1 -Target $targetArch -SelfContained -WarmUp"
 
     try {
-        & $BuildCliScript -WarmUp
+        # Pass the detected architecture to the build script
+        & $BuildCliScript -Target $targetArch -SelfContained -WarmUp
         $exitCode = $LASTEXITCODE
         if ($null -eq $exitCode) { $exitCode = 0 }
 
         if ($exitCode -eq 0) {
-            Write-OK "CLI build and warm-up completed successfully"
+            Write-OK "CLI build and warm-up completed successfully for architecture: $targetArch"
             return $true
         } else {
             # Check if the error is likely due to .NET SDK issues
@@ -237,7 +291,7 @@ function Invoke-CliBuild {
                 Write-Info "Please ensure you have .NET SDK $requiredVersion or higher installed"
                 Write-Info "Download from: https://dotnet.microsoft.com/download"
             } else {
-                Write-Err "CLI build failed with exit code: $exitCode"
+                Write-Err "CLI build failed with exit code: $exitCode for architecture: $targetArch"
             }
             return $false
         }
@@ -322,6 +376,18 @@ function Install-EmbeddedPython {
     Write-Info "Embedded Python Setup"
     Write-Info "====================="
 
+    # Get architecture and show it
+    $arch = Get-HostArchitecture
+    Write-Info "Host architecture: $arch"
+
+    # Always refresh URL in case of architecture changes
+    $script:PythonUrl = Get-PythonUrlForArchitecture
+
+    # Show which Python package we're using
+    $urlParts = $PythonUrl -split "/"
+    $packageName = $urlParts[-1]
+    Write-Info "Using Python package: $packageName"
+
     # Check if already installed
     if ((Test-EmbeddedPython) -and (-not $ForceReinstall)) {
         Write-OK "Embedded Python already available"
@@ -345,7 +411,7 @@ function Install-EmbeddedPython {
 
     try {
         # Download
-        Write-Info "Downloading Python $PythonVersion embedded..."
+        Write-Info "Downloading Python $PythonVersion for $arch..."
         Invoke-WebRequest -Uri $PythonUrl -OutFile $TempZip -UseBasicParsing
 
         $fileSize = [math]::Round((Get-Item $TempZip).Length / 1MB, 1)
@@ -428,8 +494,48 @@ try {
             exit 0
         }
 
+        'Bootstrap' {
+            Write-Info "Mode: Bootstrap installation (pre-built components only)"
+
+            # Get host architecture
+            $arch = Get-HostArchitecture
+            Write-Info "Host architecture: $arch"
+
+            # Step 1: Ensure Python is available (install if missing)
+            if (-not (Install-EmbeddedPython)) {
+                Write-Err "Failed to setup embedded Python"
+                exit 1
+            }
+
+            # Step 2: Verify architecture-specific CLI binaries directory exists
+            $cliSourceDir = Join-Path $ProjectRoot $arch
+            if (-not (Test-Path $cliSourceDir)) {
+                Write-Err "CLI binaries directory not found for $arch``: $cliSourceDir"
+                Write-Info "Bootstrap mode requires pre-built CLI binaries in $arch folder"
+
+                # Check if win64 exists as a fallback
+                $fallbackDir = Join-Path $ProjectRoot "win64"
+                if ($arch -ne "win64" -and (Test-Path $fallbackDir)) {
+                    Write-Warn "Falling back to win64 binaries. These may not work correctly on $arch."
+                    $cliSourceDir = $fallbackDir
+                } else {
+                    exit 1
+                }
+            }
+
+            # Step 3: Run LuaEnv installation with the force flag
+            # This will install both scripts and CLI binaries in one step
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
+                Write-Err "Bootstrap installation failed"
+                exit 1
+            }
+
+            Write-OK "Bootstrap installation completed successfully!"
+        }
+
         'BuildCli' {
             Write-Info "Mode: Build CLI then install"
+            $arch = Get-HostArchitecture
 
             # Step 1: Build CLI application
             if (-not (Invoke-CliBuild)) {
@@ -444,7 +550,7 @@ try {
             }
 
             # Step 3: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @("--cli", "--force"))) {
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
                 Write-Err "LuaEnv installation failed"
                 exit 1
             }
@@ -454,6 +560,7 @@ try {
 
         'LuaConfig' {
             Write-Info "Mode: LuaConfig build then install"
+            $arch = Get-HostArchitecture
 
             # Step 1: Build LuaConfig tool
             if (-not (Invoke-LuaConfigBuild)) {
@@ -468,7 +575,7 @@ try {
             }
 
             # Step 3: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @("--cli", "--force"))) {
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
                 Write-Err "LuaEnv installation failed"
                 exit 1
             }
@@ -502,6 +609,7 @@ try {
             }
 
             Write-Info "Mode: Complete reset and reinstall"
+            $arch = Get-HostArchitecture
 
             # Ensure Python is available
             if (-not (Install-EmbeddedPython)) {
@@ -518,7 +626,7 @@ try {
 
             # Recreate installation
             Write-Info "Recreating LuaEnv installation..."
-            if (-not (Invoke-LuaEnvInstall @("--force"))) {
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
                 Write-Err "Failed to recreate installation"
                 exit 1
             }
@@ -528,6 +636,7 @@ try {
 
         'Default' {
             Write-Info "Mode: Standard installation"
+            $arch = Get-HostArchitecture
 
             # Step 1: Ensure Python is available (install if missing)
             if (-not (Install-EmbeddedPython)) {
@@ -536,7 +645,7 @@ try {
             }
 
             # Step 2: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @("--force"))) {
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
                 Write-Err "LuaEnv installation failed"
                 exit 1
             }
@@ -546,7 +655,7 @@ try {
     }
 
     # Final success message (for modes that complete installation)
-    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli', 'LuaConfig')) {
+    if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli', 'LuaConfig', 'Bootstrap')) {
         Write-Info ""
         Write-OK "LuaEnv is now ready to use!"
         Write-Info "Next steps:"

@@ -1,8 +1,16 @@
 # LuaEnv - Lua Environment Management for Windows
 
-Under development.
+Under development. Contributions are welcome!
 
-A Lua environment management system for Windows that provides automated installation, building, and configuration of Lua and LuaRocks using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing integration with C/C++ development workflows.
+A Lua environment management system for Windows that provides automated building, installation, and configuration of Lua using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing integration with C/C++ development workflows. Luarocks binaries are download and installed/configured automatically. The system supports environment isolation through a UUID-based registry system.
+
+Note: Each Lua installation is set with an independent instalation of Luarocks. This is probably not the best approach, but it is the simplest one for now. The LuaRocks installation is done automatically during the Lua installation process. This means that each Lua installation has its own LuaRocks executable, which can be useful for testing different versions of LuaRocks with different versions of Lua.
+
+Note: The system supports working version of Lua (5.4) and LuaRocks > 3.9.0
+
+Note: Older versions of Lua (5.1, 5.2, 5.3) are not supported by the system but can be integrated in the future.
+
+Note: Check the [TODO.md](./TODO.md) file for the current development status and future plans.
 
 # Table of Contents
 
@@ -16,8 +24,9 @@ A Lua environment management system for Windows that provides automated installa
 - [Project Structure](#project-structure)
   - [Repository Structure](#repository-structure)
   - [Installation Directory Structure](#installation-directory-structure)
-- [Testing](#testing)
 - [Contributing](#contributing)
+- [Use of LLMs via GitHub Copilot](#use-of-llms-via-github-copilot)
+- [Notes on the backend system](#notes-on-the-backend-system)
 
 # Project Overview
 
@@ -28,8 +37,7 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 ### 1. Bootstrap and Installation System
 - **PowerShell Bootstrap**: `setup.ps1` script for initial setup and embedded Python management [To be improved for final deployment]
 - **Embedded Python Environment**: Self-contained Python 3.13.5 for reliable execution across systems
-- **Automated Setup**: Complete system bootstrap from scratch via `setup.ps1`
-- **Installation Management**: Comprehensive installation orchestration through `install.py`
+
 
 ### 2. F# CLI Application
 - **Multi-Architecture Support**: Builds for x64, x86, and ARM64 platforms
@@ -37,7 +45,7 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 - **pkg-config Integration**: MSVC-compatible compiler flag generation for C/C++ projects
 
 ### 3. Python Backend System
-- **Download Management**: Version-aware downloading with registry and caching (240-hour expiry)
+- **Download Management**: Version-aware downloading with registry and caching
 - **Build Orchestration**: Complete Lua/LuaRocks compilation process with MSVC integration
 - **Registry System**: UUID-based installation tracking in `%USERPROFILE%\.luaenv` with integrity verification
 
@@ -52,7 +60,7 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 - **Build Configuration**: Static library and DLL builds with debug/release configurations
 - **Environment Isolation**: Separate installations with UUID-based identification
 - **MSVC Integration**: Automatic Visual Studio toolchain detection and setup
-- **pkg-config Support**: MSVC-compatible compiler flag generation for build systems
+- **pkg-config-like Support**: Compiler flag generation for build systems
 
 
 # Installation
@@ -60,68 +68,87 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 ## Prerequisites
 
 - **Visual Studio 2019/2022** with C++ development tools (Community, Professional, or Enterprise)
-- **PowerShell 5.1+** (included with Windows)
-- **.NET SDK 9.0+** (for CLI building, optional - pre-built binaries are included [amd64])
-- **Internet connection** (for downloading Lua/LuaRocks sources)
+- **PowerShell 7** (install via winget `winget install Microsoft.PowerShell`)
+- **.NET SDK 9.0+** (for CLI building, optional - pre-built binaries are included for [amd64](./win64/), [arm64](./win-arm64/), and [x86](./win-x86/) architectures)
+- **Internet connection** (for downloading Lua/LuaRocks sources and embedded Python)
 
 ## Installation Steps
 
 ### Overview of the Bootstrap Process
 
-LuaEnv uses a two-stage bootstrap process:
+LuaEnv installation is orchestrated through two main scripts located in the repository root:
 
 1. **setup.ps1**: Bootstrap script that downloads embedded Python 3.13.5 and orchestrates installation
-2. **install.py**: Installation script that uses the embedded Python and backend registry system
-
-The `setup.ps1` script handles:
-- Downloads and extracts embedded Python 3.13.5 (24MB zip file)
-- Optionally builds the F# CLI application with JIT warm-up
-- Calls `install.py` with appropriate arguments for system installation
-
-The `install.py` script handles:
-- Uses embedded Python with fallback to system Python
-- Installs PowerShell wrapper scripts to `~/.luaenv/bin`
-- Deploys CLI binaries from build output to installation directory
-- Creates backend configuration file and directory structure
+2. **install.py**: Installation script that uses the embedded Python and backend registry system (used by `setup.ps1`)
 
 ### Step 1: Clone the Repository
 
 ```powershell
-git clone <repository-url>
-cd lua_msvc_build
+git clone https://github.com/jpdarela/LuaEnv.git
+cd LuaEnv
 ```
+Alternatively, download the repository as a [ZIP file](https://github.com/jpdarela/LuaEnv/archive/refs/heads/main.zip) and extract it to your desired location.
 
 ### Step 2: Run Bootstrap Installation
 
-The installation process is very rudimentary and will be improved in the future. The `setup.ps1` script provides a simple way to bootstrap the system, including building the CLI and installing the Python environment. Currently only the cli binaries and some core scripts of the backend are installd to the `~/.luaenv/bin` directory. The Python backend and the embedded Python are not installed yet, but this will be improved in the future.
+The installation process is very rudimentary and will be improved in the future. The `setup.ps1` script provides a simple way to bootstrap the system, including building the CLI and installing the Python environment. Currently only the cli binaries and some core scripts of the backend are installed to the `~/.luaenv/bin` directory. The Python backend and the embedded Python are not installed yet, they stay in the repository root directory. The installation process will be improved in the future to deploy the backend folder and the embedded Python to the `~/.luaenv` directory.
+
+Note: Check the [execution policy of your PowerShell session](https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/01-getting-started?view=powershell-7.5#execution-policy). You may need to set it to allow script execution:
+
 
 ```powershell
-# Build CLI first, then install (includes JIT warm-up)
-.\setup.ps1 -BuildCli
+# Run the bootstrap script to set up the environment
+# After that you can add ~/.luaenv/bin to your PATH to use luaenv.
+.\setup.ps1 -Bootstrap
 
-# Force Python reinstall only
-.\setup.ps1 -Python
+# The script offer some useful options to control the installation process, facilitating development and testing.
+# Build the CLI application and deploy it to ~/.luaenv/bin - Requires .NET SDK 9.0+
+.\setup.ps1 -BuildCli -WarmUp
 
 # Complete setup (deploys CLI, backend scripts, and configuration)
 .\setup.ps1
 
-# Complete reset (removes ~/.luaenv and re-installs everything from scratch)
+# Complete reset (removes ~/.luaenv and re-installs everything from scratch). Removes all installed Lua environments.
 .\setup.ps1 -Reset
+
+.\setup.ps1 -Help  # Show help for the setup script
 ```
 
-### Step 3: Verify Installation
+Add the ~/.luaenv/bin directory to your PATH for easier access to the CLI commands.
 
-Dependencies are automatically managed:
-- Embedded Python 3.13.5 is downloaded automatically
-- CLI binaries are deployed from pre-built `win64/` folder
-- PowerShell wrapper scripts are installed to `~/.luaenv/bin`
-- Visual Studio toolchain is detected automatically during environment usage
+```powershell
+# Add ~/.luaenv/bin to PATH for current session
+$env:PATH += ";$HOME\.luaenv\bin"
+# Verify PATH update
+$env:PATH -split ';' | Where-Object { $_ -like "*luaenv*" }
+```
+Add to the $PROFILE for persistent PATH update:
+
+```powershell
+notepad $PROFILE  # Open PowerShell profile in Notepad
+```
+Add the following line to the profile script:
+
+```powershell
+# Add LuaEnv to PATH
+$env:PATH += ";$HOME\.luaenv\bin"
+```
+Save and close the file. Restart PowerShell to apply changes.
+
+You can also add the .luaenv directory to your PATH permanently by modifying the system environment variables:
+1. Open the Start Menu and search for "Environment Variables".
+2. Click on "Edit the system environment variables".
+3. In the System Properties window, click on the "Environment Variables" button.
+4. In the Environment Variables window, find the "Path" variable in the "System variables" section and select it.
+5. Click on "Edit" and then "New" to add a new entry.
+6. Enter the path to the LuaEnv bin directory: `%USERPROFILE%\.luaenv\bin`.
+7. Click "OK" to close all dialog boxes.
 
 # Usage
 
 ## Running the CLI
 
-LuaEnv uses a PowerShell wrapper script system that provides seamless integration between PowerShell and the F# CLI application.
+LuaEnv uses a PowerShell wrapper script system that provides integration between PowerShell and the F# CLI application.
 
 ## Wrapper Script Architecture
 
@@ -141,29 +168,73 @@ The wrapper automatically:
 
 After installation, use the `luaenv` command from the `~/.luaenv/bin` directory:
 
+Note: Requires `~/.luaenv/bin` to be in your PATH.
+
 ```powershell
 # Environment management
-luaenv list                          # List all installations
-luaenv install --alias dev           # Create new installation with alias
-luaenv install --alias prod --x86    # Create 32-bit installation
-luaenv install --dll --debug         # Create DLL build with debug symbols
-luaenv uninstall dev                 # Remove installation
-luaenv status                        # Show system status
+luaenv help  # Show help information
+```
+Output:
+
+```plaintext
+LuaEnv - Lua Environment Management Tool
+=======================================
+USAGE:
+  luaenv <command> [options]
+
+COMMANDS:
+
+  Environment Management (CLI):
+    install [options]          Install a new Lua environment
+    uninstall <alias|uuid>     Remove a Lua installation
+    list                       List all installed Lua environments
+    status                     Show system status and registry information
+    versions                   Show installed and available versions
+    pkg-config <alias|uuid>    Show pkg-config information for C developers
+    config                     Show current configuration
+    set-alias <uuid> <alias>   Set or update the alias of an installation
+    help                       Show CLI help message
+
+  Shell Integration (PowerShell):
+    activate [alias|options] Activate a Lua environment in the current shell
+
+For command-specific help:
+  luaenv <command> --help
+
+EXAMPLES:
+  luaenv install --alias dev           # Install Lua with alias 'dev'
+  luaenv activate dev                  # Activate 'dev' environment (shorthand)
+  luaenv activate --alias dev          # Activate 'dev' environment
+  luaenv list                          # Show all installations
+  luaenv activate --list               # List available environments
+  luaenv set-alias 1234abcd prod       # Set alias 'prod' for installation
+                                         with UUID 1234abcd-... (matches first 8 chars)
+
+Note: 'activate' is a PowerShell-only command that modifies your current shell.
+      All other commands are handled by the LuaEnv CLI application.
+```
+
+
+```powershell
+luaenv install --dll --lua-version 5.4.0 --luarocks-version 3.9.0   # Install Lua 5.4.0 with LuaRocks 3.9.0 as a DLL build
+luaenv list                                                         # List all installations
+luaenv install --alias dev                                          # Create new installation with alias
+luaenv install --alias prod --x86                                   # Create 32-bit installation
+luaenv install --dll --debug                                        # Create DLL build with debug symbols
+luaenv uninstall dev                                                # Remove installation
+luaenv status                                                       # Show system status
 ```
 A separete executable ```luaconfig```, also installed to ~/.luaenv provides package configuration capabilites for C/C++ integration. See the `examples/build_systems/` directory for usage examples.
 
 ```powershell
 ## There are two separate commands for MSVC pkg-config support
-luaconfig --help       # Get help on the pkg-config command
-
-# A batch script that wrapps the CLI for package configuration. Will be abandoned in the future
-luaenv-pkg-config --help  # Get help on the pkg-config command
-
-# Use luaconfig instead
-luaconfig dev --cflag    # Get MSVC compiler flags (prepeded with /I for include directories)
-luaconfig dev --lua-include  # Get include directory
-luaconfig dev --liblua       # Get library file path
+luaconfig --help               # Get help on the pkg-config command
+luaconfig dev --cflag          # Get MSVC compiler flags (prepeded with /I for include directories)
+luaconfig dev --lua-include    # Get include directory
+luaconfig dev --liblua         # Get library file path
 ```
+System information commands provide additional details about the LuaEnv installation and configuration:
+
 ```powershell
 # System information (commands have extra options and comprehensive help)
 luaenv versions    # Show version information
@@ -174,9 +245,9 @@ luaenv help        # Show help information
 ## Environment Activation
 
 ```powershell
-# Activate environment in current PowerShell session. THe MSVC toolchain is configured automatically based on the current Lua isntallation configuration.
-luaenv activate  --help              # Show help for activation command
-luaenv activate  dev                 # Activate environment aliased as 'dev'. Shorthand for
+# Activate environment in current PowerShell session. THe MSVC toolchain is configured automatically based on the current Lua environment.
+luaenv activate  --help              # Show help
+luaenv activate  dev                 # Activate environment 'dev'. Shorthand for:
 luaenv activate --alias dev          # Activate environment by alias
 
 # Activate environment by UUID (matches the first 8 characters of the UUID in the registry)
@@ -186,17 +257,18 @@ luaenv activate --list               # List available environments
 
 # Visual Studio environment setup - Can be helpful for C/C++ development. Not used in luaenv activate
 setenv.ps1 -Current                  # Configure MSVC toolchain in current session
-setenv.ps1                           # Launch new VS Developer Shell
+setenv.ps1 -Help                     # Launch help for setenv.ps1
 setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 ```
 
-## What Environment Activation Does
+## What `luaenv activate` Does
 
-1. **Visual Studio Setup**: Automatically configures MSVC toolchain using `setenv.ps1`
+1. **Visual Studio Setup**: Automatically configures MSVC toolchain (arm not supported yet)
+   - Sets environment variables for compiler, linker, and tools
+   - Configures include and library paths for Lua
 2. **PATH Configuration**: Adds Lua and LuaRocks executables to PATH
 3. **Module Paths**: Sets `LUA_PATH` and `LUA_CPATH` for module loading
 4. **LuaRocks Config**: Configures LuaRocks for package compilation
-5. **Session Variables**: Sets environment markers for current session
 
 ## Available CLI Commands
 
@@ -207,7 +279,7 @@ setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 - **versions**: Display available and installed versions
 - **pkg-config**: Generate MSVC-compatible compiler flags for C/C++ projects
 - **config**: Show current backend configuration
-- **activate**: PowerShell-only command for environment activation
+- **activate**: PowerShell-only command for environment activation/inspection
 - **set-alias**: Set or update an alias for an installation
 - **help**: Display help information for commands
 
@@ -232,6 +304,8 @@ LuaEnv provides complete environment isolation through a UUID-based registry sys
 # Project Structure
 
 ## Repository Structure
+
+Outdated.
 
 ```
 lua_msvc_build/
@@ -354,33 +428,6 @@ lua_msvc_build/
 
 Not completed yet.
 
-### CLI Development and manual testing workflow
-
-Check the --help output for the CLI commands to understand their usage and options.
-
-```powershell
-# Build and test CLI changes
-.\build_cli.ps1                   # Build CLI from root directory
-python install.py --force         # Deploy CLI and scripts to ~/.luaenv/bin
-cd ~/.luaenv/bin                  # Navigate to the bin directory
-.\luaenv.ps1 help                 # Test CLI functionality
-.\luaenv.ps1 list                 # Test environment listing
-.\luaenv.ps1 status               # Test status reporting
-```
-Add the ~/.luaenv/bin directory to your PATH for easier access to the CLI commands.
-
-```powershell
-# Add ~/.luaenv/bin to PATH for current session
-$env:PATH += ";$HOME\.luaenv\bin"
-# Verify PATH update
-$env:PATH -split ';' | Where-Object { $_ -like "*luaenv*" }
-
-# If in the path, the scripts can be called witout the file extension
-# e.g.
-luaenv <command> # instead of luaenv.ps1
-luaenv-pkg-config <command> # instead of luaenv-pkg-config.cmd
-```
-
 # Architecture Guidelines
 
 - **Backend Scripts**: Designed to run from `backend/` directory with relative imports
@@ -392,8 +439,6 @@ luaenv-pkg-config <command> # instead of luaenv-pkg-config.cmd
 # Contributing
 Contributions are welcome!
 
-# License
-This project is in public domain and can be used freely without restrictions. However, contributions are appreciated and will be acknowledged in the project documentation.
 
 # Use of LLMs via GitHub Copilot
 This project uses GitHub Copilot for code suggestions and improvements. The code is generated based on the context provided by the user and is not directly copied from any source. The use of Copilot is intended to enhance productivity and code quality, but the final implementation is reviewed and modified by the project maintainers to ensure correctness and adherence to project standards.

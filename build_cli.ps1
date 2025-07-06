@@ -1,7 +1,7 @@
 # This is free and unencumbered software released into the public domain.
 # For more details, see the LICENSE file in the project root.
 
-# Build CLI project and publish to ./win64 directory
+# Build CLI project and publish to architecture-specific directories
 # Ensure you have the .NET SDK installed and available in your PATH
 # This script assumes you are running it from the root of the LuaEnv project
 
@@ -12,7 +12,7 @@ param(
     [switch]$Help = $false
 )
 
-# Function to detect current architecture
+# Function to detect host architecture (windows)
 function Get-HostArchitecture {
     $arch = $env:PROCESSOR_ARCHITECTURE
     switch ($arch) {

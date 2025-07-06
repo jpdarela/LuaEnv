@@ -53,8 +53,13 @@ REGISTRY_FILE = LUAENV_DIR / 'registry.json' # Explicitly set registry file path
 PYTHON_DIR = PROJECT_ROOT / "python"
 PYTHON_EXE = PYTHON_DIR / "python.exe"
 
-# CLI binaries directory
-CLI_BIN_DIR = PROJECT_ROOT / 'win64'
+# Default CLI architecture is win64
+DEFAULT_CLI_ARCH = 'win64'
+
+# Function to get CLI binaries directory based on architecture
+def get_cli_bin_dir(arch: str = DEFAULT_CLI_ARCH) -> Path:
+    """Get the CLI binaries directory based on architecture."""
+    return PROJECT_ROOT / arch
 
 # Create an instance of LuaEnvRegistry
 REGISTRY = LuaEnvRegistry(REGISTRY_FILE)
@@ -142,15 +147,16 @@ def install_scripts(force: bool = False) -> bool:
         print_error(f"Failed to install scripts: {e}")
         return False
 
-def install_cli_binaries(force: bool = False) -> bool:
+def install_cli_binaries(force: bool = False, arch: str = "win64") -> bool:
     """Install CLI binaries."""
-    print_message("Installing CLI binaries...")
+    print_message(f"Installing CLI binaries for architecture: {arch}...")
 
-    publish_path = CLI_BIN_DIR
+    publish_path = get_cli_bin_dir(arch)
     if not publish_path.exists():
         print_error(f"CLI binaries directory does not exist: {publish_path}")
-        print_message("Run build_cli.ps1 to generate CLI binaries first")
+        print_message(f"Run build_cli.ps1 -Target {arch} to generate CLI binaries first")
         return False
+
     print_success(f"CLI binaries found at: {publish_path}")
     return REGISTRY.install_fsharp_cli_with_deps(publish_dir_path=publish_path, force=force)
 
@@ -277,6 +283,8 @@ def main():
     parser.add_argument("--scripts", action="store_true", help="Install PowerShell scripts only")
     parser.add_argument("--cli", action="store_true", help="Install CLI binaries only")
     parser.add_argument("--force", action="store_true", help="Force overwrite existing files")
+    parser.add_argument("--arch", choices=["win64", "win-arm64", "win-x86"], default="win64",
+                        help="Architecture for CLI binaries (default: win64)")
 
     args = parser.parse_args()
 

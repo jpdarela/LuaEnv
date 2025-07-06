@@ -695,11 +695,11 @@ Each installation gets a unique UUID for identification.
 
     args = parser.parse_args()
 
-    # Show current configuration from build_config.txt
-    print(f"Current Configuration (from build_config.txt):")
-    print(f"  Lua: {LUA_VERSION}")
-    print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
-    print()
+    # # Show current configuration from build_config.txt
+    # print(f"Current Configuration (from build_config.txt):")
+    # print(f"  Lua: {LUA_VERSION}")
+    # print(f"  LuaRocks: {LUAROCKS_VERSION} ({LUAROCKS_PLATFORM})")
+    # print()
 
     # Handle list command
     if args.list:
@@ -722,20 +722,21 @@ Each installation gets a unique UUID for identification.
     architecture = "x86" if args.x86 else "x64"
 
     if args.lua_version or args.luarocks_version or args.x86:
-        print("[INFO] Using custom configuration for this installation")
-        if args.lua_version:
-            print(f"  Lua version: {args.lua_version}")
-        if args.luarocks_version:
-            print(f"  LuaRocks version: {args.luarocks_version}")
-        if args.x86:
-            print(f"  Architecture: x86 (32-bit) - will use windows-32 platform")
+        # # print("[INFO] Using custom configuration for this installation")
+        # if args.lua_version:
+        #     print(f"  Lua version: {args.lua_version}")
+        # if args.luarocks_version:
+        #     print(f"  LuaRocks version: {args.luarocks_version}")
+        # if args.x86:
+        #     print(f"  Architecture: x86 (32-bit) - will use windows-32 platform")
 
         # Backup current config and create temporary config
         if backup_config():
-            print("[INFO] Current config backed up")
+            # print("[INFO] Current config backed up")
+            pass
 
         if create_temp_config(args.lua_version, args.luarocks_version, architecture):
-            print("[INFO] Temporary config created")
+            # print("[INFO] Temporary config created")
             config_modified = True
 
             # Reload config module to pick up new values
@@ -807,7 +808,14 @@ Each installation gets a unique UUID for identification.
 
         if installation_id:
             print(f"\n[SUCCESS] Installation created with ID: {installation_id}")
-            print(f"[INFO] Use 'python use_lua.py {args.alias or installation_id}' to activate this installation")
+            print(f"[INFO] Installation path: {Path.home() / '.luaenv' / 'installations' / installation_id}")
+            if args.alias:
+                print(f"[INFO] Alias: {args.alias}")
+            print("[INFO] You can now activate this installation using:")
+            print("[INFO] luaenv activate <installation_id> or luaenv activate <alias>")
+            print("[INFO] Example: luaenv activate " + (args.alias or installation_id[:8]))
+            if not args.alias:
+                print(f"[WARNING] Use 'luaenv set-alias {installation_id[:8]} <new_alias>' to give an alias for this installation")
             exit_code = 0
         else:
             print("[ERROR] Installation failed")
@@ -821,14 +829,16 @@ Each installation gets a unique UUID for identification.
             if cleaned_count > 0:
                 print(f"[INFO] Final cleanup removed {cleaned_count} broken installations")
             else:
-                print("[INFO] No broken installations to clean up in the final cleanup")
+                pass
+                # print("[INFO] No broken installations to clean up in the final cleanup")
         except Exception:
             print("[WARNING] Final cleanup failed, you may need to run cleanup manually")
             pass  # Silent failure - don't let cleanup errors affect the main operation
         # Restore original config if we modified it
         if config_modified:
             if restore_config():
-                print("[INFO] Original config restored")
+                pass
+                # print("[INFO] Original config restored")
             else:
                 print("[WARNING] Failed to restore original config")
     sys.exit(exit_code)
