@@ -33,8 +33,7 @@
 #include <windows.h>
 #include <errno.h>
 
-// For long path support - Windows supports paths up to ~32767 chars with proper prefixing
-// Increased from 520 to 1024 to handle longer paths more safely
+
 #define SAFE_PATH_SIZE 1024
 
 // Command line size limits - based on actual luaconfig usage patterns
@@ -92,6 +91,23 @@ void cleanup_resources(WCHAR *pathW, char *path, char *dir, char *cli, char *cfg
     if (cmd) free(cmd);
     if (hProcess) CloseHandle(hProcess);
     if (hThread) CloseHandle(hThread);
+}
+
+// Function to check for path traversal sequences
+BOOL contains_path_traversal(const char* path) {
+    if (!path) return TRUE;  // NULL is unsafe
+
+    // Check for ".." path traversal sequences
+    const char* ptr = path;
+    while (*ptr) {
+        // Look for ".." followed by path separator or end of string
+        if (ptr[0] == '.' && ptr[1] == '.' &&
+            (ptr[2] == '\\' || ptr[2] == '/' || ptr[2] == '\0')) {
+            return TRUE;
+        }
+        ptr++;
+    }
+    return FALSE;
 }
 
 int main(int argc, char *argv[]) {
@@ -191,6 +207,13 @@ int main(int argc, char *argv[]) {
     }
     *lastBackslash = '\0'; // Terminate string at last backslash
 
+    // Check for path traversal attempts
+    if (contains_path_traversal(scriptDir)) {
+        fprintf(stderr, "Error: Executable path contains illegal path traversal sequences\n");
+        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
+        return 1;
+    }
+
     // Build paths to CLI executable and config file
     if (_snprintf_s(cliPath, SAFE_PATH_SIZE, _TRUNCATE, "%s\\cli\\LuaEnv.CLI.exe", scriptDir) < 0) {
         fprintf(stderr, "Error: Path to CLI executable is too long\n");
@@ -206,9 +229,18 @@ int main(int argc, char *argv[]) {
     TIMING_END("Path resolution phase");
 
     TIMING_START("File system validation phase");
-    // Verify that the CLI executable exists
-    DWORD cliAttrs = GetFileAttributes(cliPath);
-    if (cliAttrs == INVALID_FILE_ATTRIBUTES) {
+    // Secure file access and validation using proper handle protection to prevent TOCTOU attacks
+    HANDLE hCliFile = CreateFileA(
+        cliPath,                      // Path to file
+        GENERIC_READ | GENERIC_EXECUTE, // Read and execute access
+        FILE_SHARE_READ,             // Allow others to read but not delete or modify
+        NULL,                        // Default security attributes
+        OPEN_EXISTING,               // Only open if it exists
+        FILE_ATTRIBUTE_NORMAL,       // Normal file attributes
+        NULL                         // No template
+    );
+
+    if (hCliFile == INVALID_HANDLE_VALUE) {
         DWORD error = GetLastError();
         if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
             fprintf(stderr, "Error: CLI executable not found: %s\n", cliPath);
@@ -219,32 +251,70 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Check that the CLI is not a directory
-    if (cliAttrs & FILE_ATTRIBUTE_DIRECTORY) {
-        fprintf(stderr, "Error: CLI path points to a directory, not a file: %s\n", cliPath);
+    // Get file attributes to ensure it's not a directory
+    BY_HANDLE_FILE_INFORMATION fileInfo;
+    if (!GetFileInformationByHandle(hCliFile, &fileInfo)) {
+        fprintf(stderr, "Error: Failed to get CLI file information (Error code: %lu)\n", GetLastError());
+        CloseHandle(hCliFile);
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
         return 1;
     }
 
-    // Verify that the config file exists
-    DWORD configAttrs = GetFileAttributes(configPath);
-    if (configAttrs == INVALID_FILE_ATTRIBUTES) {
+    // Check that the CLI is not a directory
+    if (fileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        fprintf(stderr, "Error: CLI path points to a directory, not a file: %s\n", cliPath);
+        CloseHandle(hCliFile);
+        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
+        return 1;
+    }
+
+    // Keep the handle open until after process creation to prevent TOCTOU attacks
+
+    // We've already checked that the CLI is not a directory using the file handle above
+
+    // Secure file access for config file to prevent TOCTOU attacks
+    HANDLE hConfigFile = CreateFileA(
+        configPath,                   // Path to file
+        GENERIC_READ,                // Read access only
+        FILE_SHARE_READ,             // Allow others to read but not modify
+        NULL,                        // Default security attributes
+        OPEN_EXISTING,               // Only open if it exists
+        FILE_ATTRIBUTE_NORMAL,       // Normal file attributes
+        NULL                         // No template
+    );
+
+    if (hConfigFile == INVALID_HANDLE_VALUE) {
         DWORD error = GetLastError();
         if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
             fprintf(stderr, "Error: Configuration file not found: %s\n", configPath);
         } else {
             fprintf(stderr, "Error: Cannot access configuration file: %s (Error code: %lu)\n", configPath, error);
         }
+        CloseHandle(hCliFile); // Close the CLI file handle before exiting
+        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
+        return 1;
+    }
+
+    // Get file attributes to ensure it's not a directory
+    BY_HANDLE_FILE_INFORMATION configFileInfo;
+    if (!GetFileInformationByHandle(hConfigFile, &configFileInfo)) {
+        fprintf(stderr, "Error: Failed to get config file information (Error code: %lu)\n", GetLastError());
+        CloseHandle(hConfigFile);
+        CloseHandle(hCliFile);
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
         return 1;
     }
 
     // Check that the config file is not a directory
-    if (configAttrs & FILE_ATTRIBUTE_DIRECTORY) {
+    if (configFileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         fprintf(stderr, "Error: Config path points to a directory, not a file: %s\n", configPath);
+        CloseHandle(hConfigFile);
+        CloseHandle(hCliFile);
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, NULL, NULL, NULL);
         return 1;
     }
+
+    // Keep both handles open until process creation
     TIMING_END("File system validation phase");
 
     TIMING_START("Command line construction phase");
@@ -338,174 +408,128 @@ int main(int argc, char *argv[]) {
     pos += (size_t)result;
     remainingSpace = (size_t)totalLength + 1 - pos;
 
-    // Enhanced quoting and escaping for Windows command line arguments
-    // This follows Windows command line parsing rules for proper argument handling
+    // Correctly quote and escape arguments for the Windows command line
     for (i = 1; i < argc; i++) {
-        // Check for empty argument or characters requiring quoting
-        BOOL needsQuotes = (*argv[i] == '\0');  // Empty string always needs quotes
+        // Add a space before each argument
+        result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, " ");
+        if (result < 0 || (size_t)result >= remainingSpace) {
+            goto command_line_too_long;
+        }
+        pos += (size_t)result;
+        remainingSpace -= (size_t)result;
 
-        if (!needsQuotes) {
-            // Check for characters that need special handling
-            for (size_t j = 0; argv[i][j] != '\0'; j++) {
-                char c = argv[i][j];
-                if (c == ' ' || c == '\t' || c == '&' || c == '|' || c == '^' ||
-                    c == '%' || c == '<' || c == '>' || c == '"' || c == '\'') {
-                    needsQuotes = TRUE;
-                    break;
+        const char* arg = argv[i];
+        // An argument needs to be quoted if it's empty, contains a space/tab, or a double quote.
+        BOOL needsQuotes = (arg[0] == '\0') || (strchr(arg, ' ') != NULL) || (strchr(arg, '\t') != NULL) || (strchr(arg, '"') != NULL);
+
+        if (needsQuotes) {
+            result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\"");
+            if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+            pos += (size_t)result;
+            remainingSpace -= (size_t)result;
+        }
+
+        int backslashCount = 0;
+        for (const char* p = arg; *p != '\0'; p++) {
+            if (*p == '\\') {
+                backslashCount++;
+            } else if (*p == '\"') {
+                // Escape backslashes before a quote: 2n+1 backslashes + the quote
+                for (int j = 0; j < backslashCount * 2 + 1; j++) {
+                    result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\\");
+                    if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+                    pos += (size_t)result;
+                    remainingSpace -= (size_t)result;
                 }
+                // Add the quote character itself
+                result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\"");
+                if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+                pos += (size_t)result;
+                remainingSpace -= (size_t)result;
+                backslashCount = 0;
+            } else {
+                // Not a special character, output pending backslashes literally
+                for (int j = 0; j < backslashCount; j++) {
+                    result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\\");
+                    if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+                    pos += (size_t)result;
+                    remainingSpace -= (size_t)result;
+                }
+                backslashCount = 0;
+                // Add the character itself
+                result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "%c", *p);
+                if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+                pos += (size_t)result;
+                remainingSpace -= (size_t)result;
             }
         }
 
         if (needsQuotes) {
-            // Add opening quote
-            result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, " \"");
-            if (result < 0 || (size_t)result >= remainingSpace - 1) {
-                fprintf(stderr, "Error: Command line too long at argument %d\n", i);
-                cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
-                return 1;
-            }
-            pos += (size_t)result;
-            remainingSpace = (size_t)totalLength + 1 - pos;
-
-            // Process argument character by character with proper escaping
-            for (size_t j = 0; argv[i][j] != '\0'; j++) {
-                // Count backslashes before a quote (they need doubling)
-                if (argv[i][j] == '"') {
-                    // Add backslash before quote                    result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\\");
-                    if (result < 0 || (size_t)result >= remainingSpace - 1) {
-                        fprintf(stderr, "Error: Command line too long while escaping quotes\n");
-                        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
-                        return 1;
-                    }
-                    pos += (size_t)result;
-                    remainingSpace = (size_t)totalLength + 1 - pos;
-                }
-
-                // Add the character
-                result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "%c", argv[i][j]);
-                if (result < 0 || (size_t)result >= remainingSpace - 1) {
-                    fprintf(stderr, "Error: Command line too long while adding character\n");
-                    cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
-                    return 1;
-                }
+            // At the end of a quoted argument, double any trailing backslashes
+            for (int j = 0; j < backslashCount * 2; j++) {
+                result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\\");
+                if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
                 pos += (size_t)result;
-                remainingSpace = (size_t)totalLength + 1 - pos;
+                remainingSpace -= (size_t)result;
             }
-
-            // Add closing quote
+            // Add the closing quote
             result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\"");
-            if (result < 0 || (size_t)result >= remainingSpace - 1) {
-                fprintf(stderr, "Error: Command line too long at argument end\n");
-                cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
-                return 1;
-            }
+            if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
             pos += (size_t)result;
+            remainingSpace -= (size_t)result;
         } else {
-            // Add argument without quotes if it doesn't need them
-            result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, " %s", argv[i]);
-            if (result < 0 || (size_t)result >= remainingSpace - 1) {
-                fprintf(stderr, "Error: Command line too long for argument %d\n", i);
-                cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
-                return 1;
+            // If not quoted, trailing backslashes are literal
+            for (int j = 0; j < backslashCount; j++) {
+                result = _snprintf_s(commandLine + pos, remainingSpace, _TRUNCATE, "\\");
+                if (result < 0 || (size_t)result >= remainingSpace) goto command_line_too_long;
+                pos += (size_t)result;
+                remainingSpace -= (size_t)result;
             }
-            pos += (size_t)result;
         }
-
-        remainingSpace = (size_t)totalLength + 1 - pos;
     }
 
-    // Add terminating null just in case (redundant but safe)
+    // Ensure null termination
     commandLine[pos] = '\0';
-    TIMING_END("Command line construction phase");
 
-    // Initialize startup info structure
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
-
-    // Debug output of command line in verbose mode (optional)
-    #ifdef _DEBUG
-    fprintf(stderr, "Command line: %s\n", commandLine);
-    #endif
-
-    TIMING_START("Process creation phase");
-    // Execute command with error handling
-    success = CreateProcessA(
-        NULL,                // No module name (use command line)
-        commandLine,         // Command line
-        NULL,                // Process handle not inheritable
-        NULL,                // Thread handle not inheritable
-        TRUE,                // Handle inheritance (needed for std handles)
-        0,                   // No creation flags
-        NULL,                // Use parent's environment block
-        NULL,                // Use parent's starting directory
-        &si,                 // Startup info
-        &pi                  // Process information
-    );
-
-    if (!success) {
-        TIMING_END("Process creation phase");
-        DWORD error = GetLastError();
-        // Provide more specific error information based on common CreateProcess errors
-        switch (error) {
-            case ERROR_FILE_NOT_FOUND:
-                fprintf(stderr, "Error: The CLI executable was not found\n");
-                break;
-            case ERROR_PATH_NOT_FOUND:
-                fprintf(stderr, "Error: Path to CLI executable not found\n");
-                break;
-            case ERROR_ACCESS_DENIED:
-                fprintf(stderr, "Error: Access denied when trying to run CLI executable\n");
-                break;
-            case ERROR_BAD_EXE_FORMAT:
-                fprintf(stderr, "Error: The CLI executable is invalid or corrupted\n");
-                break;
-            default:
-                fprintf(stderr, "Error: CreateProcess failed with error code: %lu\n", error);
-        }
+    // Create the process
+    if (!CreateProcessA(
+        cliPath,                      // Application name (CLI executable)
+        commandLine,                  // Command line arguments
+        NULL,                        // Process security attributes
+        NULL,                        // Primary thread security attributes
+        FALSE,                       // Inherit handles flag
+        0,                           // Creation flags
+        NULL,                        // Use parent's environment block
+        NULL,                        // Use parent's starting directory
+        &si,                         // Pointer to STARTUPINFO structure
+        &pi                          // Pointer to PROCESS_INFORMATION structure
+    )) {
+        fprintf(stderr, "Error: Failed to create process (Error code: %lu)\n", GetLastError());
         cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
         return 1;
     }
     TIMING_END("Process creation phase");
 
-    TIMING_START("CLI execution and wait phase");
+    // Wait for the process to complete and get the exit code
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    GetExitCodeProcess(pi.hProcess, (LPDWORD)&exitCode);
 
-    // Wait for the process to complete with timeout handling
-    DWORD waitResult = WaitForSingleObject(pi.hProcess, 20000); // 20-second timeout (increased from 15)
-    if (waitResult == WAIT_TIMEOUT) {
-        TIMING_END("CLI execution and wait phase");
-        fprintf(stderr, "Warning: Command execution timed out after 20 seconds, terminating\n");
-        TerminateProcess(pi.hProcess, 1);
-        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
-        return 1;
-    } else if (waitResult != WAIT_OBJECT_0) {
-        TIMING_END("CLI execution and wait phase");
-        fprintf(stderr, "Error: Failed to wait for process completion (Error code: %lu)\n", GetLastError());
-        cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
-        return 1;
-    }
-    TIMING_END("CLI execution and wait phase");
+    // Close process and thread handles
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
-    TIMING_START("Process cleanup phase");
-    // Get the exit code with error handling
-    DWORD procExitCode = 1; // Default failure code
-    if (!GetExitCodeProcess(pi.hProcess, &procExitCode)) {
-        fprintf(stderr, "Error: Failed to get process exit code (Error code: %lu)\n", GetLastError());
-        // Continue with cleanup but use default exit code
-    } else {
-        exitCode = (int)procExitCode;
-    }
+    // Output the exit code of the CLI
+    // printf("CLI exited with code: %d\n", exitCode);
 
-    // Clean up all resources
-    cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, pi.hProcess, pi.hThread);
-    TIMING_END("Process cleanup phase");
+    // Cleanup allocated resources
+    cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
 
     TIMING_END("Total execution time");
 
-    #ifdef _DEBUG
-    fprintf(stderr, "[TIMING] luaconfig.exe execution completed with exit code: %d\n", exitCode);
-    #endif
-
-    // Return the same exit code as the child process
     return exitCode;
+
+command_line_too_long:
+    fprintf(stderr, "Error: Command line construction failed, buffer too small.");
+    cleanup_resources(executablePathW, executablePath, scriptDir, cliPath, configPath, commandLine, NULL, NULL);
+    return 1;
 }

@@ -332,9 +332,12 @@ function Invoke-LuaConfigBuild {
             Write-Info "Removing existing luaconfig.exe..."
             Remove-Item $luaConfigExe -Force
         }
-        cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE
-        # Comment above and uncomment below to enable debug and time diagnostics printing
-        # cl.exe /D_DEBUG luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE
+
+        # Try to compile with all necessary libraries
+        # The advapi32.lib is needed for security functions
+        Write-Info "Compiling luaconfig.c with release optimizations..."
+        # cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
+        cl.exe /D_DEBUG luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
         $exitCode = $LASTEXITCODE
 
         # Restore original location
