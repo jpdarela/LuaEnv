@@ -272,11 +272,11 @@ function Invoke-CliBuild {
 
     Write-Info "CLI Build"
     Write-Info "========="
-    Write-Info "Running: .\build_cli.ps1 -Target $targetArch"
+    Write-Info "Running: .\build_cli.ps1 -Target $targetArch -SelfContained -WarmUp"
 
     try {
         # Pass the detected architecture to the build script
-        & $BuildCliScript -Target $targetArch
+        & $BuildCliScript -Target $targetArch -SelfContained -WarmUp
         $exitCode = $LASTEXITCODE
         if ($null -eq $exitCode) { $exitCode = 0 }
 
