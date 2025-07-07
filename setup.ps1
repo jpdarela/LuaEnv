@@ -272,11 +272,11 @@ function Invoke-CliBuild {
 
     Write-Info "CLI Build"
     Write-Info "========="
-    Write-Info "Running: .\build_cli.ps1 -Target $targetArch -SelfContained -WarmUp"
+    Write-Info "Running: .\build_cli.ps1 -Target $targetArch"
 
     try {
         # Pass the detected architecture to the build script
-        & $BuildCliScript -Target $targetArch -SelfContained -WarmUp
+        & $BuildCliScript -Target $targetArch
         $exitCode = $LASTEXITCODE
         if ($null -eq $exitCode) { $exitCode = 0 }
 
@@ -336,8 +336,8 @@ function Invoke-LuaConfigBuild {
         # Try to compile with all necessary libraries
         # The advapi32.lib is needed for security functions
         Write-Info "Compiling luaconfig.c with release optimizations..."
-        # cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
-        cl.exe /D_DEBUG luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
+        cl.exe luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
+        # cl.exe /D_DEBUG luaconfig.c /O2 /Ot /GL /Gy /Fe:luaconfig.exe /link /OPT:REF /OPT:ICF /LTCG /NXCOMPAT /DYNAMICBASE advapi32.lib
         $exitCode = $LASTEXITCODE
 
         # Restore original location
