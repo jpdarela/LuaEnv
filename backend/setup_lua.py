@@ -33,38 +33,355 @@ except ImportError:
     from registry import LuaEnvRegistry
 
 
-def setenv(architecture="x64"):
-    """Set Visual Studio environment variables by directly calling vcvars batch file.
+# def setenv(architecture="x64"):
+#     """Set Visual Studio environment variables by directly calling vcvars batch file.
 
-    Args:
-        architecture (str): Target architecture - "x64" (default) or "x86"
-    """
-    print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
+#     Args:
+#         architecture (str): Target architecture - "x64" (default) or "x86"
+#     """
+#     print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
 
+#     # Save current working directory
+#     original_cwd = os.getcwd()
+
+#     # Choose the appropriate vcvars batch file based on architecture
+#     if architecture == "x86":
+#         vcvars_filename = "vcvars32.bat"
+#         arch_display = "x86 (32-bit)"
+#     else:  # Default to x64
+#         vcvars_filename = "vcvars64.bat"
+#         arch_display = "x64 (64-bit)"
+
+#     # Common paths where Visual Studio might be installed
+#     vs_paths = [
+#         rf"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+#         rf"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+#     ]
+
+#     # Check if there's a saved VS path
+#     vs_config_file = ".vs_install_path.txt"
+#     if os.path.exists(vs_config_file):
+#         try:
+#             with open(vs_config_file, 'r') as f:
+#                 saved_path = f.read().strip()
+#                 if saved_path:
+#                     vcvars_path = os.path.join(saved_path, rf"VC\Auxiliary\Build\{vcvars_filename}")
+#                     if os.path.exists(vcvars_path):
+#                         vs_paths.insert(0, vcvars_path)  # Use saved path first
+#                         print(f"[INFO] Using saved Visual Studio path: {saved_path}")
+#         except Exception as e:
+#             print(f"[WARNING] Could not read VS config file: {e}")
+
+#     # Find the first available vcvars batch file
+#     vcvars_bat = None
+#     for path in vs_paths:
+#         if os.path.exists(path):
+#             vcvars_bat = path
+#             print(f"[OK] Found Visual Studio at: {path}")
+#             print(f"[INFO] Target architecture: {arch_display}")
+#             break
+
+#     if not vcvars_bat:
+#         print(f"[ERROR] Could not find Visual Studio installation for {arch_display}")
+#         print("[INFO] Searched the following paths:")
+#         for path in vs_paths:
+#             print(f"  - {path}")
+#         print("")
+#         print("[SOLUTION] To resolve this issue:")
+#         print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
+#         print("2. OR use the setenv.ps1 script to manually configure environment:")
+#         arch_param = "x86" if architecture == "x86" else "amd64"
+#         print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+#         print("3. Then run your installation command with --skip-env-check flag:")
+#         print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+#         print("")
+#         print("[IMPORTANT] Architecture flags must match:")
+#         if architecture == "x86":
+#             print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+#         else:
+#             print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+#         print("")
+#         print("[WARNING] Build may fail without Visual Studio environment")
+#         return False
+
+#     try:
+#         # Create a batch script that calls vcvars64.bat and outputs environment
+#         import tempfile
+#         with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as f:
+#             f.write(f'''@echo off
+# cd /d "{original_cwd}"
+# call "{vcvars_bat}" >nul 2>&1
+# if errorlevel 1 (
+#     echo VCVARS_FAILED
+#     exit 1
+# )
+# cd /d "{original_cwd}"
+# set
+# ''')
+#             temp_file = f.name
+
+#         try:
+#             # Run the batch file and capture environment
+#             result = subprocess.run([temp_file], capture_output=True, text=True, shell=True, cwd=original_cwd)
+
+#             if result.returncode == 0 and "VCVARS_FAILED" not in result.stdout:
+#                 # Apply environment variables to current process
+#                 env_vars_set = 0
+#                 for line in result.stdout.strip().split('\n'):
+#                     if '=' in line and not line.startswith('VCVARS_FAILED'):
+#                         key, value = line.split('=', 1)
+#                         # Skip some problematic variables that might break Python
+#                         if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
+#                             os.environ[key] = value
+#                             env_vars_set += 1
+
+#                 print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
+#                 return True
+#             else:
+#                 print("[ERROR] Failed to set up Visual Studio environment")
+#                 if "VCVARS_FAILED" in result.stdout:
+#                     print("[INFO] The Visual Studio environment setup script reported an error")
+#                 print("")
+#                 print("[SOLUTION] To resolve this issue:")
+#                 print("1. Make sure Visual Studio C++ development tools are properly installed")
+#                 print("2. OR use the setenv.ps1 script to manually configure environment:")
+#                 arch_param = "x86" if architecture == "x86" else "amd64"
+#                 print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+#                 print("3. Then run your installation command with --skip-env-check flag:")
+#                 print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+#                 print("")
+#                 print("[IMPORTANT] Architecture flags must match:")
+#                 if architecture == "x86":
+#                     print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+#                 else:
+#                     print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+#                 print("")
+#                 return False
+#         finally:
+#             # Clean up temp file
+#             try:
+#                 os.unlink(temp_file)
+#             except:
+#                 pass
+
+#     except Exception as e:
+#         print(f"[ERROR] Failed to set up Visual Studio environment: {e}")
+#         print("")
+#         print("[SOLUTION] To resolve this issue:")
+#         print("1. Make sure Visual Studio C++ development tools are properly installed")
+#         print("2. OR use the setenv.ps1 script to manually configure environment:")
+#         arch_param = "x86" if architecture == "x86" else "amd64"
+#         print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+#         print("3. Then run your installation command with --skip-env-check flag:")
+#         print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
+#         print("")
+#         print("[IMPORTANT] Architecture flags must match:")
+#         if architecture == "x86":
+#             print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+#         else:
+#             print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+#         print("")
+#         return False
+#     finally:
+#         # Ensure we're back in the original directory
+#         try:
+#             os.chdir(original_cwd)
+#         except:
+#             pass
+
+def try_powershell_setenv(architecture="x64"):
+    """Try to set Visual Studio environment using PowerShell setenv.ps1."""
+    # Map Python architecture to PowerShell architecture parameter
+    ps_arch = "x86" if architecture == "x86" else "amd64"
+
+    # Find setenv.ps1 script
+    script_paths = [
+        os.path.join(os.environ.get('USERPROFILE', ''), '.luaenv', 'bin', 'setenv.ps1'),
+        os.path.join(os.path.dirname(__file__), 'setenv.ps1'),
+        os.path.join(os.path.dirname(__file__), '..', 'setenv.ps1'),
+        'setenv.ps1'
+    ]
+
+    setenv_script = None
+    for path in script_paths:
+        if os.path.exists(path):
+            setenv_script = os.path.abspath(path)
+            break
+
+    if not setenv_script:
+        return False
+
+    try:
+        # Create a temporary PowerShell script
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ps1', delete=False) as f:
+            f.write(f'''
+& "{setenv_script}" -Arch {ps_arch} -Current -DryRun:$false | Out-Null
+Get-ChildItem env: | ForEach-Object {{
+    Write-Output "$($_.Name)=$($_.Value)"
+}}
+''')
+            temp_ps_script = f.name
+
+        # Execute PowerShell script
+        result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-File', temp_ps_script],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode == 0:
+            # Apply environment variables
+            for line in result.stdout.strip().split('\n'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
+                        os.environ[key] = value
+            return True
+
+        return False
+
+    except:
+        return False
+    finally:
+        try:
+            os.unlink(temp_ps_script)
+        except:
+            pass
+
+
+def python_setenv_enhanced(architecture="x64"):
+    """Enhanced Python implementation with multiple detection methods."""
     # Save current working directory
     original_cwd = os.getcwd()
 
-    # Choose the appropriate vcvars batch file based on architecture
+    # Choose the appropriate vcvars batch file
     if architecture == "x86":
         vcvars_filename = "vcvars32.bat"
         arch_display = "x86 (32-bit)"
-    else:  # Default to x64
+    else:
         vcvars_filename = "vcvars64.bat"
         arch_display = "x64 (64-bit)"
 
-    # Common paths where Visual Studio might be installed
-    vs_paths = [
-        rf"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
-        rf"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+    # Helper function to run vcvars and capture environment
+    def run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display):
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as f:
+                f.write(f'''@echo off
+cd /d "{original_cwd}"
+call "{vcvars_path}" >nul 2>&1
+if errorlevel 1 (
+    echo VCVARS_FAILED
+    exit 1
+)
+cd /d "{original_cwd}"
+set
+''')
+                temp_file = f.name
+
+            try:
+                result = subprocess.run([temp_file], capture_output=True, text=True, shell=True, cwd=original_cwd)
+
+                if result.returncode == 0 and "VCVARS_FAILED" not in result.stdout:
+                    # Apply environment variables
+                    env_vars_set = 0
+                    for line in result.stdout.strip().split('\n'):
+                        if '=' in line and not line.startswith('VCVARS_FAILED'):
+                            key, value = line.split('=', 1)
+                            if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
+                                os.environ[key] = value
+                                env_vars_set += 1
+
+                    print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
+                    print(f"[INFO] Target architecture: {arch_display}")
+                    return True
+            finally:
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass
+        except:
+            pass
+
+        return False
+
+    # Method 1: Try vswhere.exe first
+    vswhere_paths = [
+        # Standard installer locations
+        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+        r"C:\Program Files\Microsoft Visual Studio\Installer\vswhere.exe",
+        os.path.join(os.environ.get('ProgramData', ''), 'Microsoft', 'VisualStudio', 'Packages', '_Instances', 'vswhere.exe'),
+
+        # Chocolatey installation
+        os.path.join(os.environ.get('ChocolateyInstall', ''), 'lib', 'vswhere', 'tools', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramData', ''), 'chocolatey', 'lib', 'vswhere', 'tools', 'vswhere.exe'),
+        r"C:\ProgramData\chocolatey\lib\vswhere\tools\vswhere.exe",
+
+        # Scoop installation
+        os.path.join(os.environ.get('SCOOP', ''), 'apps', 'vswhere', 'current', 'vswhere.exe'),
+        os.path.join(os.environ.get('USERPROFILE', ''), 'scoop', 'apps', 'vswhere', 'current', 'vswhere.exe'),
+        os.path.join(os.environ.get('SCOOP_GLOBAL', ''), 'apps', 'vswhere', 'current', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramData', ''), 'scoop', 'apps', 'vswhere', 'current', 'vswhere.exe'),
+
+        # NuGet tools location - removed wildcard path
+        # os.path.join(os.environ.get('USERPROFILE', ''), '.nuget', 'packages', 'vswhere', '*', 'tools', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'Microsoft Visual Studio', 'Shared', 'vswhere', 'vswhere.exe'),
+
+        # Build tools specific locations
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'Microsoft Visual Studio', '2022', 'BuildTools', 'Installer', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'Microsoft Visual Studio', '2019', 'BuildTools', 'Installer', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'Microsoft Visual Studio', '2017', 'BuildTools', 'Installer', 'vswhere.exe'),
+
+        # Alternative VS installer locations
+        os.path.join(os.environ.get('ProgramFiles', ''), 'Microsoft Visual Studio', 'Shared', 'Installer', 'vswhere.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'Microsoft Visual Studio', 'Shared', 'Installer', 'vswhere.exe'),
+
+        # Custom tools directories
+        r"C:\Tools\vswhere\vswhere.exe",
+        r"D:\Tools\vswhere\vswhere.exe",
+
+        # Developer command prompt tools
+        os.path.join(os.environ.get('VSINSTALLDIR', ''), 'Installer', 'vswhere.exe'),
+        os.path.join(os.environ.get('VS170COMNTOOLS', ''), '..', '..', 'Installer', 'vswhere.exe'),
+        os.path.join(os.environ.get('VS160COMNTOOLS', ''), '..', '..', 'Installer', 'vswhere.exe'),
+
+        # Portable/standalone locations
+        os.path.join(os.environ.get('USERPROFILE', ''), 'Downloads', 'vswhere.exe'),
+        os.path.join(os.environ.get('USERPROFILE', ''), 'vswhere', 'vswhere.exe'),
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'vswhere', 'vswhere.exe'),
+
+        # CI/CD common locations
+        r"C:\vswhere\vswhere.exe",
+        r"C:\BuildTools\vswhere.exe"
     ]
 
-    # Check if there's a saved VS path
+    for vswhere_path in vswhere_paths:
+        if os.path.exists(vswhere_path):
+            try:
+                result = subprocess.run(
+                    [vswhere_path, '-all', '-prerelease', '-products', '*', '-property', 'installationPath'],
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode == 0 and result.stdout.strip():
+                    for install_path in result.stdout.strip().split('\n'):
+                        if os.path.exists(install_path):
+                            vcvars_path = os.path.join(install_path, "VC", "Auxiliary", "Build", vcvars_filename)
+                            if os.path.exists(vcvars_path):
+                                print(f"[OK] Found Visual Studio via vswhere: {install_path}")
+                                return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
+            except:
+                pass
+
+    # Method 2: Check saved VS path
     vs_config_file = ".vs_install_path.txt"
     if os.path.exists(vs_config_file):
         try:
@@ -73,127 +390,80 @@ def setenv(architecture="x64"):
                 if saved_path:
                     vcvars_path = os.path.join(saved_path, rf"VC\Auxiliary\Build\{vcvars_filename}")
                     if os.path.exists(vcvars_path):
-                        vs_paths.insert(0, vcvars_path)  # Use saved path first
                         print(f"[INFO] Using saved Visual Studio path: {saved_path}")
-        except Exception as e:
-            print(f"[WARNING] Could not read VS config file: {e}")
-
-    # Find the first available vcvars batch file
-    vcvars_bat = None
-    for path in vs_paths:
-        if os.path.exists(path):
-            vcvars_bat = path
-            print(f"[OK] Found Visual Studio at: {path}")
-            print(f"[INFO] Target architecture: {arch_display}")
-            break
-
-    if not vcvars_bat:
-        print(f"[ERROR] Could not find Visual Studio installation for {arch_display}")
-        print("[INFO] Searched the following paths:")
-        for path in vs_paths:
-            print(f"  - {path}")
-        print("")
-        print("[SOLUTION] To resolve this issue:")
-        print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
-        print("2. OR use the setenv.ps1 script to manually configure environment:")
-        arch_param = "x86" if architecture == "x86" else "amd64"
-        print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-        print("3. Then run your installation command with --skip-env-check flag:")
-        print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-        print("")
-        print("[IMPORTANT] Architecture flags must match:")
-        if architecture == "x86":
-            print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-        else:
-            print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-        print("")
-        print("[WARNING] Build may fail without Visual Studio environment")
-        return False
-
-    try:
-        # Create a batch script that calls vcvars64.bat and outputs environment
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as f:
-            f.write(f'''@echo off
-cd /d "{original_cwd}"
-call "{vcvars_bat}" >nul 2>&1
-if errorlevel 1 (
-    echo VCVARS_FAILED
-    exit 1
-)
-cd /d "{original_cwd}"
-set
-''')
-            temp_file = f.name
-
-        try:
-            # Run the batch file and capture environment
-            result = subprocess.run([temp_file], capture_output=True, text=True, shell=True, cwd=original_cwd)
-
-            if result.returncode == 0 and "VCVARS_FAILED" not in result.stdout:
-                # Apply environment variables to current process
-                env_vars_set = 0
-                for line in result.stdout.strip().split('\n'):
-                    if '=' in line and not line.startswith('VCVARS_FAILED'):
-                        key, value = line.split('=', 1)
-                        # Skip some problematic variables that might break Python
-                        if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
-                            os.environ[key] = value
-                            env_vars_set += 1
-
-                print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
-                return True
-            else:
-                print("[ERROR] Failed to set up Visual Studio environment")
-                if "VCVARS_FAILED" in result.stdout:
-                    print("[INFO] The Visual Studio environment setup script reported an error")
-                print("")
-                print("[SOLUTION] To resolve this issue:")
-                print("1. Make sure Visual Studio C++ development tools are properly installed")
-                print("2. OR use the setenv.ps1 script to manually configure environment:")
-                arch_param = "x86" if architecture == "x86" else "amd64"
-                print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-                print("3. Then run your installation command with --skip-env-check flag:")
-                print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-                print("")
-                print("[IMPORTANT] Architecture flags must match:")
-                if architecture == "x86":
-                    print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-                else:
-                    print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-                print("")
-                return False
-        finally:
-            # Clean up temp file
-            try:
-                os.unlink(temp_file)
-            except:
-                pass
-
-    except Exception as e:
-        print(f"[ERROR] Failed to set up Visual Studio environment: {e}")
-        print("")
-        print("[SOLUTION] To resolve this issue:")
-        print("1. Make sure Visual Studio C++ development tools are properly installed")
-        print("2. OR use the setenv.ps1 script to manually configure environment:")
-        arch_param = "x86" if architecture == "x86" else "amd64"
-        print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-        print("3. Then run your installation command with --skip-env-check flag:")
-        print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-        print("")
-        print("[IMPORTANT] Architecture flags must match:")
-        if architecture == "x86":
-            print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-        else:
-            print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-        print("")
-        return False
-    finally:
-        # Ensure we're back in the original directory
-        try:
-            os.chdir(original_cwd)
+                        return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
         except:
             pass
+
+    # Method 3: Common paths
+    vs_paths = [
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
+        rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
+    ]
+
+    for vcvars_path in vs_paths:
+        if os.path.exists(vcvars_path):
+            print(f"[OK] Found Visual Studio at: {vcvars_path}")
+            return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
+
+    return False
+
+
+def setenv(architecture="x64"):
+    """Set Visual Studio environment with PowerShell fallback to Python methods."""
+    print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
+
+    # Try PowerShell method first
+    print("[INFO] Attempting to use PowerShell setenv.ps1 script...")
+    if try_powershell_setenv(architecture):
+        print("[OK] Successfully configured environment using PowerShell method")
+        arch_display = "x86 (32-bit)" if architecture == "x86" else "x64 (64-bit)"
+        print(f"[INFO] Target architecture: {arch_display}")
+
+        # Verify critical environment variables
+        if os.environ.get('VCINSTALLDIR'):
+            print(f"[OK] Visual Studio found at: {os.environ.get('VCINSTALLDIR')}")
+
+        return True
+
+    print("[WARNING] PowerShell method failed, trying Python detection methods...")
+
+    # Fall back to enhanced Python implementation
+    if python_setenv_enhanced(architecture):
+        return True
+
+    # If all methods fail, provide detailed instructions
+    print(f"[ERROR] Could not find Visual Studio installation for {architecture}")
+    print("")
+    print("[SOLUTION] To resolve this issue:")
+    print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
+    print("2. OR use the setenv.ps1 script to manually configure environment:")
+    arch_param = "x86" if architecture == "x86" else "amd64"
+    print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
+    print("3. Then run your installation command with --skip-env-check flag:")
+    print("   python setup_lua.py --skip-env-check [--x86 for 32-bit]")
+    print("")
+    print("[IMPORTANT] Architecture flags must match:")
+    if architecture == "x86":
+        print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
+    else:
+        print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
+    print("")
+    print("[WARNING] Build may fail without Visual Studio environment")
+
+    return False
 
 
 def call_check_env_bat_script():
