@@ -36,11 +36,9 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 
 ### 1. Bootstrap and Installation System
 - **PowerShell Bootstrap**: `setup.ps1` script for initial setup and embedded Python management [To be improved for final deployment]
-- **Embedded Python Environment**: Self-contained Python 3.13.5 for reliable execution across systems
-
+- **Embedded Python Environment**: Self-contained Python 3.13.5 for backend operations
 
 ### 2. F# CLI Application
-- **Multi-Architecture Support**: Builds for x64, x86, and ARM64 platforms
 - **Environment Management**: Installation creation, listing, removal, and configuration
 - **pkg-config Integration**: MSVC-compatible compiler flag generation for C/C++ projects
 
@@ -67,9 +65,11 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 
 ## Prerequisites
 
-- **Visual Studio 2019/2022** with C++ development tools (Community, Professional, or Enterprise)
-- **PowerShell 7** (install via winget `winget install Microsoft.PowerShell`)
-- **.NET SDK 8.0+** (for CLI building, optional - pre-built binaries are included for [amd64](./win64/), [arm64](./win-arm64/), and [x86](./win-x86/) architectures)
+- **Visual Studio 2019/2022** with C++ development tools (Community, Professional, or Enterprise). It is not tested with earlier versions of Visual Studio.
+  - **C++ Desktop Development** workload installed
+  - **Windows 10 SDK** (10.0.18362.0 or later)
+- **PowerShell 7** (install via winget `winget install Microsoft.PowerShell`).
+- **.NET SDK 8.0+** (for CLI building, pre-built binaries and runtime are included for [amd64](./win64/) architecture)
 - **Internet connection** (for downloading Lua/LuaRocks sources and embedded Python)
 
 ## Installation Steps
@@ -93,8 +93,7 @@ Alternatively, download the repository as a [ZIP file](https://github.com/jpdare
 
 The installation process is very rudimentary and will be improved in the future. The `setup.ps1` script provides a simple way to bootstrap the system, including building the CLI and installing the Python environment. Currently only the cli binaries and some core scripts of the backend are installed to the `~/.luaenv/bin` directory. The Python backend and the embedded Python are not installed yet, they stay in the repository root directory. The installation process will be improved in the future to deploy the backend folder and the embedded Python to the `~/.luaenv` directory.
 
-Note: Check the [execution policy of your PowerShell session](https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/01-getting-started?view=powershell-7.5#execution-policy). You may need to set it to allow script execution:
-
+Note: If you are using Powershell 5.1, check the execution policy of your PowerShell. You may need to set to unrestricted to bypass it and allow script execution.
 
 ```powershell
 # Run the bootstrap script to set up the environment
