@@ -74,7 +74,7 @@ if ($Help) {
     Write-Host "  -Path <String> (alias: -p)" -ForegroundColor Green
     Write-Host "      Absolute path to the Visual Studio installation directory." -ForegroundColor White
     Write-Host "      Example: 'C:\Program Files\Microsoft Visual Studio\2022\Community'" -ForegroundColor White
-    Write-Host "      This path will be saved to '.vs_install_path.txt' for future use." -ForegroundColor White
+    Write-Host "      This path will be saved to '.vspath.txt' for future use." -ForegroundColor White
     Write-Host "      Takes precedence over automatic detection methods." -ForegroundColor Gray
     Write-Host ""
     Write-Host "  -DryRun [<SwitchParameter>] (alias: -dry-run)" -ForegroundColor Green
@@ -111,7 +111,7 @@ if ($Help) {
     Write-Host "  - The script automatically searches for Visual Studio installations using vswhere" -ForegroundColor White
     Write-Host "  - Supports Visual Studio 2017, 2019, and 2022 (Community, Professional, Enterprise)" -ForegroundColor White
     Write-Host "  - Falls back to common installation paths if vswhere is not available" -ForegroundColor White
-    Write-Host "  - Custom path specified with -Path takes precedence and is saved to '.vs_install_path.txt'" -ForegroundColor White
+    Write-Host "  - Custom path specified with -Path takes precedence and is saved to '.vspath.txt'" -ForegroundColor White
     Write-Host ""
     return
 }
@@ -129,7 +129,7 @@ if ($DryRun) {
 Write-Host ""
 
 # Config file path
-$ConfigFile = ".vs_install_path.txt"
+$ConfigFile = ".vspath.txt"
 
 # Handle custom path parameter and config file
 $CustomInstallPath = $null
