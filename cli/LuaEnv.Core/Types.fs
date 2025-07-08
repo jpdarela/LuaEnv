@@ -325,7 +325,7 @@ module Backend =
                 if config.EmbeddedPython.Available then
                     config.EmbeddedPython.PythonExe
                 else
-                    "python"  // Fallback to system Python
+                    "py"  // Fallback to system Python
 
             let scriptPath = Path.Combine(config.BackendDir, scriptName)
             if not (File.Exists scriptPath) then
@@ -777,7 +777,7 @@ module Backend =
                         if not (String.IsNullOrWhiteSpace errorOutput) then
                             Error (errorOutput.Trim())
                         else
-                            Error (sprintf "[ERROR] Pkg-config command failed with exit code %d" proc.ExitCode)
+                            Error (sprintf "[ERROR] Pkg-config command failed with exit code %d.\n%s" proc.ExitCode output)
                     else
                         // Always print the output directly
                         printf "%s" output

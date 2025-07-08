@@ -666,7 +666,7 @@ let parseArgs (args: string array) : CliArgs =
                 exit 1
             | arg :: rest ->
                 printfn "[ERROR] Unknown pkg-config option: %s" arg
-                printfn "Use 'luaenv pkg-config --help' for available options"
+                printfn "Use 'luaconfig --help' for available options"
                 exit 1
 
         try

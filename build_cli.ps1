@@ -198,7 +198,7 @@ if ($Target -eq "win64" -or $Target -eq "all") {
     Write-Host "Building for Windows x64..." -ForegroundColor Green
     & dotnet publish cli/LuaEnv.CLI -c Release -o ./win64 `
       --self-contained $SelfContained `
-      -p:PublishSingleFile=false `
+      -p:PublishSingleFile=true `
       -p:IncludeNativeLibrariesForSelfExtract=true `
       -p:SatelliteResourceLanguages=en
 

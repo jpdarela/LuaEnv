@@ -299,7 +299,7 @@ class LuaPkgConfig:
         """
         info = self.get_installation_info(id_or_alias)
         if not info:
-            print_error(f"[ERROR] Installation '{id_or_alias}' not found or invalid")
+            print_error(f"Installation '{id_or_alias}' not found or invalid")
             return False
 
         # Normalize paths in the info dictionary for JSON output

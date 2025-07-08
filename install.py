@@ -68,7 +68,7 @@ def get_python_executable() -> str:
     """Get the Python executable to use (embedded first, then system)."""
     if PYTHON_EXE.exists():
         return str(PYTHON_EXE)
-    return "python"  # Fallback to system Python
+    return "py"  # Fallback to system Python
 
 def check_prerequisites() -> bool:
     """Check if all prerequisites are available."""

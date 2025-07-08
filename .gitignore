@@ -23,11 +23,10 @@ sdb
 python
 .pythonenv
 
-# REadline files
-readline/
-lreadline/
-
-
+# CLI_executable files
+# win64/*
+# win-x86
+# win-arm64
 
 # F# / .NET build artifacts
 publish/
