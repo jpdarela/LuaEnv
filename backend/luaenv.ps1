@@ -353,8 +353,9 @@ if ($Command -eq "help" -or $Command -eq "-h" -or $Command -eq "--help" -or $Com
     Write-Host "    help                               Show CLI help message"
     Write-Host ""
     Write-Host "  Shell Integration (PowerShell):"
-    Write-Host "    activate [alias|options]      Activate a Lua environment in current shell"
-    Write-Host "    local [<alias|uuid>|--unset]  Set/show/unset local version in current directory"
+    Write-Host "    activate [alias|options]        Activate a Lua environment in current shell"
+    Write-Host "    local [<alias|uuid>|--unset]    Set/show/unset local version in current directory"
+    Write-Host "    deactivate                      Deactivate the current Lua environment"
     Write-Host ""
     Write-Host "For command-specific help:"
     Write-Host "  luaenv <command> --help"
@@ -1538,6 +1539,9 @@ set
         # Save original system PATH before VS Developer Shell modifies it
         $originalSystemPath = $env:PATH
 
+        # Save original PATH in an environment variable for deactivate command
+        $env:LUAENV_ORIGINAL_PATH = $originalSystemPath
+
         # Initialize VS Developer Shell with correct architecture
         # Only save the VS path to config if a custom path was explicitly provided
         $savePathToConfig = $customDevShell -ne ""
@@ -1919,6 +1923,89 @@ home = "$($luarocksHome.Replace('\', '\\'))"
 # - Get-LocalLuaVersion
 # - Set-LocalLuaVersion
 # - Remove-LocalLuaVersion
+
+# ==================================================================================
+# DEACTIVATE COMMAND HANDLER (PowerShell-specific)
+# ==================================================================================
+# The 'deactivate' command reverts changes made by 'activate' to restore the original shell environment
+if ($Command -eq "deactivate") {
+    # Display deactivate command help if requested
+    if ($Arguments -contains "--help" -or $Arguments -contains "-h") {
+        Write-Host ""
+        Write-Host "Usage: luaenv deactivate [options]"
+        Write-Host ""
+        Write-Host "Deactivate the current Lua environment in this PowerShell session."
+        Write-Host "This command restores your original environment variables."
+        Write-Host ""
+        Write-Host "Options:"
+        Write-Host "  --help, -h         Show this help information"
+        Write-Host ""
+        Write-Host "Example:"
+        Write-Host "  luaenv deactivate  # Restore original shell environment"
+        Write-Host ""
+        exit 0
+    }
+
+    # Check if there's an active environment
+    if (-not $env:LUAENV_CURRENT) {
+        Write-Host "[INFO] No active LuaEnv environment found" -ForegroundColor Yellow
+        exit 0
+    }
+
+    # Get the original PATH if it was saved during activation
+    $origPathVarName = "LUAENV_ORIGINAL_PATH"
+    $origPath = [Environment]::GetEnvironmentVariable($origPathVarName, "Process")
+
+    if ($origPath) {
+        # Restore original PATH
+        $env:PATH = $origPath
+        Write-Host "[OK] Restored original PATH" -ForegroundColor Green
+    } else {
+        Write-Host "[WARNING] Original PATH not found, cannot fully restore environment" -ForegroundColor Yellow
+
+        # Best-effort cleanup: remove LuaEnv-specific paths from PATH
+        $pathEntries = $env:PATH.Split(';')
+        $cleanedEntries = $pathEntries | Where-Object {
+            -not ($_ -like "*\.luaenv\installations\*\bin" -or
+                  $_ -like "*\.luaenv\installations\*\luarocks")
+        }
+        $env:PATH = $cleanedEntries -join ';'
+    }
+
+    # Clear LuaEnv-specific environment variables
+    $luaEnvVars = @(
+        # Core LuaEnv variables
+        "LUAENV_CURRENT",
+        "LUAENV_ORIGINAL_PATH",
+
+        # Lua variables
+        "LUA_PATH",
+        "LUA_CPATH",
+        "LUA_BINDIR",
+        "LUA_INCDIR",
+        "LUA_LIBDIR",
+        "LUA_LIBRARIES",
+
+        # LuaRocks variables
+        "LUAROCKS_CONFIG",
+        "LUAROCKS_SYSCONFDIR",
+        "LUAROCKS_SYSCONFIG",
+        "LUAROCKS_USERCONFIG",
+        "LUAROCKS_PREFIX"
+    )
+
+    # Clear all LuaEnv-related variables
+    foreach ($var in $luaEnvVars) {
+        if ([Environment]::GetEnvironmentVariable($var, "Process")) {
+            [Environment]::SetEnvironmentVariable($var, $null, "Process")
+        }
+    }
+
+    Write-Host "[OK] LuaEnv environment deactivated" -ForegroundColor Green
+    Write-Host "[INFO] You may need to restart your shell to completely reset all environment variables" -ForegroundColor Cyan
+
+    exit 0
+}
 
 # ==================================================================================
 # LOCAL COMMAND HANDLER (PowerShell-specific)
