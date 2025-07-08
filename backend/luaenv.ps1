@@ -47,6 +47,24 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $BinDir = $ScriptRoot        # Installatin directory (contains this script)
 # $backendDir = $ScriptRoot    # Alias for clarity in legacy code
 
+# Import the LuaEnv Visual Studio module for C/C++ development support
+$moduleScript = Join-Path $ScriptRoot "luaenv_vs.psm1"
+if (Test-Path $moduleScript) {
+    try {
+        Import-Module $moduleScript -Force
+        Write-Verbose "Successfully imported luaenv_vs module"
+        $script:UseLuaEnvVsModule = $true
+    }
+    catch {
+        Write-Warning "Failed to import luaenv_vs module: $($_.Exception.Message)"
+        Write-Warning "Falling back to legacy Visual Studio detection methods"
+        $script:UseLuaEnvVsModule = $false
+    }
+} else {
+    Write-Warning "luaenv_vs.psm1 module not found, falling back to legacy Visual Studio detection methods"
+    $script:UseLuaEnvVsModule = $false
+}
+
 # ==================================================================================
 # SHARED HELPER FUNCTIONS (used by multiple commands)
 # ==================================================================================
@@ -682,69 +700,6 @@ if ($Command -eq "activate") {
 
     <#
     .SYNOPSIS
-        Retrieves the saved Visual Studio installation path from configuration.
-
-    .DESCRIPTION
-        Reads the Visual Studio tools path from the .vspath.txt config file.
-        This path is used to locate and initialize the VS Developer Shell for
-        C extension compilation support.
-
-    .OUTPUTS
-        String containing the VS tools path, or $null if not found/invalid
-    #>
-    function Get-VsPathConfig {
-        # Read VS tools path from config file
-        $configPath = Join-Path $ScriptRoot ".vspath.txt"
-
-        if (Test-Path $configPath) {
-            try {
-                $path = Get-Content $configPath -Raw
-                # Validate that the path exists and is not empty
-                if ($path -and (Test-Path $path)) {
-                    return $path
-                }
-            }
-            catch {
-                # Silently ignore file reading errors
-            }
-        }
-
-        return $null
-    }
-
-    <#
-    .SYNOPSIS
-        Saves the Visual Studio installation path to the configuration file.
-
-    .DESCRIPTION
-        Persists the VS tools path to .vspath.txt for future use. This allows
-        the system to remember a custom VS installation location across sessions.
-
-    .PARAMETER VsPath
-        The Visual Studio tools directory path to save
-
-    .OUTPUTS
-        Boolean indicating success or failure of the save operation
-    #>
-    function Set-VsPathConfig {
-        param([string]$VsPath)
-
-        # Write VS tools path to config file
-        $configPath = Join-Path $ScriptRoot ".vspath.txt"
-
-        try {
-            $VsPath | Set-Content $configPath -Force
-            Write-Host "[INFO] Visual Studio path saved to config: $VsPath" -ForegroundColor Green
-            return $true
-        }
-        catch {
-            Write-Host "[ERROR] Failed to save Visual Studio path: $_" -ForegroundColor Red
-            return $false
-        }
-    }
-
-    <#
-    .SYNOPSIS
         Locates and initializes the Visual Studio Developer Shell environment.
 
     .DESCRIPTION
@@ -775,23 +730,12 @@ if ($Command -eq "activate") {
 
     <#
     .SYNOPSIS
-        Locates and initializes the Visual Studio Developer Shell environment.
+        Locates and initializes the Visual Studio Developer Shell environment using the LuaEnv VS module.
 
     .DESCRIPTION
-        This function implements a comprehensive search for Visual Studio installations
-        and configures the Developer Shell environment for C extension compilation.
-
-        Search Priority:
-        1. Custom path provided via --devshell parameter
-        2. Saved path from .vspath.txt configuration
-        3. Auto-detection using vswhere.exe (multiple locations)
-        4. Registry-based detection
-        5. Environment variable scanning
-        6. Common VS installation paths (VS 2022, 2019, 2017, 2015)
-        7. WMI-based detection (if available)
-
-        The function configures the shell environment with the appropriate compiler
-        toolchain and build tools for the specified architecture.
+        This function uses the enhanced LuaEnv Visual Studio module for comprehensive Visual Studio
+        detection and environment setup. It provides robust detection capabilities with fallback to
+        legacy methods if the module is not available.
 
     .PARAMETER Architecture
         Target architecture for the build environment (x86, x64, arm64)
@@ -812,678 +756,63 @@ if ($Command -eq "activate") {
             [switch]$SavePathToConfig = $false  # Only save when explicitly provided via --devshell
         )
 
-        # Map architecture names to VS Developer Shell parameters
-        $vsArch = if ($Architecture -eq "x86") { "x86" } else { "amd64" }
+        # Use the enhanced LuaEnv VS module if available
+        if ($script:UseLuaEnvVsModule) {
+            Write-Host "[INFO] Using enhanced Visual Studio detection module..." -ForegroundColor Yellow
 
-        # Helper function to test VS installation path
-        function Test-VSInstallation {
-            param([string]$InstallPath)
+            try {
+                # Initialize Visual Studio environment using the module
+                $vsResult = Initialize-VisualStudioEnvironment -Architecture $Architecture -CustomPath $CustomPath -SaveConfig:$SavePathToConfig -ImportEnvironment:$true -Verbose:$VerbosePreference
 
-            if (-not $InstallPath -or -not (Test-Path $InstallPath)) {
-                return $null
-            }
+                if ($vsResult.Success) {
+                    Write-Host "[SUCCESS] $($vsResult.Message)" -ForegroundColor Green
+                    Write-Host "  -> Visual Studio installation: $($vsResult.Installation.DisplayName)" -ForegroundColor Gray
+                    Write-Host "  -> Version: $($vsResult.Installation.Version)" -ForegroundColor Gray
+                    Write-Host "  -> Architecture: $($vsResult.Architecture)" -ForegroundColor Gray
+                    Write-Host "  -> Environment configured in current session" -ForegroundColor Gray
+                    return $true
+                } else {
+                    Write-Host "[ERROR] $($vsResult.Message)" -ForegroundColor Red
 
-            # Check various possible locations for VS tools
-            $possiblePaths = @(
-                (Join-Path $InstallPath "Common7\Tools\Launch-VsDevShell.ps1"),
-                (Join-Path $InstallPath "Common7\Tools\VsDevCmd.bat"),
-                (Join-Path $InstallPath "Launch-VsDevShell.ps1"),
-                (Join-Path $InstallPath "VsDevCmd.bat")
-            )
-
-            foreach ($path in $possiblePaths) {
-                if (Test-Path $path) {
-                    return $path
+                    # Show helpful error messages
+                    Write-Host ""
+                    Write-Host "To resolve this issue, try one of the following:" -ForegroundColor Cyan
+                    Write-Host "1. Install Visual Studio with C++ build tools from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor White
+                    Write-Host "2. Install Build Tools for Visual Studio from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022" -ForegroundColor White
+                    Write-Host "3. Specify your VS installation path: luaenv activate --devshell <path-to-vs-tools>" -ForegroundColor White
+                    Write-Host "4. Run 'luaenv activate --vs-diagnostic' to see detailed search information" -ForegroundColor White
+                    Write-Host ""
+                    Write-Host "Common VS Tools locations:" -ForegroundColor Gray
+                    Write-Host "  - C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools" -ForegroundColor Gray
+                    Write-Host "  - C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools" -ForegroundColor Gray
+                    Write-Host ""
+                    Write-Host "[INFO] Supported editions: Community, Professional, Enterprise, BuildTools, Preview" -ForegroundColor Yellow
+                    return $false
                 }
             }
-
-            return $null
-        }
-
-        # Priority 1: Try custom path if provided via --devshell
-        if ($CustomPath) {
-            # Validate the custom path
-            if (-not (Test-Path $CustomPath)) {
-                Write-Host "[ERROR] Specified Visual Studio path does not exist: $CustomPath" -ForegroundColor Red
+            catch {
+                Write-Host "[ERROR] Module-based Visual Studio detection failed: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "[ERROR] Please ensure the luaenv_vs.psm1 module is properly installed and configured." -ForegroundColor Red
                 return $false
             }
-
-            $vsToolPath = Test-VSInstallation -InstallPath $CustomPath
-            if ($vsToolPath) {
-                if ($vsToolPath -like "*.ps1") {
-                    Write-Host "[INFO] Using custom VS Developer Shell: $vsToolPath"
-                    try {
-                        & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                        if ($SavePathToConfig) {
-                            Set-VsPathConfig -VsPath $CustomPath
-                        }
-                        return $true
-                    }
-                    catch {
-                        Write-Host "[ERROR] Failed to initialize VS Developer Shell: $_" -ForegroundColor Red
-                    }
-                }
-                else {
-                    Write-Host "[INFO] Using VsDevCmd.bat method for custom path: $vsToolPath"
-                    $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                    if ($success -and $SavePathToConfig) {
-                        Set-VsPathConfig -VsPath $CustomPath
-                    }
-                    return $success
-                }
-            }
-            else {
-                Write-Host "[ERROR] Custom VS Developer Shell not found at: $CustomPath" -ForegroundColor Red
-                Write-Host "[ERROR] Expected to find either 'Launch-VsDevShell.ps1' or 'VsDevCmd.bat'" -ForegroundColor Red
-            }
-        }
-
-        # Priority 2: Try path from .vspath.txt config file
-        $configPath = Get-VsPathConfig
-        if ($configPath) {
-            $vsToolPath = Test-VSInstallation -InstallPath $configPath
-            if ($vsToolPath) {
-                if ($vsToolPath -like "*.ps1") {
-                    Write-Host "[INFO] Using VS Developer Shell from config: $vsToolPath"
-                    try {
-                        & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                        return $true
-                    }
-                    catch {
-                        Write-Host "[ERROR] Failed to initialize VS Developer Shell: $_" -ForegroundColor Red
-                    }
-                }
-                else {
-                    Write-Host "[INFO] Using VsDevCmd.bat from config: $vsToolPath"
-                    return Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                }
-            }
-            else {
-                Write-Host "[WARNING] VS Developer Shell from config not found" -ForegroundColor Yellow
-            }
-        }
-
-        # Priority 3: Auto-detect using vswhere.exe (Microsoft's official VS locator)
-        $vswherePaths = @(
-            # Standard installer locations
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
-            "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe",
-
-            # Package cache location
-            "${env:ProgramData}\Microsoft\VisualStudio\Packages\_Instances\vswhere.exe",
-
-            # Chocolatey installation
-            "${env:ChocolateyInstall}\lib\vswhere\tools\vswhere.exe",
-            "${env:ProgramData}\chocolatey\lib\vswhere\tools\vswhere.exe",
-            "C:\ProgramData\chocolatey\lib\vswhere\tools\vswhere.exe",
-
-            # Scoop installation
-            "${env:SCOOP}\apps\vswhere\current\vswhere.exe",
-            "${env:USERPROFILE}\scoop\apps\vswhere\current\vswhere.exe",
-            "${env:SCOOP_GLOBAL}\apps\vswhere\current\vswhere.exe",
-            "${env:ProgramData}\scoop\apps\vswhere\current\vswhere.exe",
-
-            # NuGet tools location
-            "${env:USERPROFILE}\.nuget\packages\vswhere\*\tools\vswhere.exe",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Shared\vswhere\vswhere.exe",
-
-            # Build tools specific locations
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\Installer\vswhere.exe",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\BuildTools\Installer\vswhere.exe",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\BuildTools\Installer\vswhere.exe",
-
-            # Alternative VS installer locations
-            "${env:ProgramFiles}\Microsoft Visual Studio\Shared\Installer\vswhere.exe",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Shared\Installer\vswhere.exe",
-
-            # Custom tools directories
-            "C:\Tools\vswhere\vswhere.exe",
-            "D:\Tools\vswhere\vswhere.exe",
-
-            # Developer command prompt tools
-            "${env:VSINSTALLDIR}\Installer\vswhere.exe",
-            "${env:VS170COMNTOOLS}\..\..\Installer\vswhere.exe",
-            "${env:VS160COMNTOOLS}\..\..\Installer\vswhere.exe",
-
-            # Portable/standalone locations
-            "${env:USERPROFILE}\Downloads\vswhere.exe",
-            "${env:USERPROFILE}\vswhere\vswhere.exe",
-            "${env:LOCALAPPDATA}\vswhere\vswhere.exe",
-
-            # CI/CD common locations
-            "C:\vswhere\vswhere.exe",
-            "C:\BuildTools\vswhere.exe"
-        )
-        $vswherePath = $vswherePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-        if ($vswherePath) {
-            try {
-                # Try multiple vswhere queries for comprehensive detection
-                Write-Host "[INFO] Searching for VS installations using vswhere..."
-
-                # Query 1: All products including prerelease and legacy
-                $allInstalls = & $vswherePath -all -prerelease -legacy -products * -format json | ConvertFrom-Json
-
-                # Query 2: Specific BuildTools product
-                $buildToolsInstalls = & $vswherePath -products Microsoft.VisualStudio.Product.BuildTools -format json | ConvertFrom-Json
-
-                # Combine and deduplicate installations
-                $vsInstallations = @()
-                if ($allInstalls) { $vsInstallations += $allInstalls }
-                if ($buildToolsInstalls) { $vsInstallations += $buildToolsInstalls }
-
-                # Sort by version (newest first) and whether it has C++ tools
-                $vsInstallations = $vsInstallations | Sort-Object -Property @{
-                    Expression = { $_.installationVersion }; Descending = $true
-                }, @{
-                    Expression = { $_.packages -match "Microsoft.VisualStudio.Component.VC.Tools" }; Descending = $true
-                } | Select-Object -Unique -Property installationPath
-
-                foreach ($vsInstall in $vsInstallations) {
-                    $installPath = $vsInstall.installationPath
-                    $vsToolPath = Test-VSInstallation -InstallPath $installPath
-
-                    if ($vsToolPath) {
-                        Write-Host "[INFO] Found VS installation: $installPath"
-
-                        if ($vsToolPath -like "*.ps1") {
-                            try {
-                                & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                                if ($SavePathToConfig) {
-                                    $vsToolsPath = Split-Path -Parent $vsToolPath
-                                    Set-VsPathConfig -VsPath $vsToolsPath
-                                }
-                                return $true
-                            }
-                            catch {
-                                Write-Host "[WARNING] Failed to initialize VS Developer Shell, trying next..." -ForegroundColor Yellow
-                            }
-                        }
-                        else {
-                            $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                            if ($success) {
-                                if ($SavePathToConfig) {
-                                    $vsToolsPath = Split-Path -Parent $vsToolPath
-                                    Set-VsPathConfig -VsPath $vsToolsPath
-                                }
-                                return $true
-                            }
-                        }
-                    }
-                }
-            }
-            catch {
-                # Continue to next method if vswhere fails
-            }
-        }
-
-        # Priority 4: Registry-based detection
-        Write-Host "[INFO] Searching Windows Registry for VS installations..."
-        $vsRegPaths = @(
-            # Standard Visual Studio registry locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio",
-            "HKLM:\SOFTWARE\Microsoft\VSCommon",
-
-            # Visual Studio 2022+ specific locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\17.0",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\17.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\17.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\17.0_Config",
-
-            # Visual Studio 2019 specific locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\16.0",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\16.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\16.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\16.0_Config",
-
-            # Visual Studio 2017 specific locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\15.0",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\15.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\15.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\15.0_Config",
-
-            # Visual Studio 2015 and earlier
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0",
-            "HKCU:\SOFTWARE\Microsoft\VisualStudio\14.0",
-
-            # Build Tools specific registry locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\SxS\VS7",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7",
-
-            # DevDiv registry locations
-            "HKLM:\SOFTWARE\Microsoft\DevDiv\VS\Servicing",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\DevDiv\VS\Servicing",
-
-            # Setup configuration registry
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\Setup",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\Setup",
-
-            # Packages and component registry
-            "HKLM:\SOFTWARE\Classes\Installer\Dependencies\Microsoft.VisualStudio.Community",
-            "HKLM:\SOFTWARE\Classes\Installer\Dependencies\Microsoft.VisualStudio.Professional",
-            "HKLM:\SOFTWARE\Classes\Installer\Dependencies\Microsoft.VisualStudio.Enterprise",
-            "HKLM:\SOFTWARE\Classes\Installer\Dependencies\Microsoft.VisualStudio.BuildTools",
-
-            # MSBuild registry locations
-            "HKLM:\SOFTWARE\Microsoft\MSBuild\ToolsVersions",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\MSBuild\ToolsVersions",
-
-            # Windows SDK registry locations (often installed with VS)
-            "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots",
-
-            # Visual C++ compiler registry locations
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\VC",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\VC",
-
-            # Side-by-side installations registry
-            "HKLM:\SOFTWARE\Microsoft\VisualStudio\SxS\Setup",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\Setup"
-        )
-        foreach ($regPath in $vsRegPaths) {
-            if (Test-Path $regPath) {
-                try {
-                    Get-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {
-                        $installDir = (Get-ItemProperty $_.PSPath -Name InstallDir -ErrorAction SilentlyContinue).InstallDir
-                        if ($installDir) {
-                            $vsInstallPath = Split-Path -Parent (Split-Path -Parent $installDir)
-                            $vsToolPath = Test-VSInstallation -InstallPath $vsInstallPath
-
-                            if ($vsToolPath) {
-                                Write-Host "[INFO] Found VS in registry: $vsInstallPath"
-
-                                if ($vsToolPath -like "*.ps1") {
-                                    try {
-                                        & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                                        return $true
-                                    }
-                                    catch {
-                                        # Continue searching
-                                    }
-                                }
-                                else {
-                                    $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                                    if ($success) { return $true }
-                                }
-                            }
-                        }
-                    }
-                }
-                catch {
-                    # Continue to next registry path
-                }
-            }
-        }
-
-        # Priority 5: Environment variable scanning
-        Write-Host "[INFO] Searching for VS installations using environment variables..."
-        $vsEnvVars = @(
-            "VS170COMNTOOLS",  # VS 2022
-            "VS160COMNTOOLS",  # VS 2019
-            "VS150COMNTOOLS",  # VS 2017
-            "VS140COMNTOOLS",  # VS 2015
-            "VS120COMNTOOLS",  # VS 2013
-            "VS110COMNTOOLS",  # VS 2012
-            "VS100COMNTOOLS",  # VS 2010
-            "VS90COMNTOOLS",   # VS 2008
-            "VS80COMNTOOLS",   # VS 2005
-            "VSINSTALLDIR",
-            "VCINSTALLDIR",
-            "VisualStudioVersion",
-            "VSCMD_START_DIR",
-            "VSCMD_ARG_HOST_ARCH",
-            "VSCMD_ARG_TGT_ARCH",
-            "VSCMD_ARG_app_plat",
-            "VSAPPIDDIR",
-            "VSIDEInstallDir",
-            "VCPKG_ROOT",
-            "VCToolsInstallDir",
-            "VCToolsRedistDir",
-            "VCToolsVersion",
-            "WindowsSdkDir",
-            "WindowsSdkVersion",
-            "WindowsSDKLibVersion",
-            "UniversalCRTSdkDir",
-            "UCRTVersion",
-            "FrameworkDir",
-            "FrameworkDir64",
-            "FrameworkVersion",
-            "Framework40Version",
-            "DevEnvDir",
-            "MSBuildExtensionsPath",
-            "MSBuildExtensionsPath32",
-            "MSBuildExtensionsPath64",
-            "INCLUDE",
-            "LIB",
-            "LIBPATH",
-            "Platform",
-            "PlatformToolset",
-            "PreferredToolArchitecture",
-            "EXTERNAL_INCLUDE",
-            "VS_ExecutablePath",
-            "__VSCMD_PREINIT_PATH",
-            "CommandPromptType"
-        )
-
-        foreach ($envVar in $vsEnvVars) {
-            $value = [Environment]::GetEnvironmentVariable($envVar)
-            if ($value -and (Test-Path $value)) {
-                # Navigate to VS installation root from various possible locations
-                $testPaths = @(
-                    $value,
-                    (Split-Path -Parent $value),
-                    (Split-Path -Parent (Split-Path -Parent $value))
-                )
-
-                foreach ($testPath in $testPaths) {
-                    $vsToolPath = Test-VSInstallation -InstallPath $testPath
-                    if ($vsToolPath) {
-                        Write-Host "[INFO] Found VS via environment variable $envVar"
-
-                        if ($vsToolPath -like "*.ps1") {
-                            try {
-                                & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                                return $true
-                            }
-                            catch {
-                                # Continue searching
-                            }
-                        }
-                        else {
-                            $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                            if ($success) { return $true }
-                        }
-                    }
-                }
-            }
-        }
-
-        # Priority 6: Try common VS installation paths (expanded list)
-        Write-Host "[INFO] Checking common VS installation paths..."
-        $vsPaths = @(
-            # VS 2022 - All editions including BuildTools
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise",
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional",
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Preview",
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\BuildTools",
-
-            # VS 2019 - All editions including BuildTools
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Professional",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Community",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Preview",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\BuildTools",
-
-            # VS 2017 - All editions including BuildTools
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Enterprise",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Community",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\BuildTools",
-
-            # VS 2015 and earlier (different structure)
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 14.0",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 12.0",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 11.0",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 10.0",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 9.0",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 8",
-
-            # Alternative locations for VS 2022 in Program Files (x86)
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Preview",
-
-            # Team Foundation Server variants
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\TeamExplorer",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\TeamExplorer",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\TeamExplorer",
-
-            # SQL Server Data Tools variants
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\SQL",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\SQL",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\SQL",
-
-            # VS Express editions (legacy)
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\WDExpress",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\WDExpress",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 14.0\Common7\IDE\WDExpress",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio 12.0\Common7\IDE\WDExpress",
-
-            # VS Code variants (might have build tools)
-            "${env:ProgramFiles}\Microsoft VS Code",
-            "${env:LOCALAPPDATA}\Programs\Microsoft VS Code",
-
-            # Check for custom installations on other drives
-            "C:\VS\*\*",
-            "D:\VS\*\*",
-            "E:\VS\*\*",
-            "C:\Tools\VisualStudio\*\*",
-            "D:\Tools\VisualStudio\*\*",
-            "C:\Tools\VS\*\*",
-            "D:\Tools\VS\*\*",
-            "C:\Tools\BuildTools\*",
-            "D:\Tools\BuildTools\*",
-
-            # Portable/USB installations
-            "C:\PortableApps\VisualStudio*",
-            "D:\PortableApps\VisualStudio*",
-
-            # Development environment specific paths
-            "C:\dev\tools\vs*",
-            "D:\dev\tools\vs*",
-            "C:\Development\VisualStudio\*\*",
-            "D:\Development\VisualStudio\*\*",
-
-            # CI/CD and build server common paths
-            "C:\BuildAgent\tools\VisualStudio\*\*",
-            "D:\BuildAgent\tools\VisualStudio\*\*",
-            "C:\Jenkins\tools\VisualStudio\*\*",
-            "C:\TeamCity\tools\VisualStudio\*\*",
-
-            # Azure DevOps agent paths
-            "${env:AGENT_TOOLSDIRECTORY}\VisualStudio\*\*",
-            "C:\agents\tools\VisualStudio\*\*",
-            "D:\agents\tools\VisualStudio\*\*",
-
-            # Docker/Container common mount points
-            "C:\VS_BuildTools",
-            "C:\BuildTools",
-
-            # User-specific installations
-            "${env:LOCALAPPDATA}\Microsoft\VisualStudio\*",
-            "${env:APPDATA}\Microsoft\VisualStudio\*",
-
-            # Side-by-side installations with custom suffixes
-            "${env:ProgramFiles}\Microsoft Visual Studio\2022\*",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\*",
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\*",
-
-            # Legacy MSBuild standalone installations
-            "${env:ProgramFiles(x86)}\MSBuild\Microsoft\VisualStudio\*",
-            "${env:ProgramFiles}\MSBuild\Microsoft\VisualStudio\*",
-
-            # Xamarin Studio paths (legacy)
-            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Xamarin",
-            "${env:ProgramFiles}\Microsoft Visual Studio\Xamarin"
-        )
-
-        # Process paths with wildcard expansion
-        $expandedPaths = @()
-        foreach ($vsPath in $vsPaths) {
-            if ($vsPath -contains '*') {
-                $resolved = Resolve-Path $vsPath -ErrorAction SilentlyContinue
-                if ($resolved) {
-                    $expandedPaths += $resolved.Path
-                }
-            }
-            else {
-                $expandedPaths += $vsPath
-            }
-        }
-
-        foreach ($vsPath in $expandedPaths) {
-            $vsToolPath = Test-VSInstallation -InstallPath $vsPath
-            if ($vsToolPath) {
-                Write-Host "[INFO] Using VS Developer Shell: $vsToolPath"
-
-                if ($vsToolPath -like "*.ps1") {
-                    try {
-                        & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                        if ($SavePathToConfig) {
-                            $vsToolsPath = Split-Path -Parent $vsToolPath
-                            Set-VsPathConfig -VsPath $vsToolsPath
-                        }
-                        return $true
-                    }
-                    catch {
-                        Write-Host "[WARNING] Failed to initialize VS Developer Shell: $_" -ForegroundColor Yellow
-                    }
-                }
-                else {
-                    $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                    if ($success) {
-                        if ($SavePathToConfig) {
-                            $vsToolsPath = Split-Path -Parent $vsToolPath
-                            Set-VsPathConfig -VsPath $vsToolsPath
-                        }
-                        return $true
-                    }
-                }
-            }
-        }
-
-        # Priority 7: WMI-based detection (last resort as it's slow)
-        if (Get-Command Get-WmiObject -ErrorAction SilentlyContinue) {
-            Write-Host "[INFO] Searching for VS installations using WMI..."
-            try {
-                $products = Get-WmiObject -Class Win32_Product -ErrorAction SilentlyContinue |
-                    Where-Object {
-                        $_.Name -match "Visual Studio" -or
-                        $_.Name -match "Build Tools"
-                    }
-
-                foreach ($product in $products) {
-                    if ($product.InstallLocation) {
-                        $vsToolPath = Test-VSInstallation -InstallPath $product.InstallLocation
-                        if ($vsToolPath) {
-                            Write-Host "[INFO] Found VS via WMI: $($product.Name)"
-
-                            if ($vsToolPath -like "*.ps1") {
-                                try {
-                                    & $vsToolPath -Arch $vsArch -SkipAutomaticLocation
-                                    return $true
-                                }
-                                catch {
-                                    # Continue searching
-                                }
-                            }
-                            else {
-                                $success = Initialize-VsEnvironmentFromBat -VsDevCmdPath $vsToolPath -Architecture $vsArch
-                                if ($success) { return $true }
-                            }
-                        }
-                    }
-                }
-            }
-            catch {
-                # WMI might not be available or accessible
-            }
-        }
-
-        # All VS detection methods failed
-        Write-Host "[WARNING] Visual Studio Developer Shell not found. C extension compilation may not work." -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "To resolve this issue, try one of the following:" -ForegroundColor Cyan
-        Write-Host "1. Install Visual Studio with C++ build tools from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor White
-        Write-Host "2. Install Build Tools for Visual Studio from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022" -ForegroundColor White
-        Write-Host "3. Specify your VS installation path: luaenv activate --devshell <path-to-vs-tools>" -ForegroundColor White
-        Write-Host "4. Run 'luaenv activate --vs-diagnostic' to see detailed search information" -ForegroundColor White
-        Write-Host ""
-        Write-Host "Common VS Tools locations:" -ForegroundColor Gray
-        Write-Host "  - C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools" -ForegroundColor Gray
-        Write-Host "  - C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "[INFO] Supported editions: Community, Professional, Enterprise, BuildTools, Preview" -ForegroundColor Yellow
-
-        # Check if diagnostic mode is requested
-        if ($Arguments -contains "--vs-diagnostic") {
+        } else {
+            # Module not available - show error with guidance
+            Write-Host "[ERROR] LuaEnv Visual Studio module (luaenv_vs.psm1) not available" -ForegroundColor Red
+            Write-Host "[ERROR] Visual Studio environment cannot be configured without the module" -ForegroundColor Red
             Write-Host ""
-            Write-Host "[DIAGNOSTIC] Visual Studio Search Results:" -ForegroundColor Cyan
-            Write-Host "  vswhere.exe found: $(if ($vswherePath) { 'Yes' } else { 'No' })" -ForegroundColor Gray
-            Write-Host "  Registry entries checked: $($vsRegPaths -join ', ')" -ForegroundColor Gray
-            Write-Host "  Environment variables checked: $($vsEnvVars -join ', ')" -ForegroundColor Gray
-            Write-Host "  Common paths checked: $($expandedPaths.Count) locations" -ForegroundColor Gray
-            Write-Host "  WMI available: $(if (Get-Command Get-WmiObject -ErrorAction SilentlyContinue) { 'Yes' } else { 'No' })" -ForegroundColor Gray
-        }
-
-        return $false
-    }
-
-    <#
-    .SYNOPSIS
-        Initializes Visual Studio environment variables using VsDevCmd.bat.
-
-    .DESCRIPTION
-        This helper function imports VS environment variables into the current PowerShell
-        session by running VsDevCmd.bat and capturing its output. This method is more
-        reliable for older VS versions and BuildTools editions.
-
-    .PARAMETER VsDevCmdPath
-        Full path to the VsDevCmd.bat file
-
-    .PARAMETER Architecture
-        Target architecture (x86 or amd64)
-
-    .OUTPUTS
-        Boolean indicating success or failure
-    #>
-    function Initialize-VsEnvironmentFromBat {
-        param(
-            [string]$VsDevCmdPath,
-            [string]$Architecture
-        )
-
-        try {
-            # Create a temporary batch file to capture environment
-            $tempFile = [System.IO.Path]::GetTempFileName() + ".bat"
-            $batContent = @"
-@echo off
-call "$VsDevCmdPath" -arch=$Architecture -no_logo
-set
-"@
-            Set-Content -Path $tempFile -Value $batContent
-
-            # Execute batch file and capture environment variables
-            $envVars = & cmd /c $tempFile
-            Remove-Item $tempFile -Force
-
-            # Import environment variables into current session
-            foreach ($line in $envVars) {
-                if ($line -match '^([^=]+)=(.*)$') {
-                    $varName = $matches[1]
-                    $varValue = $matches[2]
-
-                    # Skip certain system variables that shouldn't be changed
-                    if ($varName -notmatch '^(COMSPEC|PATHEXT|PROCESSOR_|PSModulePath|TEMP|TMP|USERNAME|USERPROFILE|windir)$') {
-                        [Environment]::SetEnvironmentVariable($varName, $varValue, 'Process')
-                    }
-                }
-            }
-
-            Write-Host "[INFO] Visual Studio Developer Environment configured in current session!" -ForegroundColor Green
-            return $true
-        }
-        catch {
-            Write-Host "[ERROR] Failed to configure VS environment using batch method: $_" -ForegroundColor Red
+            Write-Host "To resolve this issue:" -ForegroundColor Cyan
+            Write-Host "1. Ensure luaenv_vs.psm1 is in the same directory as this script" -ForegroundColor White
+            Write-Host "2. Check that the module file is not corrupted" -ForegroundColor White
+            Write-Host "3. Verify PowerShell execution policy allows module loading" -ForegroundColor White
+            Write-Host ""
+            Write-Host "Module path: $(Join-Path $ScriptRoot 'luaenv_vs.psm1')" -ForegroundColor Gray
             return $false
         }
     }
+
+
+
+
 
     <#
     .SYNOPSIS
@@ -1540,6 +869,50 @@ set
         }
 
         # ------------------------------------------------------------------
+        # Early vcpkg detection (before Visual Studio setup)
+        # ------------------------------------------------------------------
+        # Detect vcpkg BEFORE Visual Studio setup to ensure system/global vcpkg
+        # is found rather than VS-internal vcpkg installations
+        $vcpkgBin = $null
+        $vcpkgRoot = $null
+        $vcpkgArchitecture = "x64-windows"  # Default architecture
+
+        if ($script:UseLuaEnvVsModule) {
+            Write-Host "[INFO] Detecting vcpkg installation..." -ForegroundColor Yellow
+
+            try {
+                # Determine vcpkg architecture based on requested architecture
+                switch ($architecture.ToLower()) {
+                    "x86" { $vcpkgArchitecture = "x86-windows" }
+                    "x64" { $vcpkgArchitecture = "x64-windows" }
+                    "amd64" { $vcpkgArchitecture = "x64-windows" }
+                    "arm" { $vcpkgArchitecture = "arm-windows" }
+                    "arm64" { $vcpkgArchitecture = "arm64-windows" }
+                    default { $vcpkgArchitecture = "x64-windows" }
+                }
+
+                # Use the module to detect vcpkg (prioritizes system/global installations)
+                $vcpkgResult = Find-VcpkgInstallation -Architecture $vcpkgArchitecture -Verbose:$VerbosePreference
+
+                if ($vcpkgResult.Found) {
+                    $vcpkgRoot = $vcpkgResult.RootPath
+                    $vcpkgBin = $vcpkgResult.BinPath
+                    Write-Host "[SUCCESS] vcpkg detected at: $vcpkgRoot" -ForegroundColor Green
+                    Write-Host "  -> Architecture: $($vcpkgResult.Triplet)" -ForegroundColor Gray
+                    Write-Host "  -> Binary path: $vcpkgBin" -ForegroundColor Gray
+                } else {
+                    Write-Host "[INFO] vcpkg not found - C library dependencies may need manual configuration" -ForegroundColor Yellow
+                }
+            }
+            catch {
+                Write-Host "[WARNING] Module-based vcpkg detection failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host "[INFO] vcpkg not available - C library dependencies may need manual configuration" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "[INFO] vcpkg detection skipped - luaenv_vs.psm1 module not available" -ForegroundColor Yellow
+        }
+
+        # ------------------------------------------------------------------
         # Setup Visual Studio Developer Shell for C compilation
         # ------------------------------------------------------------------
         # Save original system PATH before VS Developer Shell modifies it
@@ -1579,66 +952,6 @@ set
 
         # Set LuaEnv current installation identifier
         $env:LUAENV_CURRENT = $installation.id
-
-        # ------------------------------------------------------------------
-        # Dynamic vcpkg detection for C library dependencies (do this early)
-        # ------------------------------------------------------------------
-        $vcpkgBin = $null
-        $vcpkgRoot = $null
-        $vcpkgArchitecture = "x64-windows"  # Default architecture
-
-        # Detect target architecture for vcpkg
-        if ($env:VSCMD_ARG_TGT_ARCH) {
-            switch ($env:VSCMD_ARG_TGT_ARCH.ToLower()) {
-                "x86" { $vcpkgArchitecture = "x86-windows" }
-                "x64" { $vcpkgArchitecture = "x64-windows" }
-                "arm" { $vcpkgArchitecture = "arm-windows" }
-                "arm64" { $vcpkgArchitecture = "arm64-windows" }
-                default { $vcpkgArchitecture = "x64-windows" }
-            }
-        }
-
-        # Try to find vcpkg root in order of preference
-        $vcpkgSearchPaths = @()
-
-        # 1. Environment variable (highest priority)
-        if ($env:VCPKG_ROOT -and (Test-Path $env:VCPKG_ROOT)) {
-            $vcpkgSearchPaths += $env:VCPKG_ROOT
-        }
-
-        # 2. Common installation paths
-        $vcpkgSearchPaths += @(
-            "C:\vcpkg",
-            "C:\tools\vcpkg",
-            "C:\dev\vcpkg",
-            "$env:USERPROFILE\vcpkg",
-            "$env:USERPROFILE\opt\vcpkg",
-            "$env:USERPROFILE\.local\vcpkg",
-            "$env:USERPROFILE\installed\vcpkg",
-            "$env:USERPROFILE\usr\vcpkg",
-            "$env:LOCALAPPDATA\vcpkg"
-        )
-
-        # 3. Check if vcpkg is in PATH
-        $vcpkgExe = Get-Command "vcpkg" -ErrorAction SilentlyContinue
-        if ($vcpkgExe) {
-            $vcpkgSearchPaths += (Split-Path $vcpkgExe.Source -Parent)
-        }
-
-        # Find the first valid vcpkg installation
-        foreach ($path in $vcpkgSearchPaths) {
-            if (Test-Path $path) {
-                $vcpkgExePath = Join-Path $path "vcpkg.exe"
-                $installedPath = Join-Path $path "installed\$vcpkgArchitecture"
-
-                if ((Test-Path $vcpkgExePath) -and (Test-Path $installedPath)) {
-                    $vcpkgRoot = $path
-                    $vcpkgInstalled = Join-Path $vcpkgRoot "installed\$vcpkgArchitecture"
-                    $vcpkgBin = Join-Path $vcpkgInstalled "bin"
-                    break
-                }
-            }
-        }
 
         # ------------------------------------------------------------------
         # Configure PATH with smart merging

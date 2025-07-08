@@ -3,6 +3,17 @@
 ### HIGH PRIORITY
  - Remove duplicated logic to find vs tools in powershell scripts and Python scripts
 
+ LuaEnv/
+├── luaenv.ps1            # Main entry point (slim controller)
+├── modules/
+│   ├── LuaEnvCore.psm1   # Core registry and version functionality
+│   ├── LuaEnvVS.psm1     # Visual Studio environment setup (shared)
+│   ├── LuaEnvShell.psm1  # Shell integration (activate, deactivate, current)
+│   ├── LuaEnvInstall.psm1 # Installation and package management
+│   └── LuaEnvUtils.psm1  # Utility functions
+└── backend/
+    └── setenv.ps1        # Simplified to use shared VS module
+
 ### MEDIUM PRIORITY
 
 

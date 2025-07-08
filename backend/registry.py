@@ -671,7 +671,8 @@ class LuaEnvRegistry:
             ("setenv.ps1", "Visual Studio environment setup script"),
             ("luaenv.ps1", "LuaEnv CLI wrapper and environment activator"),
             ("luaenv-pkg-config.cmd", "Command wrapper for lua pkg-config in build systems"),
-            ("backend.config", "Backend configuration for LuaEnv")
+            ("backend.config", "Backend configuration for LuaEnv"),
+            ("luaenv_vs.psm1", "Visual Studio integration module for LuaEnv"),
         ]
 
         installed_scripts = []
