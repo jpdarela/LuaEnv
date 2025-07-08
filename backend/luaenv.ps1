@@ -1646,6 +1646,15 @@ set
         # Add Lua and LuaRocks to PATH
         $luaBinPath = Join-Path $installPath "bin"
         $luarocksBinPath = Join-Path $installPath "luarocks"
+        $envBinPath = Join-Path $envPath "bin"
+
+        # Create the environment bin directory if it doesn't exist
+        if (-not (Test-Path $envBinPath)) {
+            New-Item -ItemType Directory -Path $envBinPath -Force | Out-Null
+        }
+
+
+
 
         # Extract VS-specific paths (added by VS Developer Shell) by comparing with original system PATH
         # This preserves both VS Developer tools and original system tools
@@ -1662,7 +1671,9 @@ set
         $cleanedSystemPaths = @()
         foreach ($path in $originalSystemPath.Split(';')) {
             # Skip any paths that point to LuaEnv installations (but keep the base LuaEnv bin directory)
-            if (-not ($path -like "*\.luaenv\installations\*\bin" -or $path -like "*\.luaenv\installations\*\luarocks")) {
+            if (-not ($path -like "*\.luaenv\installations\*\bin" -or
+                      $path -like "*\.luaenv\installations\*\luarocks" -or
+                      $path -like "*\.luaenv\environments\*\bin")) {
                 $cleanedSystemPaths += $path
             }
         }
@@ -1671,7 +1682,8 @@ set
         # Rebuild PATH with priority order: Lua bins -> VS paths -> vcpkg bin -> cleaned system paths
         # This ensures Lua tools take precedence while preserving all other functionality
         # Include vcpkg bin directory for runtime DLL access (SSL, etc.)
-        $pathComponents = @($luaBinPath, $luarocksBinPath)
+
+        $pathComponents = @($luaBinPath, $envBinPath, $luarocksBinPath)
         $pathComponents += $vsPathEntries
         if ($vcpkgBin -and (Test-Path $vcpkgBin)) {
             $pathComponents += $vcpkgBin

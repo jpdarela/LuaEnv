@@ -271,8 +271,9 @@ setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
 
 ## What `luaenv activate` Does
 
-1. **Visual Studio Setup**: Automatically configures MSVC toolchain (arm not supported yet)
+1. **Visual Studio/vcpkg Setup**: Automatically configures MSVC toolchain (arm not supported yet)
    - Sets environment variables for compiler, linker, and tools
+   - Searches for vcpkg integration if available (via VCPKG_ROOT)
    - Configures include and library paths for Lua
 2. **PATH Configuration**: Adds Lua and LuaRocks executables to PATH
 3. **Module Paths**: Sets `LUA_PATH` and `LUA_CPATH` for module loading

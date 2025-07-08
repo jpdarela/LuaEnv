@@ -231,13 +231,13 @@ int main(int argc, char *argv[]) {
     TIMING_START("File system validation phase");
     // Secure file access and validation using proper handle protection to prevent TOCTOU attacks
     HANDLE hCliFile = CreateFileA(
-        cliPath,                      // Path to file
+        cliPath,                        // Path to file
         GENERIC_READ | GENERIC_EXECUTE, // Read and execute access
-        FILE_SHARE_READ,             // Allow others to read but not delete or modify
-        NULL,                        // Default security attributes
-        OPEN_EXISTING,               // Only open if it exists
-        FILE_ATTRIBUTE_NORMAL,       // Normal file attributes
-        NULL                         // No template
+        FILE_SHARE_READ,                // Allow others to read but not delete or modify
+        NULL,                           // Default security attributes
+        OPEN_EXISTING,                  // Only open if it exists
+        FILE_ATTRIBUTE_NORMAL,          // Normal file attributes
+        NULL                            // No template
     );
 
     if (hCliFile == INVALID_HANDLE_VALUE) {
