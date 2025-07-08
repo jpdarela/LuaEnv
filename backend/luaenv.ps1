@@ -354,8 +354,9 @@ if ($Command -eq "help" -or $Command -eq "-h" -or $Command -eq "--help" -or $Com
     Write-Host ""
     Write-Host "  Shell Integration (PowerShell):"
     Write-Host "    activate [alias|options]        Activate a Lua environment in current shell"
-    Write-Host "    local [<alias|uuid>|--unset]    Set/show/unset local version in current directory"
     Write-Host "    deactivate                      Deactivate the current Lua environment"
+    Write-Host "    current [options]               Show information about the active environment"
+    Write-Host "    local [<alias|uuid>|--unset]    Set/show/unset local version in current directory"
     Write-Host ""
     Write-Host "For command-specific help:"
     Write-Host "  luaenv <command> --help"
@@ -364,6 +365,8 @@ if ($Command -eq "help" -or $Command -eq "-h" -or $Command -eq "--help" -or $Com
     Write-Host "  luaenv install --alias dev           # Install Lua with alias 'dev'"
     Write-Host "  luaenv activate dev                  # Activate 'dev' environment (shorthand)"
     Write-Host "  luaenv activate                      # Activate using .lua-version or default"
+    Write-Host "  luaenv current                      # Show current active environment"
+    Write-Host "  luaenv current --verbose            # Show detailed environment information"
     Write-Host "  luaenv local dev                     # Set local version to 'dev' in current directory"
     Write-Host "  luaenv local                         # Display current local version"
     Write-Host "  luaenv local --unset                 # Remove local version"
@@ -1999,10 +2002,140 @@ if ($Command -eq "deactivate") {
         if ([Environment]::GetEnvironmentVariable($var, "Process")) {
             [Environment]::SetEnvironmentVariable($var, $null, "Process")
         }
+    }    Write-Host "[OK] LuaEnv environment deactivated" -ForegroundColor Green
+    Write-Host "[INFO] You may need to restart your shell to completely reset all environment variables" -ForegroundColor Cyan
+
+    exit 0
+}
+
+# ==================================================================================
+# CURRENT COMMAND HANDLER (PowerShell-specific)
+# ==================================================================================
+# The 'current' command displays information about the currently active Lua environment
+if ($Command -eq "current") {
+    # Display current command help if requested
+    if ($Arguments -contains "--help" -or $Arguments -contains "-h") {
+        Write-Host ""
+        Write-Host "Usage: luaenv current [options]"
+        Write-Host ""
+        Write-Host "Display information about the currently active Lua environment."
+        Write-Host ""
+        Write-Host "Options:"
+        Write-Host "  --verbose, -v      Show detailed environment information"
+        Write-Host "  --help, -h         Show this help information"
+        Write-Host ""
+        Write-Host "Example:"
+        Write-Host "  luaenv current     # Show current active environment"
+        Write-Host "  luaenv current -v  # Show detailed information"
+        Write-Host ""
+        exit 0
     }
 
-    Write-Host "[OK] LuaEnv environment deactivated" -ForegroundColor Green
-    Write-Host "[INFO] You may need to restart your shell to completely reset all environment variables" -ForegroundColor Cyan
+    # Check for verbose flag
+    $verbose = $Arguments -contains "--verbose" -or $Arguments -contains "-v"
+
+    # Check if there's an active environment
+    if (-not $env:LUAENV_CURRENT) {
+        Write-Host "[INFO] No active LuaEnv environment" -ForegroundColor Yellow
+        Write-Host "To activate an environment, use: luaenv activate <name>" -ForegroundColor Cyan
+        exit 0
+    }
+
+    # Get registry to retrieve installation details
+    $registry = Get-LuaEnvRegistry
+    if (-not $registry) {
+        Write-Host "[ERROR] Failed to load LuaEnv registry" -ForegroundColor Red
+        exit 1
+    }
+
+    # Find the active installation in registry
+    $currentId = $env:LUAENV_CURRENT
+    $installation = $null
+    if ($registry.installations.PSObject.Properties.Name -contains $currentId) {
+        $installation = $registry.installations.$currentId
+    }
+
+    # Display current environment information
+    Write-Host ""
+    Write-Host "Currently active Lua environment:" -ForegroundColor Green
+
+    if ($installation) {
+        # Get aliases for this installation
+        $aliases = @()
+        foreach ($key in $registry.aliases.PSObject.Properties.Name) {
+            if ($registry.aliases.$key -eq $currentId) {
+                $aliases += $key
+            }
+        }
+
+        $aliasList = if ($aliases.Count -gt 0) { " (aliases: $($aliases -join ", "))" } else { "" }
+        $defaultMark = if ($registry.default_installation -eq $currentId) { " [DEFAULT]" } else { "" }
+
+        Write-Host "  $($installation.name)$aliasList$defaultMark" -ForegroundColor White
+        Write-Host "  ID: $currentId" -ForegroundColor Gray
+        Write-Host "  Lua: $($installation.lua_version), LuaRocks: $($installation.luarocks_version)" -ForegroundColor Gray
+        Write-Host "  Path: $($installation.installation_path)" -ForegroundColor Gray
+
+        # Check if Lua and LuaRocks are actually in PATH
+        try {
+            $luaVersion = & lua -v 2>&1
+            Write-Host "  Lua executable: $luaVersion" -ForegroundColor Green
+        } catch {
+            Write-Host "  Lua executable: Not available in PATH" -ForegroundColor Red
+        }
+
+        try {
+            $luarocksVersion = & luarocks --version 2>&1
+            Write-Host "  LuaRocks executable: $luarocksVersion" -ForegroundColor Green
+        } catch {
+            Write-Host "  LuaRocks executable: Not available in PATH" -ForegroundColor Red
+        }
+
+        # Show additional details if verbose mode requested
+        if ($verbose) {
+            Write-Host ""
+            Write-Host "Environment Variables:" -ForegroundColor Cyan
+            Write-Host "  LUA_PATH: $env:LUA_PATH" -ForegroundColor Gray
+            Write-Host "  LUA_CPATH: $env:LUA_CPATH" -ForegroundColor Gray
+            if ($env:LUAROCKS_CONFIG) {
+                Write-Host "  LUAROCKS_CONFIG: $env:LUAROCKS_CONFIG" -ForegroundColor Gray
+            }
+            if ($env:LUA_BINDIR) {
+                Write-Host "  LUA_BINDIR: $env:LUA_BINDIR" -ForegroundColor Gray
+            }
+            if ($env:LUA_INCDIR) {
+                Write-Host "  LUA_INCDIR: $env:LUA_INCDIR" -ForegroundColor Gray
+            }
+            if ($env:LUA_LIBDIR) {
+                Write-Host "  LUA_LIBDIR: $env:LUA_LIBDIR" -ForegroundColor Gray
+            }
+
+            # Show installed packages if available
+            if ($installation.packages -and $installation.packages.count -gt 0) {
+                Write-Host ""
+                Write-Host "Installed packages: $($installation.packages.count)" -ForegroundColor Cyan
+                # Limit to top 10 packages to avoid overwhelming output
+                $packageList = $installation.packages | Select-Object -First 10
+                foreach ($pkg in $packageList) {
+                    Write-Host "  $($pkg.name) $($pkg.version)" -ForegroundColor Gray
+                }
+                if ($installation.packages.count -gt 10) {
+                    Write-Host "  ... and $($installation.packages.count - 10) more" -ForegroundColor Gray
+                }
+            }
+        }
+    } else {
+        Write-Host "  ID: $currentId (not found in registry)" -ForegroundColor Yellow
+        Write-Host "  This environment might have been uninstalled or the registry was modified." -ForegroundColor Yellow
+
+        # Try to detect actual Lua version from PATH
+        try {
+            $luaVersion = & lua -v 2>&1
+            Write-Host "  Lua: $luaVersion" -ForegroundColor Green
+        } catch {
+            Write-Host "  Lua: Not available in PATH" -ForegroundColor Red
+        }
+    }
 
     exit 0
 }
