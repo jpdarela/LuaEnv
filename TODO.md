@@ -1,6 +1,7 @@
 ## TODO list
 
 ### HIGH PRIORITY
+ - Remove duplicated logic to find vs tools in powershell scripts and Python scripts
 
 ### MEDIUM PRIORITY
 

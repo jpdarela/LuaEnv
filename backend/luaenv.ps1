@@ -1112,7 +1112,7 @@ if ($Command -eq "activate") {
         }
 
         # Priority 5: Environment variable scanning
-        Write-Host "[INFO] Checking environment variables for VS installations..."
+        Write-Host "[INFO] Searching for VS installations using environment variables..."
         $vsEnvVars = @(
             "VS170COMNTOOLS",  # VS 2022
             "VS160COMNTOOLS",  # VS 2019
@@ -1646,6 +1646,99 @@ home_tree = ""
 local_by_default = true
 "@
 
+        # ------------------------------------------------------------------
+        # Dynamic vcpkg detection for C library dependencies
+        # ------------------------------------------------------------------
+        $vcpkgExtraConfig = ""
+
+        # Check for vcpkg installation
+        $vcpkgRoot = $null
+        $vcpkgArchitecture = "x64-windows"  # Default architecture
+
+        # Detect target architecture for vcpkg
+        if ($env:VSCMD_ARG_TGT_ARCH) {
+            switch ($env:VSCMD_ARG_TGT_ARCH.ToLower()) {
+                "x86" { $vcpkgArchitecture = "x86-windows" }
+                "x64" { $vcpkgArchitecture = "x64-windows" }
+                "arm" { $vcpkgArchitecture = "arm-windows" }
+                "arm64" { $vcpkgArchitecture = "arm64-windows" }
+                default { $vcpkgArchitecture = "x64-windows" }
+            }
+        }
+
+        # Try to find vcpkg root in order of preference
+        $vcpkgSearchPaths = @()
+
+        # 1. Environment variable (highest priority)
+        if ($env:VCPKG_ROOT -and (Test-Path $env:VCPKG_ROOT)) {
+            $vcpkgSearchPaths += $env:VCPKG_ROOT
+        }
+
+        # 2. Common installation paths
+        $vcpkgSearchPaths += @(
+            "C:\vcpkg",
+            "C:\tools\vcpkg",
+            "C:\dev\vcpkg",
+            "$env:USERPROFILE\vcpkg",
+            "$env:USERPROFILE\opt\vcpkg",
+            "$env:LOCALAPPDATA\vcpkg"
+        )
+
+        # 3. Check if vcpkg is in PATH
+        $vcpkgExe = Get-Command "vcpkg" -ErrorAction SilentlyContinue
+        if ($vcpkgExe) {
+            $vcpkgSearchPaths += (Split-Path $vcpkgExe.Source -Parent)
+        }
+
+        # Find the first valid vcpkg installation
+        foreach ($path in $vcpkgSearchPaths) {
+            if (Test-Path $path) {
+                $vcpkgExePath = Join-Path $path "vcpkg.exe"
+                $installedPath = Join-Path $path "installed\$vcpkgArchitecture"
+
+                if ((Test-Path $vcpkgExePath) -and (Test-Path $installedPath)) {
+                    $vcpkgRoot = $path
+                    break
+                }
+            }
+        }
+
+        # If vcpkg is found, add configuration for common C libraries
+        if ($vcpkgRoot) {
+            $vcpkgInstalled = Join-Path $vcpkgRoot "installed\$vcpkgArchitecture"
+            $vcpkgInclude = Join-Path $vcpkgInstalled "include"
+            $vcpkgLib = Join-Path $vcpkgInstalled "lib"
+            $vcpkgBin = Join-Path $vcpkgInstalled "bin"
+
+            if ((Test-Path $vcpkgInclude) -and (Test-Path $vcpkgLib)) {
+                Write-Host "    Found vcpkg installation: $vcpkgRoot" -ForegroundColor Green
+                Write-Host "    Using architecture: $vcpkgArchitecture" -ForegroundColor Green
+
+                # Add vcpkg paths to LuaRocks configuration using safe string concatenation
+                # Ensure paths don't end with backslash to avoid escaping closing quotes
+                $vcpkgIncludeEscaped = $vcpkgInclude.TrimEnd('\').Replace('\', '\\')
+                $vcpkgLibEscaped = $vcpkgLib.TrimEnd('\').Replace('\', '\\')
+                $vcpkgInstalledEscaped = $vcpkgInstalled.TrimEnd('\').Replace('\', '\\')
+
+                # Build vcpkg configuration with completely safe Lua syntax
+                $vcpkgExtraConfig = "`n`n-- vcpkg integration for C library dependencies`n"
+                $vcpkgExtraConfig += "variables = {`n"
+                $vcpkgExtraConfig += "    CPPFLAGS = `"/I\`"$vcpkgIncludeEscaped\`"`",`n"
+                $vcpkgExtraConfig += "    LIBFLAG = `"/LIBPATH:\`"$vcpkgLibEscaped\`"`",`n"
+                $vcpkgExtraConfig += "    LDFLAGS = `"/LIBPATH:\`"$vcpkgLibEscaped\`"`"`n"
+                $vcpkgExtraConfig += "}`n`n"
+                $vcpkgExtraConfig += "-- Additional library search paths`n"
+                $vcpkgExtraConfig += "external_deps_dirs = {`n"
+                $vcpkgExtraConfig += "    `"$vcpkgInstalledEscaped`"`n"
+                $vcpkgExtraConfig += "}`n"
+            }
+        } else {
+            Write-Host "    vcpkg not found - C library dependencies may need manual configuration" -ForegroundColor Yellow
+        }
+
+        # Append vcpkg configuration to the main config
+        $configContent += $vcpkgExtraConfig
+
         # Write configuration file with UTF-8 encoding (no BOM)
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($luarocksConfigFile, $configContent, $utf8NoBom)
@@ -1678,6 +1771,7 @@ local_by_default = true
         if ($Environment) {
             Show-EnvironmentInfo
             return
+
         }
 
         # Handle case when no explicit arguments were provided
@@ -1952,4 +2046,3 @@ function Invoke-LuaEnvCLI {
 # ==================================================================================
 # Delegate to the CLI wrapper for all non-activate commands
 Invoke-LuaEnvCLI
-
