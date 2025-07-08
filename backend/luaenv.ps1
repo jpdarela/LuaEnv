@@ -357,6 +357,9 @@ if ($Command -eq "help" -or $Command -eq "-h" -or $Command -eq "--help" -or $Com
     Write-Host "    deactivate                      Deactivate the current Lua environment"
     Write-Host "    current [options]               Show information about the active environment"
     Write-Host "    local [<alias|uuid>|--unset]    Set/show/unset local version in current directory"
+
+    Write-Host "  Auxiliary tools:"
+    Write-Host "    luaconfig [options]             Pkg-config-like tool for Lua development"
     Write-Host ""
     Write-Host "For command-specific help:"
     Write-Host "  luaenv <command> --help"

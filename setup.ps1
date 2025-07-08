@@ -1,7 +1,7 @@
 # This is free and unencumbered software released into the public domain.
 # For more details, see the LICENSE file in the project root.
 
-#Requires -Version 5.1
+#Requires -Version 7
 <#
 .SYNOPSIS
     LuaEnv Bootstrap Setup Script
@@ -19,7 +19,36 @@
 .PARAMETER LuaConfig
     Build the luaconfig.exe tool before installation. Compiles the C program for pkg-config support.
 
-.PARAMETER Bootstrap
+.PAR            # Step 3: Run LuaEnv installation
+            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
+                Write-Err "LuaEnv installation failed"
+                exit 1
+            }
+
+            # Step 4: Offer to add LuaEnv to PATH if not already there
+            $luaEnvBinPath = Join-Path $env:USERPROFILE ".luaenv\bin"
+
+            if (-not (Test-PathEnvironmentVariable -PathToCheck $luaEnvBinPath)) {
+                Write-Host ""
+                Write-Info "LuaEnv is not in your PATH environment variable."
+                $addToPath = Read-Host "Would you like to add LuaEnv to your PATH? (Y/n)"
+
+                if ($addToPath -eq "" -or $addToPath.ToLower() -eq "y") {
+                    if (Add-ToPathEnvironmentVariable -PathToAdd $luaEnvBinPath) {
+                        Write-OK "LuaEnv added to your PATH environment variable"
+                        Write-Info "You may need to restart your terminal for the PATH change to take effect"
+                    } else {
+                        Write-Warn "Failed to add LuaEnv to PATH. You can add it manually later."
+                    }
+                } else {
+                    Write-Info "LuaEnv was not added to PATH"
+                    Write-Info "To use LuaEnv, you'll need to manually add $luaEnvBinPath to your PATH"
+                }
+            } else {
+                Write-OK "LuaEnv is already in your PATH environment variable"
+            }
+
+            Write-OK "LuaEnv installation completed successfully!"Bootstrap
     Install pre-built components only, skipping CLI build. Downloads embedded Python,
     installs scripts and CLI binaries from win64 folder. Use for deployments where
     build tools are not available on the target system.
@@ -375,6 +404,52 @@ function Test-EmbeddedPython {
     return $false
 }
 
+# Function to check if LuaEnv path is already in the user's PATH
+function Test-PathEnvironmentVariable {
+    param (
+        [string]$PathToCheck
+    )
+
+    # Get the current user's PATH environment variable
+    $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+
+    # Check if the path is already in PATH (case insensitive)
+    $pathEntries = $currentPath -split ";"
+    foreach ($entry in $pathEntries) {
+        if ($entry -eq $PathToCheck) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+# Function to add LuaEnv path to user's PATH environment variable
+function Add-ToPathEnvironmentVariable {
+    param (
+        [string]$PathToAdd
+    )
+
+    try {
+        # Get the current user's PATH
+        $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+
+        # Add the new path
+        $newPath = $currentPath + ";" + $PathToAdd
+
+        # Set the updated PATH
+        [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+
+        # Refresh current session's PATH as well
+        $env:PATH = $env:PATH + ";" + $PathToAdd
+
+        return $true
+    } catch {
+        Write-Err "Failed to update PATH environment variable: $_"
+        return $false
+    }
+}
+
 function Install-EmbeddedPython {
     param([switch]$ForceReinstall)
 
@@ -535,6 +610,29 @@ try {
                 exit 1
             }
 
+            # Step 4: Offer to add LuaEnv to PATH if not already there
+            $luaEnvBinPath = Join-Path $env:USERPROFILE ".luaenv\bin"
+
+            if (-not (Test-PathEnvironmentVariable -PathToCheck $luaEnvBinPath)) {
+                Write-Host ""
+                Write-Info "LuaEnv is not in your PATH environment variable."
+                $addToPath = Read-Host "Would you like to add LuaEnv to your PATH? (Y/n)"
+
+                if ($addToPath -eq "" -or $addToPath.ToLower() -eq "y") {
+                    if (Add-ToPathEnvironmentVariable -PathToAdd $luaEnvBinPath) {
+                        Write-OK "LuaEnv added to your PATH environment variable"
+                        Write-Info "You may need to restart your terminal for the PATH change to take effect"
+                    } else {
+                        Write-Warn "Failed to add LuaEnv to PATH. You can add it manually later."
+                    }
+                } else {
+                    Write-Info "LuaEnv was not added to PATH"
+                    Write-Info "To use LuaEnv, you'll need to manually add $luaEnvBinPath to your PATH"
+                }
+            } else {
+                Write-OK "LuaEnv is already in your PATH environment variable"
+            }
+
             Write-OK "Bootstrap installation completed successfully!"
         }
 
@@ -661,11 +759,22 @@ try {
 
     # Final success message (for modes that complete installation)
     if ($PSCmdlet.ParameterSetName -in @('Default', 'Reset', 'BuildCli', 'LuaConfig', 'Bootstrap')) {
+        $luaEnvBinPath = Join-Path $env:USERPROFILE ".luaenv\bin"
+        $inPath = Test-PathEnvironmentVariable -PathToCheck $luaEnvBinPath
+
         Write-Info ""
         Write-OK "LuaEnv is now ready to use!"
         Write-Info "Next steps:"
-        Write-Info "  1. Add to PATH: ~/.luaenv/bin"
-        Write-Info "  2. Try: luaenv.ps1 status  (or luaenv status if in PATH)"
+
+        if (-not $inPath) {
+            Write-Info "  1. Add to PATH: ~/.luaenv/bin"
+            Write-Info "     Or run this script with -Bootstrap to be prompted to add to PATH"
+            Write-Info "  2. Try: luaenv.ps1 status  (or luaenv status if in PATH)"
+        } else {
+            Write-Info "  1. Try: luaenv status"
+            Write-Info "     (LuaEnv is already in your PATH)"
+        }
+
         Write-Info "  3. For help: luaenv.ps1 --help"
     }
 
