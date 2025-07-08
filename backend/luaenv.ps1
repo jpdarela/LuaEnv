@@ -1571,87 +1571,9 @@ set
         $env:LUAENV_CURRENT = $installation.id
 
         # ------------------------------------------------------------------
-        # Configure PATH with smart merging
+        # Dynamic vcpkg detection for C library dependencies (do this early)
         # ------------------------------------------------------------------
-        # Add Lua and LuaRocks to PATH
-        $luaBinPath = Join-Path $installPath "bin"
-        $luarocksBinPath = Join-Path $installPath "luarocks"
-
-        # Extract VS-specific paths (added by VS Developer Shell) by comparing with original system PATH
-        # This preserves both VS Developer tools and original system tools
-        $currentPath = $env:PATH
-        $vsPathEntries = @()
-        foreach ($path in $currentPath.Split(';')) {
-            if ($originalSystemPath.Split(';') -notcontains $path) {
-                $vsPathEntries += $path
-            }
-        }
-
-        # Clean up previous LuaEnv installation paths from original system PATH
-        # This prevents accumulation of multiple LuaEnv paths when activating different environments
-        $cleanedSystemPaths = @()
-        foreach ($path in $originalSystemPath.Split(';')) {
-            # Skip any paths that point to LuaEnv installations (but keep the base LuaEnv bin directory)
-            if (-not ($path -like "*\.luaenv\installations\*\bin" -or $path -like "*\.luaenv\installations\*\luarocks")) {
-                $cleanedSystemPaths += $path
-            }
-        }
-        $cleanedSystemPath = $cleanedSystemPaths -join ';'
-
-        # Rebuild PATH with priority order: Lua bins -> VS paths -> cleaned system paths
-        # This ensures Lua tools take precedence while preserving all other functionality
-        $env:PATH = "$luaBinPath;$luarocksBinPath;" + ($vsPathEntries -join ';') + ";$cleanedSystemPath"
-
-        # ------------------------------------------------------------------
-        # Configure Lua module search paths
-        # ------------------------------------------------------------------
-        $luaLibPath = Join-Path $luarocksTree "lib\lua\5.4"
-        $luaSharePath = Join-Path $luarocksTree "share\lua\5.4"
-
-        # Set LUA_PATH for Lua script modules (includes current directory and LuaRocks paths)
-        $env:LUA_PATH = ".\?.lua;.\?\init.lua;$luaSharePath\?.lua;$luaSharePath\?\init.lua;;"
-
-        # Set LUA_CPATH for compiled C modules (includes current directory and LuaRocks paths)
-        $env:LUA_CPATH = ".\?.dll;$luaLibPath\?.dll;;"
-
-        # ------------------------------------------------------------------
-        # Create LuaRocks configuration file
-        # ------------------------------------------------------------------
-        $luarocksConfigDir = Join-Path $env:TEMP "luarocks-config"
-        if (-not (Test-Path $luarocksConfigDir)) {
-            New-Item -ItemType Directory -Path $luarocksConfigDir -Force | Out-Null
-        }
-
-        # Generate installation-specific LuaRocks configuration
-        $luarocksConfigFile = Join-Path $luarocksConfigDir "$($installation.id)-config.lua"
-        $luaIncDir = Join-Path $installPath "include"
-        $luaLibDir = Join-Path $installPath "lib"
-
-        # Create LuaRocks configuration content with proper path escaping
-        $configContent = @"
--- LuaRocks configuration for LuaEnv installation: $($installation.id)
-rocks_trees = {
-    { name = "user", root = "$($luarocksTree.Replace('\', '\\'))" }
-}
-lua_interpreter = "$($luaExe.Replace('\', '\\'))"
-lua_version = "5.4"
-lua_incdir = "$($luaIncDir.Replace('\', '\\'))"
-lua_libdir = "$($luaLibDir.Replace('\', '\\'))"
-lua_bindir = "$($luaBinPath.Replace('\', '\\'))"
-lua_lib = "lua54.lib"
-
--- Environment isolation settings
-local_cache = "$($luarocksTree.Replace('\', '\\'))\\cache"
-home_tree = ""
-local_by_default = true
-"@
-
-        # ------------------------------------------------------------------
-        # Dynamic vcpkg detection for C library dependencies
-        # ------------------------------------------------------------------
-        $vcpkgExtraConfig = ""
-
-        # Check for vcpkg installation
+        $vcpkgBin = $null
         $vcpkgRoot = $null
         $vcpkgArchitecture = "x64-windows"  # Default architecture
 
@@ -1681,6 +1603,9 @@ local_by_default = true
             "C:\dev\vcpkg",
             "$env:USERPROFILE\vcpkg",
             "$env:USERPROFILE\opt\vcpkg",
+            "$env:USERPROFILE\.local\vcpkg",
+            "$env:USERPROFILE\installed\vcpkg",
+            "$env:USERPROFILE\usr\vcpkg",
             "$env:LOCALAPPDATA\vcpkg"
         )
 
@@ -1698,17 +1623,114 @@ local_by_default = true
 
                 if ((Test-Path $vcpkgExePath) -and (Test-Path $installedPath)) {
                     $vcpkgRoot = $path
+                    $vcpkgInstalled = Join-Path $vcpkgRoot "installed\$vcpkgArchitecture"
+                    $vcpkgBin = Join-Path $vcpkgInstalled "bin"
                     break
                 }
             }
         }
+
+        # ------------------------------------------------------------------
+        # Configure PATH with smart merging
+        # ------------------------------------------------------------------
+        # Add Lua and LuaRocks to PATH
+        $luaBinPath = Join-Path $installPath "bin"
+        $luarocksBinPath = Join-Path $installPath "luarocks"
+
+        # Extract VS-specific paths (added by VS Developer Shell) by comparing with original system PATH
+        # This preserves both VS Developer tools and original system tools
+        $currentPath = $env:PATH
+        $vsPathEntries = @()
+        foreach ($path in $currentPath.Split(';')) {
+            if ($originalSystemPath.Split(';') -notcontains $path) {
+                $vsPathEntries += $path
+            }
+        }
+
+        # Clean up previous LuaEnv installation paths from original system PATH
+        # This prevents accumulation of multiple LuaEnv paths when activating different environments
+        $cleanedSystemPaths = @()
+        foreach ($path in $originalSystemPath.Split(';')) {
+            # Skip any paths that point to LuaEnv installations (but keep the base LuaEnv bin directory)
+            if (-not ($path -like "*\.luaenv\installations\*\bin" -or $path -like "*\.luaenv\installations\*\luarocks")) {
+                $cleanedSystemPaths += $path
+            }
+        }
+        $cleanedSystemPath = $cleanedSystemPaths -join ';'
+
+        # Rebuild PATH with priority order: Lua bins -> VS paths -> vcpkg bin -> cleaned system paths
+        # This ensures Lua tools take precedence while preserving all other functionality
+        # Include vcpkg bin directory for runtime DLL access (SSL, etc.)
+        $pathComponents = @($luaBinPath, $luarocksBinPath)
+        $pathComponents += $vsPathEntries
+        if ($vcpkgBin -and (Test-Path $vcpkgBin)) {
+            $pathComponents += $vcpkgBin
+        }
+        $pathComponents += $cleanedSystemPath.Split(';')
+        $env:PATH = ($pathComponents | Where-Object { $_ -ne "" }) -join ';'
+
+        # ------------------------------------------------------------------
+        # Configure Lua module search paths
+        # ------------------------------------------------------------------
+        $luaLibPath = Join-Path $luarocksTree "lib\lua\5.4"
+        $luaSharePath = Join-Path $luarocksTree "share\lua\5.4"
+        $luarocksHome = Join-Path $luarocksTree "home"
+
+        # Set LUA_PATH for Lua script modules (includes current directory and LuaRocks paths)
+        $env:LUA_PATH = ".\?.lua;.\?\init.lua;$luaSharePath\?.lua;$luaSharePath\?\init.lua;;"
+
+        # Set LUA_CPATH for compiled C modules (includes current directory and LuaRocks paths)
+        $env:LUA_CPATH = ".\?.dll;$luaLibPath\?.dll;;"
+
+        # ------------------------------------------------------------------
+        # Create LuaRocks configuration file
+        # ------------------------------------------------------------------
+        $luarocksConfigDir = Join-Path $env:TEMP "luarocks-config"
+        if (-not (Test-Path $luarocksConfigDir)) {
+            New-Item -ItemType Directory -Path $luarocksConfigDir -Force | Out-Null
+        }
+
+        # Generate installation-specific LuaRocks configuration
+        $luarocksConfigFile = Join-Path $luarocksConfigDir "$($installation.id)-config.lua"
+        $luaIncDir = Join-Path $installPath "include"
+        $luaLibDir = Join-Path $installPath "lib"
+
+        # Save to path
+        $env:LUA_BINDIR = $luaBinPath
+        $env:LUA_INCDIR = $luaIncDir
+        $env:LUA_LIBDIR = $luaLibDir
+        $env:LUA_LIBRARIES = Join-Path $luaLibDir "lua54.lib"
+
+        # Create LuaRocks configuration content with proper path escaping
+        $configContent = @"
+-- LuaRocks configuration for LuaEnv installation: $($installation.id)
+rocks_trees = {
+    { name = "user", root = "$($luarocksTree.Replace('\', '\\'))" }
+}
+lua_interpreter = "$($luaExe.Replace('\', '\\'))"
+lua_version = "5.4"
+lua_incdir = "$($luaIncDir.Replace('\', '\\'))"
+lua_libdir = "$($luaLibDir.Replace('\', '\\'))"
+lua_bindir = "$($luaBinPath.Replace('\', '\\'))"
+lua_lib = "lua54.lib"
+
+-- Environment isolation settings
+local_cache = "$($luarocksTree.Replace('\', '\\'))\\cache"
+home_tree = ""
+local_by_default = true
+home = "$($luarocksHome.Replace('\', '\\'))"
+"@
+
+        # ------------------------------------------------------------------
+        # Configure LuaRocks vcpkg integration
+        # ------------------------------------------------------------------
+        $vcpkgExtraConfig = ""
 
         # If vcpkg is found, add configuration for common C libraries
         if ($vcpkgRoot) {
             $vcpkgInstalled = Join-Path $vcpkgRoot "installed\$vcpkgArchitecture"
             $vcpkgInclude = Join-Path $vcpkgInstalled "include"
             $vcpkgLib = Join-Path $vcpkgInstalled "lib"
-            $vcpkgBin = Join-Path $vcpkgInstalled "bin"
 
             if ((Test-Path $vcpkgInclude) -and (Test-Path $vcpkgLib)) {
                 Write-Host "    Found vcpkg installation: $vcpkgRoot" -ForegroundColor Green
@@ -1725,7 +1747,10 @@ local_by_default = true
                 $vcpkgExtraConfig += "variables = {`n"
                 $vcpkgExtraConfig += "    CPPFLAGS = `"/I\`"$vcpkgIncludeEscaped\`"`",`n"
                 $vcpkgExtraConfig += "    LIBFLAG = `"/LIBPATH:\`"$vcpkgLibEscaped\`"`",`n"
-                $vcpkgExtraConfig += "    LDFLAGS = `"/LIBPATH:\`"$vcpkgLibEscaped\`"`"`n"
+                $vcpkgExtraConfig += "    LDFLAGS = `"/LIBPATH:\`"$vcpkgLibEscaped\`"`",`n"
+                $vcpkgExtraConfig += "    HISTORY_DIR = `"$vcpkgInstalledEscaped`",`n"
+                $vcpkgExtraConfig += "    HISTORY_INCDIR = `"$vcpkgIncludeEscaped`",`n"
+                $vcpkgExtraConfig += "    HISTORY_LIBDIR = `"$vcpkgLibEscaped`"`n"
                 $vcpkgExtraConfig += "}`n`n"
                 $vcpkgExtraConfig += "-- Additional library search paths`n"
                 $vcpkgExtraConfig += "external_deps_dirs = {`n"
