@@ -58,7 +58,6 @@ $LuaPackages = @{
     "Language" = @(
         "fennel",            # Lisp that compiles to Lua (version 1.4.2-1)
         "moonscript",        # Language that compiles to Lua
-        "yuescript",         # Another language that compiles to Lua
         "lua-parser"         # Lua parser written in Lua
     )
 
@@ -264,8 +263,8 @@ Write-Host ""
 if ($Environment) {
     Write-ColorOutput "Preparing LuaEnv environment. One minute: $Environment" "Info"
     # Send output to null to avoid cluttering the console
-    # & luaenv uninstall $Environment --yes > $null 2>&1
-    # & luaenv install --alias $Environment --dll > $null 2>&1 # Install the environment for testing
+    & luaenv uninstall $Environment --yes > $null 2>&1
+    & luaenv install --alias $Environment --dll > $null 2>&1 # Install the environment for testing
     & luaenv activate $Environment
 } else {
     Write-ColorOutput "Activating default LuaEnv environment" "Info"

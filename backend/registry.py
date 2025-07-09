@@ -673,6 +673,8 @@ class LuaEnvRegistry:
             ("luaenv-pkg-config.cmd", "Command wrapper for lua pkg-config in build systems"),
             ("backend.config", "Backend configuration for LuaEnv"),
             ("luaenv_vs.psm1", "Visual Studio integration module for LuaEnv"),
+            ("luaenv_core.psm1", "Core LuaEnv registry and environment module"),
+            ("luaenv_ui.psm1", "LuaEnv display and UI module")
         ]
 
         installed_scripts = []
