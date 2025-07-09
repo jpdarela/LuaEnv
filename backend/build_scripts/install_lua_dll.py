@@ -182,62 +182,10 @@ class LuaDLLInstaller:
         if installed_count == 0:
             print("  No documentation files found")
 
-#     def create_usage_info(self):
-#         """Create a usage information file."""
-#         usage_file = self.install_dir / "USAGE.txt"
-
-#         usage_content = f"""Lua 5.4.8 DLL Installation
-# ============================
-
-# Installation Directory: {self.install_dir.absolute()}
-
-# Directory Structure:
-#   bin/        - Executable files (lua.exe, luac.exe, lua54.dll)
-#   lib/        - Library files for linking (lua54.lib)
-#   include/    - Header files for development
-#   doc/        - Documentation files
-
-# Usage:
-# ------
-
-# 1. Running Lua:
-#    {self.install_dir.absolute() / 'bin' / 'lua.exe'}
-
-#    Or add {self.install_dir.absolute() / 'bin'} to your PATH environment variable
-
-# 2. Compiling Lua scripts:
-#    {self.install_dir.absolute() / 'bin' / 'luac.exe'} script.lua
-
-# 3. Linking with Lua (C/C++ development):
-#    - Include directory: {self.install_dir.absolute() / 'include'}
-#    - Library directory: {self.install_dir.absolute() / 'lib'}
-#    - Link with: lua54.lib
-#    - Runtime dependency: lua54.dll (must be in PATH or same directory as executable)
-
-# Important Notes:
-# ---------------
-# - lua.exe requires lua54.dll to run
-# - Both lua54.dll and lua.exe should be in the same directory or lua54.dll should be in your PATH
-# - For distribution, include lua54.dll with your application
-# - luac.exe is statically linked and doesn't require the DLL
-
-# Environment Setup:
-# -----------------
-# To use Lua environments, use 'luaenv.ps1 activate --alias <name>' to set up the environment
-# variables for the current session. You can run it in PowerShell to configure the environment.
-# For permanent setup, add the bin and the luarocks directories to your PATH environment variable.
-
-# """
-
-#         with open(usage_file, 'w', encoding='utf-8') as f:
-#             f.write(usage_content)
-
-#         print(f"\nCreated usage information: {usage_file.name}")
-
     def install(self):
         """Perform the complete installation."""
         print("=" * 60)
-        print("Lua 5.4.8 DLL Build Installer")
+        print("Lua 5.4 DLL Build Installer")
         print("=" * 60)
 
         # Check if build products exist
@@ -266,11 +214,8 @@ class LuaDLLInstaller:
         print(f"Library:  {self.install_dir.absolute() / 'lib'}")
         print(f"Docs:     {self.install_dir.absolute() / 'doc'}")
         print()
-        print("To use Lua, add the bin directory to your PATH environment variable:")
-        print(f"set PATH={self.install_dir.absolute() / 'bin'};%PATH%")
         print()
         print("The DLL (lua54.dll) is installed in the bin directory with the executables.")
-        print(f"See {self.install_dir / 'USAGE.txt'} for detailed usage instructions.")
 
         return True
 
@@ -308,6 +253,9 @@ Examples:
         )
 
         success = installer.install()
+        print("=" * 30)
+        print("Lua DLL Installer Completed")
+        print("=" * 30)
         sys.exit(0 if success else 1)
 
     except KeyboardInterrupt:
@@ -316,6 +264,8 @@ Examples:
     except Exception as e:
         print(f"\nError during installation: {e}")
         sys.exit(1)
+
+
 
 
 if __name__ == "__main__":

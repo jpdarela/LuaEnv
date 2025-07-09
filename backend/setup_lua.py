@@ -24,178 +24,20 @@ sys.path.insert(0, str(current_dir))
 try:
     from .config import (
         get_lua_tests_dir_name,
-        LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+        LUA_VERSION, LUAROCKS_VERSION
     )
     from .registry import LuaEnvRegistry
+    from .utils import info, warning, error, debug, log_with_location
+
 except ImportError:
     from config import (
         get_lua_tests_dir_name,
-        LUA_VERSION, LUAROCKS_VERSION, LUAROCKS_PLATFORM
+        LUA_VERSION, LUAROCKS_VERSION
     )
     from registry import LuaEnvRegistry
+    from utils import info, warning, error, debug, log_with_location
+    from utils import info, warning, error, debug, log_with_location
 
-
-# def setenv(architecture="x64"):
-#     """Set Visual Studio environment variables by directly calling vcvars batch file.
-
-#     Args:
-#         architecture (str): Target architecture - "x64" (default) or "x86"
-#     """
-#     print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
-
-#     # Save current working directory
-#     original_cwd = os.getcwd()
-
-#     # Choose the appropriate vcvars batch file based on architecture
-#     if architecture == "x86":
-#         vcvars_filename = "vcvars32.bat"
-#         arch_display = "x86 (32-bit)"
-#     else:  # Default to x64
-#         vcvars_filename = "vcvars64.bat"
-#         arch_display = "x64 (64-bit)"
-
-#     # Common paths where Visual Studio might be installed
-#     vs_paths = [
-#         rf"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
-#         rf"C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\{vcvars_filename}",
-#     ]
-
-#     # Check if there's a saved VS path
-#     vs_config_file = ".vs_install_path.txt"
-#     if os.path.exists(vs_config_file):
-#         try:
-#             with open(vs_config_file, 'r') as f:
-#                 saved_path = f.read().strip()
-#                 if saved_path:
-#                     vcvars_path = os.path.join(saved_path, rf"VC\Auxiliary\Build\{vcvars_filename}")
-#                     if os.path.exists(vcvars_path):
-#                         vs_paths.insert(0, vcvars_path)  # Use saved path first
-#                         print(f"[INFO] Using saved Visual Studio path: {saved_path}")
-#         except Exception as e:
-#             print(f"[WARNING] Could not read VS config file: {e}")
-
-#     # Find the first available vcvars batch file
-#     vcvars_bat = None
-#     for path in vs_paths:
-#         if os.path.exists(path):
-#             vcvars_bat = path
-#             print(f"[OK] Found Visual Studio at: {path}")
-#             print(f"[INFO] Target architecture: {arch_display}")
-#             break
-
-#     if not vcvars_bat:
-#         print(f"[ERROR] Could not find Visual Studio installation for {arch_display}")
-#         print("[INFO] Searched the following paths:")
-#         for path in vs_paths:
-#             print(f"  - {path}")
-#         print("")
-#         print("[SOLUTION] To resolve this issue:")
-#         print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
-#         print("2. OR use the setenv.ps1 script to manually configure environment:")
-#         arch_param = "x86" if architecture == "x86" else "amd64"
-#         print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-#         print("3. Then run your installation command with --skip-env-check flag:")
-#         print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-#         print("")
-#         print("[IMPORTANT] Architecture flags must match:")
-#         if architecture == "x86":
-#             print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-#         else:
-#             print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-#         print("")
-#         print("[WARNING] Build may fail without Visual Studio environment")
-#         return False
-
-#     try:
-#         # Create a batch script that calls vcvars64.bat and outputs environment
-#         import tempfile
-#         with tempfile.NamedTemporaryFile(mode='w', suffix='.bat', delete=False) as f:
-#             f.write(f'''@echo off
-# cd /d "{original_cwd}"
-# call "{vcvars_bat}" >nul 2>&1
-# if errorlevel 1 (
-#     echo VCVARS_FAILED
-#     exit 1
-# )
-# cd /d "{original_cwd}"
-# set
-# ''')
-#             temp_file = f.name
-
-#         try:
-#             # Run the batch file and capture environment
-#             result = subprocess.run([temp_file], capture_output=True, text=True, shell=True, cwd=original_cwd)
-
-#             if result.returncode == 0 and "VCVARS_FAILED" not in result.stdout:
-#                 # Apply environment variables to current process
-#                 env_vars_set = 0
-#                 for line in result.stdout.strip().split('\n'):
-#                     if '=' in line and not line.startswith('VCVARS_FAILED'):
-#                         key, value = line.split('=', 1)
-#                         # Skip some problematic variables that might break Python
-#                         if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
-#                             os.environ[key] = value
-#                             env_vars_set += 1
-
-#                 print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
-#                 return True
-#             else:
-#                 print("[ERROR] Failed to set up Visual Studio environment")
-#                 if "VCVARS_FAILED" in result.stdout:
-#                     print("[INFO] The Visual Studio environment setup script reported an error")
-#                 print("")
-#                 print("[SOLUTION] To resolve this issue:")
-#                 print("1. Make sure Visual Studio C++ development tools are properly installed")
-#                 print("2. OR use the setenv.ps1 script to manually configure environment:")
-#                 arch_param = "x86" if architecture == "x86" else "amd64"
-#                 print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-#                 print("3. Then run your installation command with --skip-env-check flag:")
-#                 print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-#                 print("")
-#                 print("[IMPORTANT] Architecture flags must match:")
-#                 if architecture == "x86":
-#                     print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-#                 else:
-#                     print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-#                 print("")
-#                 return False
-#         finally:
-#             # Clean up temp file
-#             try:
-#                 os.unlink(temp_file)
-#             except:
-#                 pass
-
-#     except Exception as e:
-#         print(f"[ERROR] Failed to set up Visual Studio environment: {e}")
-#         print("")
-#         print("[SOLUTION] To resolve this issue:")
-#         print("1. Make sure Visual Studio C++ development tools are properly installed")
-#         print("2. OR use the setenv.ps1 script to manually configure environment:")
-#         arch_param = "x86" if architecture == "x86" else "amd64"
-#         print(f"   %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-#         print("3. Then run your installation command with --skip-env-check flag:")
-#         print("   python setup_lua.py --skip-env-check [--x86 for 32-bit] (add architecture flag to match your environment setup)")
-#         print("")
-#         print("[IMPORTANT] Architecture flags must match:")
-#         if architecture == "x86":
-#             print("  setenv.ps1 -Arch x86 → setup_lua.py --skip-env-check --x86")
-#         else:
-#             print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
-#         print("")
-#         return False
-#     finally:
-#         # Ensure we're back in the original directory
-#         try:
-#             os.chdir(original_cwd)
-#         except:
-#             pass
 
 def try_powershell_setenv(architecture="x64"):
     """Try to set Visual Studio environment using PowerShell setenv.ps1."""
@@ -222,8 +64,10 @@ def try_powershell_setenv(architecture="x64"):
     try:
         # Create a temporary PowerShell script
         import tempfile
+        script_dir = os.path.dirname(setenv_script)
         with tempfile.NamedTemporaryFile(mode='w', suffix='.ps1', delete=False) as f:
             f.write(f'''
+Set-Location "{script_dir}"
 & "{setenv_script}" -Arch {ps_arch} -Current
 Get-ChildItem env: | ForEach-Object {{
     Write-Output "$($_.Name)=$($_.Value)"
@@ -235,16 +79,38 @@ Get-ChildItem env: | ForEach-Object {{
         result = subprocess.run(
             ['powershell', '-ExecutionPolicy', 'Bypass', '-File', temp_ps_script],
             capture_output=True,
-            text=True
+            text=True,
+            cwd=script_dir
         )
+
+        info(f"PowerShell setenv exit code: {result.returncode}")
+        if result.stderr:
+            debug(f"PowerShell setenv stderr: {result.stderr}")
+
+        # Debug: Show first few lines of stdout to see what PowerShell is outputting
+        stdout_lines = result.stdout.strip().split('\n')[:10]
+        debug(f"PowerShell setenv stdout (first 10 lines): {stdout_lines}")
 
         if result.returncode == 0:
             # Apply environment variables
+            vs_vars_found = []
+            env_vars_set = 0
             for line in result.stdout.strip().split('\n'):
                 if '=' in line:
                     key, value = line.split('=', 1)
                     if key.upper() not in ['PSModulePath', 'PYTHONPATH', 'PYTHONHOME', 'PROMPT']:
                         os.environ[key] = value
+                        env_vars_set += 1
+                        # Track VS-specific variables
+                        if key.upper() in ['VCINSTALLDIR', 'INCLUDE', 'LIB', 'LIBPATH', 'WINDOWSSDKDIR']:
+                            vs_vars_found.append(f"{key}={value[:50]}...")
+
+            debug(f"PowerShell setenv applied {env_vars_set} environment variables")
+            if vs_vars_found:
+                debug(f"VS variables found: {vs_vars_found}")
+            else:
+                debug(f"No VS-specific variables found in PowerShell output")
+
             return True
 
         return False
@@ -301,8 +167,8 @@ set
                                 os.environ[key] = value
                                 env_vars_set += 1
 
-                    print(f"[OK] Applied {env_vars_set} environment variables from Visual Studio")
-                    print(f"[INFO] Target architecture: {arch_display}")
+                    log_with_location(f"Applied {env_vars_set} environment variables from Visual Studio", "OK")
+                    info(f"Target architecture: {arch_display}")
                     return True
             finally:
                 try:
@@ -378,7 +244,7 @@ set
                         if os.path.exists(install_path):
                             vcvars_path = os.path.join(install_path, "VC", "Auxiliary", "Build", vcvars_filename)
                             if os.path.exists(vcvars_path):
-                                print(f"[OK] Found Visual Studio via vswhere: {install_path}")
+                                log_with_location(f"Found Visual Studio via vswhere: {install_path}", "OK")
                                 return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
             except:
                 pass
@@ -392,7 +258,7 @@ set
                 if saved_path:
                     vcvars_path = os.path.join(saved_path, rf"VC\Auxiliary\Build\{vcvars_filename}")
                     if os.path.exists(vcvars_path):
-                        print(f"[INFO] Using saved Visual Studio path: {saved_path}")
+                        info(f"Using saved Visual Studio path: {saved_path}")
                         return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
         except:
             pass
@@ -417,7 +283,7 @@ set
 
     for vcvars_path in vs_paths:
         if os.path.exists(vcvars_path):
-            print(f"[OK] Found Visual Studio at: {vcvars_path}")
+            log_with_location(f"Found Visual Studio at: {vcvars_path}", "OK")
             return run_vcvars_and_capture_env(vcvars_path, original_cwd, arch_display)
 
     return False
@@ -425,29 +291,29 @@ set
 
 def setenv(architecture="x64"):
     """Set Visual Studio environment with PowerShell fallback to Python methods."""
-    print(f"[INFO] Setting up Visual Studio environment for {architecture}...")
+    info(f"Setting up Visual Studio environment for {architecture}...")
 
     # Try PowerShell method first
-    print("[INFO] Attempting to use PowerShell setenv.ps1 script...")
+    info("Attempting to use PowerShell setenv.ps1 script...")
     if try_powershell_setenv(architecture):
-        print("[OK] Successfully configured environment using PowerShell method")
+        log_with_location("Successfully configured environment using PowerShell method", "OK")
         arch_display = "x86 (32-bit)" if architecture == "x86" else "x64 (64-bit)"
-        print(f"[INFO] Target architecture: {arch_display}")
+        info(f"Target architecture: {arch_display}")
 
         # Verify critical environment variables
         if os.environ.get('VCINSTALLDIR'):
-            print(f"[OK] Visual Studio found at: {os.environ.get('VCINSTALLDIR')}")
+            log_with_location(f"Visual Studio found at: {os.environ.get('VCINSTALLDIR')}", "OK")
 
         return True
 
-    print("[WARNING] PowerShell method failed, trying Python detection methods...")
+    warning("PowerShell method failed, trying Python detection methods...")
 
     # Fall back to enhanced Python implementation
     if python_setenv_enhanced(architecture):
         return True
 
     # If all methods fail, provide detailed instructions
-    print(f"[ERROR] Could not find Visual Studio installation for {architecture}")
+    error(f"Could not find Visual Studio installation for {architecture}")
     print("")
     print("[SOLUTION] To resolve this issue:")
     print("1. Install Visual Studio 2019 or 2022 with C++ development tools")
@@ -463,21 +329,21 @@ def setenv(architecture="x64"):
     else:
         print("  setenv.ps1 -Arch amd64 → setup_lua.py --skip-env-check (x64 is default)")
     print("")
-    print("[WARNING] Build may fail without Visual Studio environment")
+    warning("Build may fail without Visual Studio environment")
 
     return False
 
-
+# Deprecated function TODO exclude in future versions
 def call_check_env_bat_script():
     """Call the check_env.bat script to verify the environment."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     check_env_script = os.path.join(current_dir, "check-env.bat")
 
     if not os.path.exists(check_env_script):
-        print("[WARNING] check-env.bat script not found. Skipping environment check.")
+        warning("check-env.bat script not found. Skipping environment check.")
         return True
 
-    print("[INFO] Checking Visual Studio environment...")
+    info("Checking Visual Studio environment...")
     try:
         # Run in quiet mode to get parseable output
         result = subprocess.run([check_env_script, "--quiet"],
@@ -495,10 +361,10 @@ def call_check_env_bat_script():
                 issues = [issue for issue in issues_str.split(';') if issue]
 
         if env_ok:
-            print("[OK] Visual Studio environment is properly configured.")
+            log_with_location("Visual Studio environment is properly configured.", "OK")
             return True
         else:
-            print("[ERROR] Visual Studio environment issues detected:")
+            error("Visual Studio environment issues detected:")
             issue_descriptions = {
                 'VCINSTALLDIR_MISSING': 'Visual Studio installation directory not found',
                 'TARGET_ARCH_MISSING': 'Target architecture not set',
@@ -528,8 +394,8 @@ def call_check_env_bat_script():
             return False
 
     except Exception as e:
-        print(f"[WARNING] Could not run environment check: {e}")
-        print("[INFO] Proceeding anyway, but build may fail if environment is not set up correctly.")
+        warning(f"Could not run environment check: {e}")
+        info("Proceeding anyway, but build may fail if environment is not set up correctly.")
         return True
 
 
@@ -538,8 +404,8 @@ def download_sources():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     download_script = os.path.join(current_dir, "download_lua_luarocks.py")
 
-    print("[INFO] Downloading sources...")
-    subprocess.run([sys.executable, download_script], check=True)
+    info("Downloading sources...")
+    subprocess.run([sys.executable, download_script], check=True, env=os.environ.copy())
 
 
 def setup_build_scripts(with_dll=False, with_debug=False):
@@ -547,13 +413,13 @@ def setup_build_scripts(with_dll=False, with_debug=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     setup_build_script = os.path.join(current_dir, "setup_build.py")
 
-    print("[INFO] Setting up build scripts...")
+    info("Setting up build scripts...")
     setup_build_args = [sys.executable, setup_build_script]
     if with_dll:
         setup_build_args.append("--dll")
     if with_debug:
         setup_build_args.append("--debug")
-    subprocess.run(setup_build_args, check=True)
+    subprocess.run(setup_build_args, check=True, env=os.environ.copy())
 
 
 def build_lua(installation_path, with_dll=False, with_debug=False):
@@ -561,13 +427,27 @@ def build_lua(installation_path, with_dll=False, with_debug=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     build_script = os.path.join(current_dir, "build.py")
 
-    print(f"[INFO] Building and installing to {installation_path}...")
+    info(f"Building and installing to {installation_path}...")
+
+    # Debug: Check if VS environment variables are still present before calling build.py
+    debug("Key VS environment variables in setup_lua.py before calling build.py:")
+    vs_vars = ['VCINSTALLDIR', 'INCLUDE', 'LIB', 'PATH', 'LIBPATH', 'WindowsSdkDir']
+    for var in vs_vars:
+        value = os.environ.get(var, 'NOT SET')
+        if var == 'PATH':
+            # Only show first few entries for PATH
+            path_entries = value.split(';')[:5] if value != 'NOT SET' else []
+            print(f"  {var}: {';'.join(path_entries)}... ({len(path_entries)} entries shown)")
+        else:
+            print(f"  {var}: {value}")
+    print()
+
     build_args = [sys.executable, build_script, "--prefix", str(installation_path)]
     if with_dll:
         build_args.append("--dll")
     if with_debug:
         build_args.append("--debug")
-    subprocess.run(build_args, check=True)
+    subprocess.run(build_args, check=True, env=os.environ.copy())
 
 
 def test_lua_build(installation_path, lua_version, run_tests=True):
@@ -575,20 +455,20 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
     lua_exe = Path(installation_path) / "bin" / "lua.exe"
 
     if not lua_exe.exists():
-        print(f"[ERROR] lua.exe not found at {lua_exe}")
+        error(f"lua.exe not found at {lua_exe}")
         return False
 
-    print(f"[TEST] Testing Lua {lua_version} installation...")
+    log_with_location(f"Testing Lua {lua_version} installation...", "INFO")
 
     try:
         # Test 1: Check Lua version
-        print("[INFO] Checking Lua version...")
+        info("Checking Lua version...")
         result = subprocess.run([str(lua_exe), "-v"],
                               capture_output=True, text=True, check=True)
         print(f"  {result.stderr.strip()}")  # Lua version goes to stderr
 
         # Test 2: Basic Lua execution
-        print("[INFO] Testing basic Lua execution...")
+        info("Testing basic Lua execution...")
         result = subprocess.run([str(lua_exe), "-e", "print('Hello from Lua!')"],
                               capture_output=True, text=True, check=True)
         print(f"  Output: {result.stdout.strip()}")
@@ -598,26 +478,26 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             tests_dir = Path(current_dir) / "extracted" / get_lua_tests_dir_name()
             if tests_dir.exists():
-                print(f"[TEST] Running Lua {lua_version} basic test suite...")
-                print("[INFO] Running basic tests (_U=true flag) - some warnings are normal.")
+                log_with_location(f"Running Lua {lua_version} basic test suite...", "INFO")
+                info("Running basic tests (_U=true flag) - some warnings are normal.")
 
                 original_cwd = os.getcwd()
                 abs_lua_exe = os.path.abspath(lua_exe)
 
                 try:
                     os.chdir(tests_dir)
-                    print("[INFO] Running: lua.exe -e \"_U=true\" all.lua (Basic Test Suite)")
+                    info("Running: lua.exe -e \"_U=true\" all.lua (Basic Test Suite)")
                     result = subprocess.run([abs_lua_exe, "-e", "_U=true", "all.lua"],
                                           capture_output=True, text=True, timeout=300)
 
                     if result.returncode == 0:
-                        print("[PASS] Basic test suite completed successfully!")
+                        log_with_location("Basic test suite completed successfully!", "OK")
                         lines = result.stdout.split('\n')
                         for line in lines[-10:]:
                             if line.strip():
                                 print(f"  {line}")
                     else:
-                        print("[WARN] Basic test suite completed with issues:")
+                        warning("Basic test suite completed with issues:")
                         print("  STDOUT:")
                         for line in result.stdout.split('\n')[-20:]:
                             if line.strip():
@@ -635,22 +515,22 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
                 finally:
                     os.chdir(original_cwd)
             else:
-                print(f"[WARN] Tests directory {tests_dir} not found.")
+                warning(f"Tests directory {tests_dir} not found.")
                 return False
         else:
-            print("[INFO] Skipping test suite (remove --skip-tests flag to enable)")
+            info("Skipping test suite (remove --skip-tests flag to enable)")
 
-        print("[PASS] Basic Lua functionality test passed!")
+        log_with_location("Basic Lua functionality test passed!", "OK")
         return True
 
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Error testing Lua: {e}")
+        error(f"Error testing Lua: {e}")
         return False
     except subprocess.TimeoutExpired:
-        print("[WARN] Test suite timed out (took more than 5 minutes)")
+        warning("Test suite timed out (took more than 5 minutes)")
         return False
     except Exception as e:
-        print(f"[ERROR] Unexpected error testing Lua: {e}")
+        error(f"Unexpected error testing Lua: {e}")
         return False
 
 
@@ -665,20 +545,20 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
     if not skip_env_check:
         env_set = setenv(architecture)
         if not env_set:
-            print("[WARNING] Failed to set environment variables from setenv.ps1.")
-
-        env_ok = call_check_env_bat_script()
-        if not env_ok:
-            print("\n[ERROR] Environment check failed. Build may not succeed.")
-            response = input("Do you want to continue anyway? (y/N): ").strip().lower()
-            if response not in ['y', 'yes']:
-                print("[INFO] Setup cancelled. Please fix the environment issues and try again.")
-                return None
-            print("[INFO] Continuing with potentially problematic environment...")
+            error("Environment setup failed. Build cannot proceed.")
+            print("[INFO] To fix this issue:")
+            print("1. Install Visual Studio with C++ development tools")
+            print("2. OR run the environment setup manually:")
+            arch_param = "x86" if architecture == "x86" else "amd64"
+            print(f"   luaenv.ps1 -SetupVS -Arch {arch_param}")
+            print("3. Then retry the installation with --skip-env-check flag:")
+            print(f"   luaenv install --skip-env-check {('--x86' if architecture == 'x86' else '')}")
+            error("Installation cancelled due to environment setup failure.")
+            return None
 
     # Create installation record in registry
-    print(f"[INFO] Creating new installation: Lua {lua_version}, LuaRocks {luarocks_version}")
-    print(f"[INFO] Build: {build_type} {build_config}")
+    info(f"Creating new installation: Lua {lua_version}, LuaRocks {luarocks_version}")
+    info(f"Build: {build_type} {build_config}")
 
     installation_id = registry.create_installation(
         lua_version=lua_version,
@@ -719,41 +599,41 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
             if not test_success:
                 print("\n[WARN] Some tests failed, but installation may still be usable.")
             else:
-                print("\n[SUCCESS] All tests passed!")
+                log_with_location("All tests passed!", "OK")
         else:
             # Run minimal test even when tests are skipped
             test_success = test_lua_build(installation_path, lua_version, run_tests=False)
             if not test_success:
-                print("[ERROR] Basic functionality test failed.")
+                error("Basic functionality test failed.")
                 registry.update_status(installation_id, "broken")
                 return installation_id
 
         # Mark installation as active
         registry.update_status(installation_id, "active")
 
-        print(f"\n[SUCCESS] Installation completed!")
-        print(f"[INFO] Installation ID: {installation_id}")
-        print(f"[INFO] Installation path: {installation_path}")
+        log_with_location("Installation completed!", "OK")
+        info(f"Installation ID: {installation_id}")
+        info(f"Installation path: {installation_path}")
         if alias:
-            print(f"[INFO] Alias: {alias}")
+            info(f"Alias: {alias}")
 
         return installation_id
 
     except Exception as e:
-        print(f"\n[ERROR] Installation failed: {e}")
+        error(f"Installation failed: {e}")
         # Mark installation as broken but don't remove it (user can debug)
         registry.update_status(installation_id, "broken")
 
         # Automatically cleanup broken installations (silent)
-        print("[INFO] Running automatic cleanup...")
+        info("Running automatic cleanup...")
         try:
             cleaned_count = registry.cleanup_broken(confirm=False)
             if cleaned_count > 0:
-                print(f"[INFO] Automatically cleaned up {cleaned_count} broken installations")
+                info(f"Automatically cleaned up {cleaned_count} broken installations")
             else:
-                print("[INFO] No broken installations to clean up")
+                info("No broken installations to clean up")
         except Exception as cleanup_error:
-            print(f"[WARN] Cleanup failed: {cleanup_error}")
+            warning(f"Cleanup failed: {cleanup_error}")
 
         return installation_id
 
@@ -764,11 +644,11 @@ def list_installations():
     installations = registry.list_installations()
 
     if not installations:
-        print("[INFO] No installations found")
+        info("No installations found")
         return
 
     default = registry.get_default()
-    print(f"[INFO] Found {len(installations)} installations:")
+    info(f"Found {len(installations)} installations:")
     print()
 
     for installation in installations:
@@ -1079,18 +959,18 @@ Each installation gets a unique UUID for identification.
         )
 
         if installation_id:
-            print(f"\n[SUCCESS] Installation created with ID: {installation_id}")
-            print(f"[INFO] Installation path: {Path.home() / '.luaenv' / 'installations' / installation_id}")
+            log_with_location(f"Installation created with ID: {installation_id}", "OK")
+            info(f"Installation path: {Path.home() / '.luaenv' / 'installations' / installation_id}")
             if args.alias:
-                print(f"[INFO] Alias: {args.alias}")
+                info(f"Alias: {args.alias}")
             print("[INFO] You can now activate this installation using:")
             print("[INFO] luaenv activate <installation_id> or luaenv activate <alias>")
             print("[INFO] Example: luaenv activate " + (args.alias or installation_id[:8]))
             if not args.alias:
-                print(f"[WARNING] Use 'luaenv set-alias {installation_id[:8]} <new_alias>' to give an alias for this installation")
+                warning(f"Use 'luaenv set-alias {installation_id[:8]} <new_alias>' to give an alias for this installation")
             exit_code = 0
         else:
-            print("[ERROR] Installation failed")
+            error("Installation failed")
             exit_code = 1
 
     finally:
@@ -1099,12 +979,12 @@ Each installation gets a unique UUID for identification.
             registry = LuaEnvRegistry()
             cleaned_count = registry.cleanup_broken(confirm=False)
             if cleaned_count > 0:
-                print(f"[INFO] Final cleanup removed {cleaned_count} broken installations")
+                info(f"Final cleanup removed {cleaned_count} broken installations")
             else:
                 pass
                 # print("[INFO] No broken installations to clean up in the final cleanup")
         except Exception:
-            print("[WARNING] Final cleanup failed, you may need to run cleanup manually")
+            warning("Final cleanup failed, you may need to run cleanup manually")
             pass  # Silent failure - don't let cleanup errors affect the main operation
         # Restore original config if we modified it
         if config_modified:
@@ -1112,7 +992,7 @@ Each installation gets a unique UUID for identification.
                 pass
                 # print("[INFO] Original config restored")
             else:
-                print("[WARNING] Failed to restore original config")
+                warning("Failed to restore original config")
     sys.exit(exit_code)
 
 if __name__ == "__main__":

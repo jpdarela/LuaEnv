@@ -62,10 +62,11 @@ def download():
         for warning in warnings:
             print(f"  [WARNING] {warning}")
         if not is_compatible:
-            response = input("Continue anyway? (y/N): ").strip().lower()
-            if response not in ['y', 'yes']:
-                print("Download cancelled.")
-                sys.exit(1)
+            print("[ERROR] Version compatibility check failed.")
+            print("[INFO] Please verify the versions in build_config.txt are correct.")
+            print("[INFO] Use 'python config.py --discover' to find available versions.")
+            print("Download cancelled.")
+            sys.exit(1)
         print()
 
     # Show what we're about to download
@@ -101,10 +102,9 @@ def download():
         print("     - Lua: https://www.lua.org/ftp/")
         print("     - LuaRocks: https://luarocks.github.io/luarocks/releases/")
 
-        response = input("\nContinue download anyway? (y/N): ").strip().lower()
-        if response not in ['y', 'yes']:
-            print("Download cancelled.")
-            sys.exit(1)
+        print("\n[ERROR] Download cannot proceed with inaccessible URLs.")
+        print("Download cancelled.")
+        sys.exit(1)
     else:
         print("[OK] All URLs are accessible!")
 
@@ -246,8 +246,8 @@ def main():
 
         elif sys.argv[1] in ['--clean-extracted', '--clean-ext']:
             print("Cleaning extracted folder...")
-            confirm = len(sys.argv) <= 2 or sys.argv[2] != '--force'
-            success = clean_extracted_folder(confirm=confirm)
+            # Force clean in non-interactive mode
+            success = clean_extracted_folder(confirm=False)
             sys.exit(0 if success else 1)
 
         elif sys.argv[1] in ['--re-extract', '--extract']:

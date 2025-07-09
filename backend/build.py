@@ -100,24 +100,52 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
         return False
 
     print("Starting Lua build...")
+
+    # Debug: Print key VS environment variables in Python before calling batch
+    print("\n[DEBUG] Key VS environment variables in Python before calling batch:")
+    vs_vars = ['VCINSTALLDIR', 'INCLUDE', 'LIB', 'PATH', 'LIBPATH', 'WindowsSdkDir']
+    for var in vs_vars:
+        value = os.environ.get(var, 'NOT SET')
+        if var == 'PATH':
+            # Only show first few entries for PATH
+            path_entries = value.split(';')[:5] if value != 'NOT SET' else []
+            print(f"  {var}: {';'.join(path_entries)}... ({len(path_entries)} entries shown)")
+        else:
+            print(f"  {var}: {value}")
+    print()
+
     # Change to Lua directory and run the build script
     os.chdir(str(lua_dir))
     try:
         if build_dll and build_debug:
-            subprocess.run(["build-dll-debug.bat", install_dir], check=True, shell=True)
+            subprocess.run(["build-dll-debug.bat", install_dir], check=True, shell=True, env=os.environ.copy())
         elif build_dll:
-            subprocess.run(["build-dll.bat"], check=True, shell=True)
-            subprocess.run([sys.executable, "install_lua_dll.py", install_dir], check=True)
+            subprocess.run(["build-dll.bat"], check=True, shell=True, env=os.environ.copy())
+            subprocess.run([sys.executable, "install_lua_dll.py", install_dir], check=True, env=os.environ.copy())
         elif build_debug:
-            subprocess.run(["build-static-debug.bat", install_dir], check=True, shell=True)
+            subprocess.run(["build-static-debug.bat", install_dir], check=True, shell=True, env=os.environ.copy())
         else:
-            subprocess.run(["build-static.bat", install_dir], check=True, shell=True)
+            subprocess.run(["build-static.bat", install_dir], check=True, shell=True, env=os.environ.copy())
         print("[OK] Lua build completed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Lua build failed: {e}")
         return False
 
     print("\nSetting up LuaRocks...")
+
+    # Debug: Print key VS environment variables in Python before calling LuaRocks setup
+    print("\n[DEBUG] Key VS environment variables in Python before calling LuaRocks setup:")
+    vs_vars = ['VCINSTALLDIR', 'INCLUDE', 'LIB', 'PATH', 'LIBPATH', 'WindowsSdkDir']
+    for var in vs_vars:
+        value = os.environ.get(var, 'NOT SET')
+        if var == 'PATH':
+            # Only show first few entries for PATH
+            path_entries = value.split(';')[:5] if value != 'NOT SET' else []
+            print(f"  {var}: {';'.join(path_entries)}... ({len(path_entries)} entries shown)")
+        else:
+            print(f"  {var}: {value}")
+    print()
+
     # Change to Luarocks directory and run the setup script
 
     ## TODO move luarocks to the same directory as lua
@@ -130,7 +158,7 @@ def run_build_scripts(build_dll=False, build_debug=False, install_dir=INSTALL_DI
         shutil.copytree(str(luarocks_dir), luarocks_dest, dirs_exist_ok=True)
 
         os.chdir(luarocks_dest)
-        subprocess.run(["setup-luarocks.bat", install_dir], check=True, shell=True)
+        subprocess.run(["setup-luarocks.bat", install_dir], check=True, shell=True, env=os.environ.copy())
         print("[OK] LuaRocks setup completed successfully.")
         return True
     except Exception as e:

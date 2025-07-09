@@ -154,6 +154,12 @@ module Config =
             startInfo.UseShellExecute <- false
             startInfo.CreateNoWindow <- true
 
+            // Explicitly copy current environment to ensure VS variables are passed
+            startInfo.EnvironmentVariables.Clear()
+            for envVar in System.Environment.GetEnvironmentVariables() do
+                let entry = envVar :?> System.Collections.DictionaryEntry
+                startInfo.EnvironmentVariables.[entry.Key.ToString()] <- entry.Value.ToString()
+
             use proc = Process.Start(startInfo)
             let output = proc.StandardOutput.ReadToEnd()
             let error = proc.StandardError.ReadToEnd()
@@ -340,6 +346,12 @@ module Backend =
                 startInfo.WorkingDirectory <- config.BackendDir
                 startInfo.UseShellExecute <- false
                 // Let scripts print directly to console - no I/O redirection
+
+                // Explicitly copy current environment to ensure VS variables are passed
+                startInfo.EnvironmentVariables.Clear()
+                for envVar in System.Environment.GetEnvironmentVariables() do
+                    let entry = envVar :?> System.Collections.DictionaryEntry
+                    startInfo.EnvironmentVariables.[entry.Key.ToString()] <- entry.Value.ToString()
 
                 use proc = Process.Start(startInfo)
                 proc.WaitForExit()
@@ -766,6 +778,12 @@ module Backend =
                     startInfo.RedirectStandardError <- true
                     startInfo.UseShellExecute <- false
                     startInfo.CreateNoWindow <- true
+
+                    // Explicitly copy current environment to ensure VS variables are passed
+                    startInfo.EnvironmentVariables.Clear()
+                    for envVar in System.Environment.GetEnvironmentVariables() do
+                        let entry = envVar :?> System.Collections.DictionaryEntry
+                        startInfo.EnvironmentVariables.[entry.Key.ToString()] <- entry.Value.ToString()
 
                     use proc = Process.Start(startInfo)
                     let output = proc.StandardOutput.ReadToEnd()

@@ -15,14 +15,14 @@ REM   build-dll-debug.bat
 REM   build-dll-debug.bat C:\lua_debug_dll
 REM   build-dll-debug.bat lua_debug_dll
 REM
-REM This script builds Lua 5.4.8 as a DLL with debug symbols
+REM This script builds Lua 5.4.X as a DLL with debug symbols
 REM and creates the necessary executables. It should be run from a Visual
 REM Studio Developer Command Prompt. If the build is successful, it will
 REM automatically install Lua to the specified directory.
 REM ====================================================================
 
 echo ====================================================================
-echo Building Lua 5.4.X - DLL Debug Build with Auto-Install
+echo Building Lua 5.4.X - DLL Debug Build
 echo ====================================================================
 echo.
 
@@ -31,7 +31,6 @@ if not defined VCINSTALLDIR (
     echo ERROR: Visual Studio environment not detected.
     echo Please run this script from a Visual Studio Developer Command Prompt.
     echo.
-    pause
     exit /b 1
 )
 
@@ -131,7 +130,6 @@ link /OUT:Debug\luac.exe /DEBUG /INCREMENTAL:NO Debug\luac.obj Debug\lapi.obj De
 if %ERRORLEVEL% neq 0 (
     echo.
     echo ? Debug DLL build failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -197,9 +195,8 @@ echo   Headers:  !INSTALL_DIR!\include
 echo   Library:  !INSTALL_DIR!\lib
 echo   Docs:     !INSTALL_DIR!\doc
 echo.
-echo To use Lua Debug DLL, add !INSTALL_DIR!\bin to your PATH environment variable.
 echo.
-echo Lua 5.4.8 Debug DLL Build - Usage Instructions
+echo Lua 5.4.X Debug DLL Build - Usage Instructions
 echo ===============================================
 echo.
 echo Installation Directory: !INSTALL_DIR!
@@ -212,32 +209,7 @@ echo   include/    - Header files for C/C++ development
 echo   lib/        - Import library ^(lua54.lib^)
 echo   doc/        - Documentation
 echo.
-echo Usage:
-echo   1. Add !INSTALL_DIR!\bin to your PATH environment variable
-echo   2. Run 'lua' to start the Lua interpreter with debug symbols
-echo   3. Run 'luac' to compile Lua scripts with debug info
-echo.
-echo For C/C++ Development:
-echo   - Include headers from: !INSTALL_DIR!\include
-echo   - Link against: !INSTALL_DIR!\lib\lua54.lib ^(debug import library^)
-echo   - Ensure lua54.dll is in PATH or same directory as your executable
-echo   - Use with debugger: PDB files are available in bin/
-echo.
-echo Examples:
-echo   lua script.lua                     # Run a Lua script ^(debuggable^)
-echo   luac -o script.luac script.lua     # Compile with debug info
-echo   lua -i                             # Interactive mode ^(debuggable^)
-echo.
-echo Debugging Features:
-echo   - Full debug symbols ^(.pdb files^)
-echo   - Unoptimized code ^(/Od^) for better debugging experience
-echo   - Debug runtime ^(/MDd^) for memory debugging
-echo   - _DEBUG preprocessor definition
-echo   - DLL build for easier debugging and smaller executables
-echo.
-echo The debug DLL ^(lua54.dll^) and import library ^(lua54.lib^) should be used
-echo when developing and debugging C applications that embed Lua. Switch to the
-echo release version for production builds.
-echo.
-
+echo ====================================================================
+echo Building Lua 5.4.X - DLL Debug Build - COMPLETED
+echo ====================================================================
 echo.

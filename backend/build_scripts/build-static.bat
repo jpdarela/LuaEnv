@@ -21,16 +21,16 @@ REM If the build is successful, it will automatically install Lua to the specifi
 REM ====================================================================
 
 echo ====================================================================
-echo Building Lua 5.4.X - Static Build with Auto-Install
+echo Building Lua 5.4.X - Static Build
 echo ====================================================================
 echo.
+
 
 rem Check if we're in a VS developer command prompt
 if not defined VCINSTALLDIR (
     echo ERROR: Visual Studio environment not detected.
     echo Please run this script from a Visual Studio Developer Command Prompt.
     echo.
-    pause
     exit /b 1
 )
 
@@ -129,7 +129,6 @@ link /OUT:Release\luac.exe %LINKFLAGS% Release\luac.obj Release\lapi.obj Release
 if %ERRORLEVEL% neq 0 (
     echo.
     echo ? Build failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -205,23 +204,7 @@ echo   include/    - Header files for C/C++ development
 echo   lib/        - Static library ^(lua54.lib^)
 echo   doc/        - Documentation
 echo.
-echo Usage:
-echo   1. Add !INSTALL_DIR!\bin to your PATH environment variable
-echo   2. Run 'lua' to start the Lua interpreter
-echo   3. Run 'luac' to compile Lua scripts
-echo.
-echo For C/C++ Development:
-echo   - Include headers from: !INSTALL_DIR!\include
-echo   - Link against: !INSTALL_DIR!\lib\lua54.lib
-echo.
-echo Examples:
-echo   lua script.lua                    # Run a Lua script
-echo   luac -o script.luac script.lua    # Compile a script
-echo   lua -i                            # Interactive mode
-echo.
-echo The static library ^(lua54.lib^) is installed in the lib directory
-echo with the executables. Use this library when linking C applications
-echo that embed Lua.
-echo.
-
+echo ====================================================================
+echo Building Lua 5.4.X - Static Build
+echo ====================================================================
 echo.

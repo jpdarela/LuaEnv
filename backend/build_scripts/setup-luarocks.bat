@@ -39,7 +39,6 @@ if %ERRORLEVEL% neq 0 (
     echo https://luarocks.org/releases/
     echo.
     echo Make sure luarocks.exe is in your PATH.
-    pause
     exit /b 1
 )
 
@@ -71,14 +70,12 @@ REM Check if the Lua installation exists
 if not exist "%LUA_DIR%\bin\lua.exe" (
     echo ERROR: lua.exe not found at %LUA_DIR%\bin\lua.exe
     echo Please check your Lua installation path.
-    pause
     exit /b 1
 )
 
 if not exist "%LUA_DIR%\bin\luac.exe" (
     echo ERROR: luac.exe not found at %LUA_DIR%\bin\luac.exe
     echo Please check your Lua installation path.
-    pause
     exit /b 1
 )
 
@@ -143,64 +140,6 @@ echo.
 echo Testing configuration...
 echo.
 luarocks show --tree=system 2>nul || echo No system packages installed yet.
-
-echo.
-echo ====================================================================
-echo ?? LuaRocks Installation Information
-echo ====================================================================
-echo.
-where luarocks.exe
-echo.
-echo If LuaRocks is not in your PATH permanently, you can add it by:
-echo 1. Right-click "This PC" ? Properties ? Advanced System Settings
-echo 2. Click "Environment Variables"
-echo 3. Edit the "Path" variable and add the LuaRocks directory shown above
-echo.
-echo Alternatively, you can run LuaRocks from its installation directory.
-echo.
-
-echo ====================================================================
-echo ?? Package Installation Location
-echo ====================================================================
-echo.
-echo By default, LuaRocks installs packages to:
-echo   User packages: %%APPDATA%%\luarocks (%APPDATA%\luarocks)
-echo   System packages: LuaRocks installation directory
-echo.
-echo You can customize package installation location by:
-echo.
-echo 1. Set a custom user tree (recommended):
-echo    luarocks config --local rocks_trees "{ { name = 'user', root = 'C:\\MyLuaPackages' } }"
-echo.
-echo 2. Set environment variable (affects all LuaRocks usage):
-echo    set LUAROCKS_CONFIG=path\to\your\config.lua
-echo.
-echo 3. Use --tree option for specific installations:
-echo    luarocks install --tree="C:\MyProject\rocks" packagename
-echo.
-echo Current package trees:
-luarocks config rocks_trees
-echo.
-
-echo To install packages that need C compilation, make sure to run
-echo LuaRocks from a Visual Studio Developer Command Prompt.
-
-if "%BUILD_TYPE%"=="dll" (
-    echo.
-    echo For DLL builds, also ensure:
-    echo   - lua54.dll is in your PATH or application directory
-    echo   - When distributing apps, include lua54.dll with your executable
-)
-
-echo.
-echo Example usage:
-echo   luarocks install luasocket
-echo   luarocks install lpeg
-echo   luarocks install lua-cjson
-echo   luarocks list
-echo   luarocks search json
-echo   luarocks install --tree=".\rocks" packagename  (install to local directory)
-echo.
 
 echo ====================================================================
 echo LuaRocks Setup Complete!

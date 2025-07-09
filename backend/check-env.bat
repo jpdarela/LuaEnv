@@ -222,7 +222,6 @@ if %QUIET_MODE%==1 (
         )
     )
     echo.
-    pause
 )
 
 REM Exit with appropriate code for programmatic use

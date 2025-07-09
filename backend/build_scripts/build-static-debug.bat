@@ -22,7 +22,7 @@ REM automatically install Lua to the specified directory.
 REM ====================================================================
 
 echo ====================================================================
-echo Building Lua 5.4.X - Static Debug Build with Auto-Install
+echo Building Lua 5.4.X - Static Debug Build
 echo ====================================================================
 echo.
 
@@ -31,7 +31,6 @@ if not defined VCINSTALLDIR (
     echo ERROR: Visual Studio environment not detected.
     echo Please run this script from a Visual Studio Developer Command Prompt.
     echo.
-    pause
     exit /b 1
 )
 
@@ -132,7 +131,6 @@ link /OUT:Debug\luac.exe %LINKFLAGS% Debug\luac.obj Debug\lapi.obj Debug\lcode.o
 if %ERRORLEVEL% neq 0 (
     echo.
     echo ? Debug build failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -211,30 +209,8 @@ echo   include/    - Header files for C/C++ development
 echo   lib/        - Static debug library ^(lua54.lib^)
 echo   doc/        - Documentation
 echo.
-echo Usage:
-echo   1. Add !INSTALL_DIR!\bin to your PATH environment variable
-echo   2. Run 'lua' to start the Lua interpreter with debug symbols
-echo   3. Run 'luac' to compile Lua scripts with debug info
-echo.
-echo For C/C++ Development:
-echo   - Include headers from: !INSTALL_DIR!\include
-echo   - Link against: !INSTALL_DIR!\lib\lua54.lib ^(debug version^)
-echo   - Use with debugger: PDB files are available in bin/
-echo.
-echo Examples:
-echo   lua script.lua                     # Run a Lua script ^(debuggable^)
-echo   luac -o script.luac script.lua     # Compile with debug info
-echo   lua -i                             # Interactive mode ^(debuggable^)
-echo.
-echo Debugging Features:
-echo   - Full debug symbols ^(.pdb files^)
-echo   - Unoptimized code ^(/Od^) for better debugging experience
-echo   - Debug runtime ^(/MDd^) for memory debugging
-echo   - _DEBUG preprocessor definition
-echo.
-echo The debug library ^(lua54.lib^) should be used when developing
-echo and debugging C applications that embed Lua. Switch to the release
-echo version ^(lua54.lib^) for production builds.
-echo.
 
+echo ====================================================================
+echo Building Lua 5.4.X - Static Build Debug - COMPLETED
+echo ====================================================================
 echo.

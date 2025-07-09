@@ -15,24 +15,98 @@ import subprocess
 import os
 import zipfile
 import json
+import inspect
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
 
+def log_with_location(message: str, level: str = "INFO", include_file: bool = True, include_line: bool = True) -> None:
+    """
+    Log a message with caller location information.
+
+    Args:
+        message: The message to log
+        level: Log level ("INFO", "OK", "ERROR", "WARNING", "DEBUG")
+        include_file: Whether to include the filename in the output
+        include_line: Whether to include the line number in the output
+    """
+    levels = {
+        "INFO": "[INFO]",
+        "OK": "[OK]",
+        "ERROR": "[ERROR]",
+        "WARNING": "[WARNING]",
+        "DEBUG": "[DEBUG]"
+    }
+    prefix = levels.get(level.upper(), "[INFO]")
+
+    # Get caller information by walking up the call stack
+    # Skip frames that are within utils.py to find the true external caller
+    frame = inspect.currentframe()
+    utils_filename = os.path.basename(__file__)
+
+    while frame:
+        frame = frame.f_back
+        if frame is None:
+            break
+
+        caller_filename = os.path.basename(frame.f_code.co_filename)
+        # Stop when we find a frame that's not from utils.py
+        if caller_filename != utils_filename:
+            break
+
+    # If we couldn't find an external caller, use the immediate caller
+    if frame is None:
+        frame = inspect.currentframe().f_back
+
+    location_parts = []
+    if include_file:
+        filename = os.path.basename(frame.f_code.co_filename)
+        location_parts.append(filename)
+
+    if include_line:
+        line_number = frame.f_lineno
+        location_parts.append(f"line {line_number}")
+
+    if location_parts:
+        location_str = f"({':'.join(location_parts)})"
+    else:
+        location_str = ""
+
+    print(f"{location_str} {prefix} {message}")
+
 def print_message(message: str, prefix: str = "[INFO]") -> None:
-    """Print a message with ASCII prefix."""
-    print(f"{prefix} {message}")
+    """Print a message with ASCII prefix and caller location."""
+    log_with_location(message, "INFO", include_file=True, include_line=True)
 
 def print_success(message: str) -> None:
-    """Print a success message."""
-    print_message(message, "[OK]")
+    """Print a success message with caller location."""
+    log_with_location(message, "OK", include_file=True, include_line=True)
 
 def print_error(message: str) -> None:
-    """Print an error message."""
-    print_message(message, "[ERROR]")
+    """Print an error message with caller location."""
+    log_with_location(message, "ERROR", include_file=True, include_line=True)
 
 def print_warning(message: str) -> None:
-    """Print a warning message."""
-    print_message(message, "[WARNING]")
+    """Print a warning message with caller location."""
+    log_with_location(message, "WARNING", include_file=True, include_line=True)
+
+def print_debug(message: str) -> None:
+    """Print a debug message with full caller location."""
+    log_with_location(message, "DEBUG", include_file=True, include_line=True)
+
+def log(message, level: str = "INFO", location: str = ".") -> None:
+    """
+    Legacy log function for backward compatibility.
+    Use log_with_location for enhanced logging with caller info.
+    """
+    levels = {
+        "INFO": "[INFO]",
+        "OK": "[OK]",
+        "ERROR": "[ERROR]",
+        "WARNING": "[WARNING]",
+        "DEBUG": "[DEBUG]"
+    }
+    prefix = levels.get(level, "[INFO]")
+    print(f"{location}: {prefix} {message}")
 
 def get_backend_dir() -> Path:
     """Get the backend directory path."""
@@ -493,3 +567,31 @@ def get_embedded_python_path() -> Optional[str]:
         return None
 
     return python_exe
+
+# Quick logging convenience functions
+def info(message: str) -> None:
+    """Quick info log with line number."""
+    log_with_location(message, "INFO", include_file=False, include_line=True)
+
+def error(message: str) -> None:
+    """Quick error log with file and line number."""
+    log_with_location(message, "ERROR", include_file=True, include_line=True)
+
+def warning(message: str) -> None:
+    """Quick warning log with line number."""
+    log_with_location(message, "WARNING", include_file=False, include_line=True)
+
+def debug(message: str) -> None:
+    """Quick debug log with full location info."""
+    log_with_location(message, "DEBUG", include_file=True, include_line=True)
+
+def test_logging():
+    """Test function to demonstrate the enhanced logging."""
+    print("=== Testing Enhanced Logging ===")
+    info("This is an info message")
+    warning("This is a warning message")
+    error("This is an error message")
+    debug("This is a debug message")
+    log_with_location("Custom log with full location", "INFO", True, True)
+    log_with_location("Custom log with line only", "WARNING", False, True)
+    print("=== End Test ===")

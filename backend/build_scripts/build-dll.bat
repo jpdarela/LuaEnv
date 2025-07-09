@@ -17,7 +17,6 @@ if not defined VCINSTALLDIR (
     echo ERROR: Visual Studio environment not detected.
     echo Please run this script from a Visual Studio Developer Command Prompt.
     echo.
-    pause
     exit /b 1
 )
 
@@ -91,7 +90,6 @@ link /OUT:Release\lua54.dll %LINKFLAGS% /IMPLIB:Release\lua54.lib Release\lapi.o
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] DLL creation failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -106,7 +104,6 @@ link /OUT:Release\lua.exe /RELEASE /INCREMENTAL:NO Release\lua.obj Release\lua54
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] lua.exe linking failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -144,7 +141,6 @@ link /OUT:Release\luac.exe /RELEASE /INCREMENTAL:NO Release\luac.obj Release\lua
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] luac.exe linking failed with error %ERRORLEVEL%
-    pause
     exit /b %ERRORLEVEL%
 )
 
@@ -166,11 +162,7 @@ Release\lua.exe -v
 Release\luac.exe -v
 
 echo.
-echo All tests passed! DLL build is ready for use.
-echo.
-echo NOTE: To run lua.exe, make sure lua54.dll is in the same directory
-echo or in your system PATH.
-
-echo.
-echo Build completed successfully!
+echo ====================================================================
+echo Building Lua 5.4.8 - Manual DLL Build - COMPLETED
+echo ====================================================================
 echo.
