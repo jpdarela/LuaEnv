@@ -687,16 +687,22 @@ function Find-VcpkgForEnvironment {
     }
 
     Write-LuaEnvMessage "Detecting vcpkg installation..." -Type Info
+    Write-Verbose "Installation architecture: $architecture"
+    Write-Verbose "vcpkg triplet: $vcpkgArchitecture"
 
     try {
         # Use the VS module if available for vcpkg detection
         if (Get-Command Find-VcpkgInstallation -ErrorAction SilentlyContinue) {
-            $vcpkgResult = Find-VcpkgInstallation -Architecture $vcpkgArchitecture -Verbose:$VerbosePreference
+            # Pass the original architecture to the VS module, not the vcpkg triplet
+            $vcpkgResult = Find-VcpkgInstallation -Architecture $architecture -Verbose:$VerbosePreference
 
             if ($vcpkgResult.Found) {
                 Write-LuaEnvMessage "vcpkg detected at: $($vcpkgResult.RootPath)" -Type Success
                 Write-Verbose "  -> Architecture: $($vcpkgResult.Triplet)"
                 Write-Verbose "  -> Binary path: $($vcpkgResult.BinPath)"
+                Write-Verbose "  -> Include path: $($vcpkgResult.IncludePath)"
+                Write-Verbose "  -> Library path: $($vcpkgResult.LibPath)"
+                Write-Verbose "  -> Installed path: $($vcpkgResult.InstalledPath)"
 
                 return [PSCustomObject]@{
                     Found = $true
@@ -1158,12 +1164,18 @@ function New-VcpkgLuaRocksConfig {
     )
 
     if (-not ((Test-Path $VcpkgInfo.IncludePath) -and (Test-Path $VcpkgInfo.LibPath))) {
+        Write-Verbose "vcpkg paths not found, skipping integration"
+        Write-Verbose "  -> Include path: $($VcpkgInfo.IncludePath) (exists: $(Test-Path $VcpkgInfo.IncludePath))"
+        Write-Verbose "  -> Library path: $($VcpkgInfo.LibPath) (exists: $(Test-Path $VcpkgInfo.LibPath))"
         return ""
     }
 
-    Write-Verbose "Adding vcpkg integration to LuaRocks configuration"
+    Write-LuaEnvMessage "Adding vcpkg integration to LuaRocks configuration" -Type Info
     Write-Verbose "  -> vcpkg root: $($VcpkgInfo.RootPath)"
     Write-Verbose "  -> Architecture: $($VcpkgInfo.Architecture)"
+    Write-Verbose "  -> Include path: $($VcpkgInfo.IncludePath)"
+    Write-Verbose "  -> Library path: $($VcpkgInfo.LibPath)"
+    Write-Verbose "  -> Installed path: $($VcpkgInfo.InstalledPath)"
 
     # Escape paths for Lua configuration
     $vcpkgIncludeEscaped = $VcpkgInfo.IncludePath.TrimEnd('\').Replace('\', '\\')
@@ -1172,7 +1184,7 @@ function New-VcpkgLuaRocksConfig {
 
     return @"
 
--- vcpkg integration for C library dependencies
+-- vcpkg integration for C library dependencies (Architecture: $($VcpkgInfo.Architecture))
 variables = {
     CPPFLAGS = "/I\"$vcpkgIncludeEscaped\"",
     LIBFLAG = "/LIBPATH:\"$vcpkgLibEscaped\"",
