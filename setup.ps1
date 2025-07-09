@@ -305,7 +305,7 @@ function Invoke-CliBuild {
 
     try {
         # Pass the detected architecture to the build script
-        & $BuildCliScript -Target $targetArch -SelfContained -WarmUp
+        & $BuildCliScript -Target $targetArch -SelfContained
         $exitCode = $LASTEXITCODE
         if ($null -eq $exitCode) { $exitCode = 0 }
 

@@ -17,11 +17,6 @@
  Package information from registry
 </summary>
 </member>
-<member name="T:LuaEnv.Core.ProgressStage">
-<summary>
- Represents the different stages of installation progress
-</summary>
-</member>
 <member name="T:LuaEnv.Core.PkgConfigResponse">
 <summary>
  Represents the complete pkg-config response from backend
@@ -244,17 +239,7 @@
 </member>
 <member name="T:LuaEnv.Core.ProgressReporting">
 <summary>
- Progress reporting module with spinner animation
-</summary>
-</member>
-<member name="T:LuaEnv.Core.Logging">
-<summary>
- Logging module for creating timestamped log files
-</summary>
-</member>
-<member name="T:LuaEnv.Core.ProgressParsing">
-<summary>
- Progress parsing module to detect stage transitions from Python output
+ Simplified progress reporting module with basic spinner
 </summary>
 </member>
 <member name="M:LuaEnv.Core.Config.discoverVersions(LuaEnv.Core.BackendConfig,System.Boolean)">

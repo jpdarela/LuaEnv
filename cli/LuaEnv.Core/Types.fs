@@ -223,9 +223,6 @@ type ListOptions = {
 /// Status command options (simplified - no additional options needed)
 type StatusOptions = unit
 
-// Environment-related types have been removed as they are implemented in the luaenv.ps1 wrapper
-// and not used in the CLI core library.
-
 /// Versions command options
 type VersionsOptions = {
     ShowAvailable: bool
@@ -320,107 +317,29 @@ type PkgConfigResponse = {
     Flags: PkgConfigFlags
 }
 
-/// Represents the different stages of installation progress
-type ProgressStage =
-    | EnvironmentSetup
-    | DownloadingSources
-    | SettingUpBuildScripts
-    | BuildingLua
-    | TestingInstallation
-    | Completed
-    | Failed of string
-
-/// Progress parsing module to detect stage transitions from Python output
-module ProgressParsing =
-    let parseProgressMessage (line: string) : ProgressStage option =
-        if line.Contains("[PROGRESS]") then
-            let message = line.Substring(line.IndexOf("[PROGRESS]") + 10).Trim()
-            match message with
-            | msg when msg.Contains("Setting up Visual Studio environment") -> Some EnvironmentSetup
-            | msg when msg.Contains("Downloading Lua sources") || msg.Contains("Starting download process") || msg.Contains("Download completed successfully") -> Some DownloadingSources
-            | msg when msg.Contains("Setting up build scripts") || msg.Contains("Copying build scripts") || msg.Contains("Build scripts setup completed") -> Some SettingUpBuildScripts
-            | msg when msg.Contains("Building Lua with MSVC") || msg.Contains("Starting compilation") || msg.Contains("Lua build completed successfully") -> Some BuildingLua
-            | msg when msg.Contains("Testing installation") || msg.Contains("Running comprehensive test suite") || msg.Contains("Test suite completed") || msg.Contains("Running basic functionality test") || msg.Contains("Basic test completed") || msg.Contains("Running basic validation") -> Some TestingInstallation
-            | msg when msg.Contains("Installation completed successfully") -> Some Completed
-            | msg when msg.Contains("Installation failed") -> Some (Failed msg)
-            | _ -> None
-        else
-            None
-
-/// Logging module for creating timestamped log files
-module Logging =
-    open System
-    open System.IO
-
-    let private getLogDirectory() =
-        let luaenvDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".luaenv")
-        let logsDir = Path.Combine(luaenvDir, "logs", "install")
-        Directory.CreateDirectory(logsDir) |> ignore
-        logsDir
-
-    let private getLogFileName operation details status =
-        let timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")
-        sprintf "%s_%s_%s_%s.log" timestamp operation details status
-
-    let createLogFile operation details =
-        let logDir = getLogDirectory()
-        let tempFileName = sprintf "%s_%s_%s_inprogress.log" (DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")) operation details
-        let logPath = Path.Combine(logDir, tempFileName)
-
-        // Create the log file and return both the path and a function to finalize it
-        File.WriteAllText(logPath, sprintf "=== LuaEnv %s Log ===\n" operation)
-        File.AppendAllText(logPath, sprintf "Started: %s\n" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")))
-        File.AppendAllText(logPath, sprintf "Operation: %s\n" operation)
-        File.AppendAllText(logPath, sprintf "Details: %s\n\n" details)
-
-        let finalizeLog success finalStatus =
-            let finalFileName = getLogFileName operation details (if success then "success" else "failed")
-            let finalPath = Path.Combine(logDir, finalFileName)
-
-            File.AppendAllText(logPath, sprintf "\n=== Operation %s ===\n" (if success then "Completed Successfully" else "Failed"))
-            File.AppendAllText(logPath, sprintf "Ended: %s\n" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")))
-            File.AppendAllText(logPath, sprintf "Final Status: %s\n" finalStatus)
-
-            // Rename to final name
-            if File.Exists(finalPath) then File.Delete(finalPath)
-            File.Move(logPath, finalPath)
-
-            // Create/update latest link
-            let latestPath = Path.Combine(logDir, "latest_install.log")
-            if File.Exists(latestPath) then File.Delete(latestPath)
-            File.Copy(finalPath, latestPath)
-
-            finalPath
-
-        (logPath, finalizeLog)
-
-/// Progress reporting module with spinner animation
+/// Simplified progress reporting module with basic spinner
 module ProgressReporting =
-    open System
-    open System.IO
     open System.Threading
 
-    let createSpinnerReporter (logPath: string) =
-        let mutable currentStep = ""
+    let createSimpleSpinner (logPath: string) =
         let mutable isRunning = true
         let mutable spinnerIndex = 0
         let spinnerFrames = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧" |]
+        let message = "Installing Lua environment..."
 
         let spinnerThread = new Thread(ThreadStart(fun () ->
             while isRunning do
-                if not (String.IsNullOrEmpty currentStep) then
-                    Console.Write(sprintf "\r%s %s" spinnerFrames.[spinnerIndex] currentStep)
-                    spinnerIndex <- (spinnerIndex + 1) % spinnerFrames.Length
-                Thread.Sleep(120)
+                Console.Write(sprintf "\r%s %s" spinnerFrames.[spinnerIndex] message)
+                spinnerIndex <- (spinnerIndex + 1) % spinnerFrames.Length
+                Thread.Sleep 120
         ))
         spinnerThread.IsBackground <- true
 
-        let start (stage: ProgressStage) =
-            currentStep <- "Building and installing Lua..."
-            File.AppendAllText(logPath, sprintf "[%s] %s\n" (DateTime.Now.ToString("HH:mm:ss")) currentStep)
+        let start () =
+            File.AppendAllText(logPath, sprintf "[%s] %s\n" (DateTime.Now.ToString("HH:mm:ss")) message)
             if not spinnerThread.IsAlive then spinnerThread.Start()
 
-        let complete success message =
+        let complete success completionMessage =
             isRunning <- false
             if spinnerThread.IsAlive then
                 spinnerThread.Join(500) |> ignore
@@ -433,77 +352,18 @@ module ProgressReporting =
 
             try
                 Console.ForegroundColor <- if success then ConsoleColor.Green else ConsoleColor.Red
-                Console.WriteLine(sprintf "%s %s" icon message)
+                Console.WriteLine(sprintf "%s %s" icon completionMessage)
             finally
                 Console.ForegroundColor <- originalColor
 
-            File.AppendAllText(logPath, sprintf "[%s] %s %s\n" (DateTime.Now.ToString("HH:mm:ss")) icon message)
+            File.AppendAllText(logPath, sprintf "[%s] %s %s\n" (DateTime.Now.ToString("HH:mm:ss")) icon completionMessage)
 
         let dispose () =
             isRunning <- false
             if spinnerThread.IsAlive then
-                spinnerThread.Join(500) |> ignore
+                spinnerThread.Join 500 |> ignore
 
-        (start, complete, dispose)
-
-    let createSimpleReporter (logPath: string) =
-        let mutable currentStage = ""
-        let mutable stageStartTime = DateTime.Now
-        let mutable lastStageMessage = ""
-
-        let start (stage: ProgressStage) =
-            let message =
-                match stage with
-                | EnvironmentSetup -> "Setting up Visual Studio environment"
-                | DownloadingSources -> "Downloading Lua sources"
-                | SettingUpBuildScripts -> "Setting up build scripts"
-                | BuildingLua -> "Building Lua with MSVC"
-                | TestingInstallation -> "Testing installation"
-                | Completed -> "Installation completed"
-                | Failed msg -> sprintf "Installation failed: %s" msg
-
-            // Skip if this is the same stage as before
-            if message = lastStageMessage then
-                File.AppendAllText(logPath, sprintf "[%s] STAGE (duplicate): %s\n" (DateTime.Now.ToString("HH:mm:ss")) message)
-            else
-                // Complete previous stage if this is a transition
-                if not (String.IsNullOrEmpty currentStage) then
-                    let elapsed = DateTime.Now - stageStartTime
-                    Console.WriteLine(sprintf " ✓ (%.1fs)" elapsed.TotalSeconds)
-
-                // Start new stage
-                currentStage <- message
-                lastStageMessage <- message
-                stageStartTime <- DateTime.Now
-
-                let originalColor = Console.ForegroundColor
-                try
-                    Console.ForegroundColor <- ConsoleColor.Cyan
-                    Console.Write(sprintf "[%s] %s..." (DateTime.Now.ToString("HH:mm:ss")) message)
-                finally
-                    Console.ForegroundColor <- originalColor
-
-                File.AppendAllText(logPath, sprintf "[%s] STAGE: %s\n" (DateTime.Now.ToString("HH:mm:ss")) message)
-
-        let complete success message =
-            if not (String.IsNullOrEmpty currentStage) then
-                let elapsed = DateTime.Now - stageStartTime
-                let icon = if success then "✓" else "✗"
-                let color = if success then ConsoleColor.Green else ConsoleColor.Red
-
-                let originalColor = Console.ForegroundColor
-                try
-                    Console.ForegroundColor <- color
-                    Console.WriteLine(sprintf " %s (%.1fs)" icon elapsed.TotalSeconds)
-                    Console.WriteLine(sprintf "%s" message)
-                finally
-                    Console.ForegroundColor <- originalColor
-
-            File.AppendAllText(logPath, sprintf "[%s] FINAL: %s\n" (DateTime.Now.ToString("HH:mm:ss")) message)
-
-        let dispose () = ()
-
-        (start, complete, dispose)
+        start, complete, dispose
 
 /// Backend execution module
 module Backend =
@@ -537,7 +397,7 @@ module Backend =
                     let entry = envVar :?> System.Collections.DictionaryEntry
                     startInfo.EnvironmentVariables.[entry.Key.ToString()] <- entry.Value.ToString()
 
-                use proc = Process.Start(startInfo)
+                use proc = Process.Start startInfo
                 proc.WaitForExit()
 
                 Ok proc.ExitCode
@@ -557,7 +417,7 @@ module Backend =
             if not (File.Exists scriptPath) then
                 Error (sprintf "[ERROR] Backend script not found: %s" scriptPath)
             else
-                // Initialize logging - simpler approach without file locking issues
+                // Initialize logging
                 let logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".luaenv", "logs", "install")
                 Directory.CreateDirectory(logDir) |> ignore
                 let timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")
@@ -568,16 +428,16 @@ module Backend =
                 File.AppendAllText(logPath, sprintf "Started: %s\n" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")))
                 File.AppendAllText(logPath, sprintf "Command: %s %s\n\n" scriptName (String.Join(" ", args)))
 
-                // Initialize progress reporter - use spinner for better UX
+                // Initialize simple spinner
                 let (startProgress, completeProgress, disposeProgress) =
-                    ProgressReporting.createSpinnerReporter logPath
+                    ProgressReporting.createSimpleSpinner logPath
 
                 try
-                    printfn "[INFO] Starting Lua installation..."
-                    printfn "[INFO] Log file: %s" logPath
+                    // printfn "[INFO] Starting Lua installation..."
+                    // printfn "[INFO] Log file: %s" logPath
 
-                    // Start with initial environment setup stage
-                    startProgress EnvironmentSetup
+                    // Start the spinner
+                    startProgress()
 
                     // Use relative script name and set working directory to backend folder
                     let arguments = String.Join(" ", scriptName :: args)
@@ -594,20 +454,16 @@ module Backend =
                     // Explicitly copy current environment to ensure VS variables are passed
                     startInfo.EnvironmentVariables.Clear()
                     for envVar in System.Environment.GetEnvironmentVariables() do
-                        let entry = envVar :?> System.Collections.DictionaryEntry
+                        let entry = envVar :?> Collections.DictionaryEntry
                         startInfo.EnvironmentVariables.[entry.Key.ToString()] <- entry.Value.ToString()
 
-                    use proc = Process.Start(startInfo)
-
-                    let mutable exitCode = 0
-                    let mutable lastStage = EnvironmentSetup
-
+                    use proc = Process.Start startInfo
                     // Simple helper function to append to log
                     let appendToLog (message: string) =
                         try
                             File.AppendAllText(logPath, sprintf "[%s] %s\n" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")) message)
                         with
-                        | _ -> () // Ignore file write errors to prevent blocking
+                        | _ -> () // Ignore file write errors
 
                     // Use async reading to avoid deadlocks
                     let outputLines = ResizeArray<string>()
@@ -645,20 +501,15 @@ module Backend =
                     let mutable lastErrorIndex = 0
 
                     // Helper function to determine if a line should be shown to user
-                    // Be very aggressive - only show critical errors, progress is handled by spinner
                     let shouldShowLine (line: string) =
                         if String.IsNullOrWhiteSpace(line) then false
                         else
                             let line = line.Trim()
-                            // Never show progress messages (handled by spinner)
-                            if line.Contains("[PROGRESS]") then false
-                            // Always show critical errors
-                            elif line.Contains("Error:") || line.Contains("error:") || line.Contains("ERROR:") then true
-                            elif line.Contains("Failed") || line.Contains("failed") || line.Contains("FAILED") then true
-                            elif line.Contains("Exception") || line.Contains("exception") then true
-                            elif line.Contains("Traceback") || line.Contains("traceback") then true
-                            // Filter out ALL build noise - user doesn't need to see it
-                            else false
+                            // Show only critical errors and important messages
+                            line.Contains("Error:") || line.Contains("error:") || line.Contains("ERROR:") ||
+                            line.Contains("Failed") || line.Contains("failed") || line.Contains("FAILED") ||
+                            line.Contains("Exception") || line.Contains("exception") ||
+                            line.Contains("Traceback") || line.Contains("traceback")
 
                     while not proc.HasExited do
                         // Process new output lines
@@ -669,15 +520,9 @@ module Backend =
                             // Log all output to file
                             appendToLog line
 
-                            // Check for progress messages first
-                            match ProgressParsing.parseProgressMessage line with
-                            | Some stage ->
-                                lastStage <- stage
-                                startProgress stage
-                            | None ->
-                                // Only show important lines to console
-                                if shouldShowLine line then
-                                    printfn "%s" line
+                            // Only show important lines to console
+                            if shouldShowLine line then
+                                printfn "%s" line
 
                         // Process new error lines
                         while lastErrorIndex < errorLines.Count do
@@ -687,7 +532,7 @@ module Backend =
                             // Log all error output
                             appendToLog (sprintf "ERROR: %s" line)
 
-                            // Apply same filtering to errors as regular output
+                            // Show errors to console
                             if shouldShowLine line then
                                 let originalColor = Console.ForegroundColor
                                 try
@@ -701,7 +546,7 @@ module Backend =
 
                     // Wait for final exit and process any remaining output
                     proc.WaitForExit()
-                    exitCode <- proc.ExitCode
+                    let exitCode = proc.ExitCode
 
                     // Give async readers a moment to finish
                     System.Threading.Thread.Sleep(200)
@@ -713,13 +558,8 @@ module Backend =
 
                         appendToLog line
 
-                        match ProgressParsing.parseProgressMessage line with
-                        | Some stage ->
-                            lastStage <- stage
-                            startProgress stage
-                        | None ->
-                            if shouldShowLine line then
-                                printfn "%s" line
+                        if shouldShowLine line then
+                            printfn "%s" line
 
                     // Process any remaining error lines
                     while lastErrorIndex < errorLines.Count do
@@ -728,12 +568,11 @@ module Backend =
 
                         appendToLog (sprintf "ERROR: %s" line)
 
-                        // Apply same filtering to errors as regular output
                         if shouldShowLine line then
                             let originalColor = Console.ForegroundColor
                             try
                                 Console.ForegroundColor <- ConsoleColor.Red
-                                printfn "%s" line
+                                printfn $"\n%s{line}"
                             finally
                                 Console.ForegroundColor <- originalColor
 
@@ -911,9 +750,6 @@ module Backend =
         // For now, always use backend - detailed mode can be added later
         let args = ["status"]
         executePython config "registry.py" args
-
-    // Environment command functions have been removed as they are implemented in the luaenv.ps1 wrapper
-    // and not used in the CLI core library.
 
     /// Execute installed versions command using direct registry access
     let executeInstalledVersions (config: BackendConfig) : Result<int, string> =
