@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # This is free and unencumbered software released into the public domain.
 # For more details, see the LICENSE file in the project root.
 
@@ -222,7 +224,7 @@ def try_powershell_setenv(architecture="x64"):
         import tempfile
         with tempfile.NamedTemporaryFile(mode='w', suffix='.ps1', delete=False) as f:
             f.write(f'''
-& "{setenv_script}" -Arch {ps_arch} -Current -DryRun:$false | Out-Null
+& "{setenv_script}" -Arch {ps_arch} -Current
 Get-ChildItem env: | ForEach-Object {{
     Write-Output "$($_.Name)=$($_.Value)"
 }}
@@ -945,7 +947,7 @@ Each installation gets a unique UUID for identification.
     parser.add_argument("--debug", action="store_true",
                        help="Create debug build with debug symbols")
     parser.add_argument("--x86", action="store_true",
-                       help="Create x86 (32-bit) build instead of x64 (64-bit) build (must match setenv.ps1 -Arch x86 if using manual setup)")
+                       help="Create x86 (32-bit) build")
 
     # Version configuration
     parser.add_argument("--lua-version", metavar="VERSION",
@@ -959,7 +961,7 @@ Each installation gets a unique UUID for identification.
 
     # Build options
     parser.add_argument("--skip-env-check", action="store_true",
-                       help="Skip Visual Studio environment check (use after running %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 - ensure architecture flags match)")
+                       help="Skip Visual Studio environment check")
     parser.add_argument("--skip-tests", action="store_true",
                        help="Skip test suite after building")
 
@@ -1056,8 +1058,8 @@ Each installation gets a unique UUID for identification.
     if args.skip_env_check:
         arch_param = "x86" if args.x86 else "amd64"
         print(f"Environment check: Skipped")
-        print(f"  Ensure you ran: %USERPROFILE%\\.luaenv\\bin\\setenv.ps1 -Arch {arch_param} -Current")
-        print(f"  Architecture match: setenv.ps1 -Arch {arch_param} ↔ setup_lua.py {'--x86' if args.x86 else '(default x64)'}")
+        print(f"  Ensure you ran: setenv.ps1 -Arch {arch_param} -Current")
+        print(f"  Architecture match: setenv.ps1 -Arch {arch_param} setup_lua.py {'--x86' if args.x86 else '(default x64)'}")
     if args.skip_tests:
         print("Test suite: Skipped")
     print()
