@@ -59,7 +59,7 @@ class LuaEnvRegistry:
         self.luaenv_root = self.registry_path.parent
         self.installations_root = self.luaenv_root / "installations"
         self.environments_root = self.luaenv_root / "environments"
-        self.cache_root = self.luaenv_root / "cache"
+        # self.cache_root = self.luaenv_root / "cache"
 
         # Ensure directories exist
         self._ensure_directories()
@@ -70,7 +70,7 @@ class LuaEnvRegistry:
     def _ensure_directories(self) -> None:
         """Create LuaEnv directory structure if it doesn't exist."""
         for directory in [self.luaenv_root, self.installations_root,
-                         self.environments_root, self.cache_root]:
+                         self.environments_root]:
             directory.mkdir(parents=True, exist_ok=True)
 
     def _load_registry(self) -> Dict:
