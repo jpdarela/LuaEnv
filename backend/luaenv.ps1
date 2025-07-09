@@ -406,7 +406,8 @@ if ($Command -eq "deactivate") {
         $pathEntries = $env:PATH.Split(';')
         $cleanedEntries = $pathEntries | Where-Object {
             -not ($_ -like "*\.luaenv\installations\*\bin" -or
-                  $_ -like "*\.luaenv\installations\*\luarocks")
+                  $_ -like "*\.luaenv\installations\*\luarocks" -or
+                  $_ -like "*\.luaenv\environments\*\bin")
         }
         $env:PATH = $cleanedEntries -join ';'
     }
