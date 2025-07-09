@@ -222,19 +222,19 @@ function Find-Installation {
 
     # Priority 4: Partial UUID match
     if ($Id -and $Id.Length -ge 8) {
-        $matches = @()
+        $matches_uuid = @()
         foreach ($installationId in $Registry.installations.PSObject.Properties.Name) {
             if ($installationId.StartsWith($Id)) {
-                $matches += $installationId
+                $matches_uuid += $installationId
             }
         }
 
-        if ($matches.Count -eq 1) {
-            Write-Verbose "Found installation by partial UUID match: $Id -> $($matches[0])"
-            return $Registry.installations.($matches[0])
+        if ($matches_uuid.Count -eq 1) {
+            Write-Verbose "Found installation by partial UUID match: $Id -> $($matches_uuid[0])"
+            return $Registry.installations.($matches_uuid[0])
         }
-        elseif ($matches.Count -gt 1) {
-            Write-Warning "Multiple installations match partial UUID '$Id': $($matches -join ', ')"
+        elseif ($matches_uuid.Count -gt 1) {
+            Write-Warning "Multiple installations match partial UUID '$Id': $($matches_uuid -join ', ')"
         }
     }
 
@@ -257,16 +257,16 @@ function Find-Installation {
 
         # Try local version as partial UUID
         if ($LocalVersion.Length -ge 8) {
-            $matches = @()
+            $matches_uuid = @()
             foreach ($installationId in $Registry.installations.PSObject.Properties.Name) {
                 if ($installationId.StartsWith($LocalVersion)) {
-                    $matches += $installationId
+                    $matches_uuid += $installationId
                 }
             }
 
-            if ($matches.Count -eq 1) {
-                Write-Verbose "Found installation by local version partial UUID: $LocalVersion -> $($matches[0])"
-                return $Registry.installations.($matches[0])
+            if ($matches_uuid.Count -eq 1) {
+                Write-Verbose "Found installation by local version partial UUID: $LocalVersion -> $($matches_uuid[0])"
+                return $Registry.installations.($matches_uuid[0])
             }
         }
     }
@@ -628,6 +628,9 @@ function Initialize-LuaEnvironment {
 
         # Step 3: Setup Visual Studio environment
         $vsResult = Initialize-VisualStudioForLua -Installation $Installation -CustomDevShell $CustomDevShell
+        if (-not $vsResult) {
+            Write-LuaEnvMessage "Visual Studio environment setup failed" -Type Error
+        }
 
         # Step 4: Configure LuaRocks tree
         $treeInfo = Initialize-LuaRocksTree -Installation $Installation -CustomTree $CustomTree
@@ -637,12 +640,18 @@ function Initialize-LuaEnvironment {
 
         # Step 6: Configure PATH
         $pathResult = Set-LuaEnvironmentPath -Installation $Installation -VcpkgInfo $vcpkgInfo -TreeInfo $treeInfo
+        if (-not $pathResult) {
+            Write-LuaEnvMessage "Failed to configure PATH" -Type Error
+        }
 
         # Step 7: Configure Lua module search paths
         Set-LuaModulePaths -Installation $Installation -TreeInfo $treeInfo
 
         # Step 8: Create LuaRocks configuration
         $configResult = New-LuaRocksConfiguration -Installation $Installation -TreeInfo $treeInfo -VcpkgInfo $vcpkgInfo
+        if (-not $configResult) {
+            Write-LuaEnvMessage "Failed to create LuaRocks configuration" -Type Error
+        }
 
         Write-LuaEnvMessage "Lua environment initialized successfully" -Type Success
         return $true
@@ -1260,14 +1269,14 @@ function Write-LuaEnvMessage {
     Hashtable with directory paths.
 #>
 function Get-LuaEnvDirectories {
-    $home = $env:USERPROFILE + "\.luaenv"
+    $home_luaenv = $env:USERPROFILE + "\.luaenv"
 
     return @{
-        Home = $home
-        Installations = Join-Path $home "installations"
-        Environments = Join-Path $home "environments"
-        Registry = Join-Path $home "registry.json"
-        Cache = Join-Path $home "cache"
+        Home = $home_luaenv
+        Installations = Join-Path $home_luaenv "installations"
+        Environments = Join-Path $home_luaenv "environments"
+        Registry = Join-Path $home_luaenv "registry.json"
+        Cache = Join-Path $home_luaenv "cache"
     }
 }
 

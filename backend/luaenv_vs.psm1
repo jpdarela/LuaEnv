@@ -16,6 +16,19 @@
     License: Public Domain
     Module: luaenv_vs.psm1
 #>
+# ==================================================================================
+# Load global settings
+# ==================================================================================
+
+# Load global settings from global.psm1
+$globalModulePath = Join-Path $PSScriptRoot "global.psm1"
+if (Test-Path $globalModulePath) {
+    Import-Module $globalModulePath -Force -ErrorAction Stop
+} else {
+    Write-Error "Global settings module not found: $globalModulePath"
+}
+
+$VerbosePreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
 
 # ==================================================================================
 # MODULE VARIABLES AND CONSTANTS
@@ -1020,7 +1033,7 @@ function Initialize-VisualStudioEnvironment {
 
         [switch]$SaveConfig,
 
-        [switch]$ImportEnvironment = $true
+        [switch]$ImportEnvironment
     )
 
     $normalizedArch = ConvertTo-VSArchitecture -Architecture $Architecture

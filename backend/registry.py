@@ -674,7 +674,8 @@ class LuaEnvRegistry:
             ("backend.config", "Backend configuration for LuaEnv"),
             ("luaenv_vs.psm1", "Visual Studio integration module for LuaEnv"),
             ("luaenv_core.psm1", "Core LuaEnv registry and environment module"),
-            ("luaenv_ui.psm1", "LuaEnv display and UI module")
+            ("luaenv_ui.psm1", "LuaEnv display and UI module"),
+            ("global.psm1", "Global LuaEnv variables"),
         ]
 
         installed_scripts = []
