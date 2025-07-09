@@ -28,7 +28,9 @@ if (Test-Path $globalModulePath) {
     Write-Error "Global settings module not found: $globalModulePath"
 }
 
-$VerbosePreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$VerbosePreference = $VERBOSE_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$DebugPreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$WarningPreference = $WARNING_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
 
 # ==================================================================================
 # MODULE VARIABLES AND CONSTANTS

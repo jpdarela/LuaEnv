@@ -16,6 +16,22 @@
     License: Public Domain
     Version: 1.0.0
 #>
+# ==================================================================================
+# Load global settings
+# ==================================================================================
+
+# Load global settings from global.psm1
+$globalModulePath = Join-Path $PSScriptRoot "global.psm1"
+if (Test-Path $globalModulePath) {
+    Import-Module $globalModulePath -Force -ErrorAction Stop
+} else {
+    Write-Error "Global settings module not found: $globalModulePath"
+}
+
+$VerbosePreference = $VERBOSE_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$DebugPreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$WarningPreference = $WARNING_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+
 
 # ==================================================================================
 # MODULE INITIALIZATION

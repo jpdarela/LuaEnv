@@ -53,7 +53,9 @@ if (Test-Path $globalModulePath) {
     Write-Error "Global settings module not found: $globalModulePath"
 }
 
-$VerbosePreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$VerbosePreference = $VERBOSE_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$DebugPreference = $DEBUG_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
+$WarningPreference = $WARNING_MESSAGES -eq "Continue" ? "Continue" : "SilentlyContinue"
 
 
 # ==================================================================================
@@ -437,7 +439,7 @@ if (-not $Command) {
 switch ($Command.ToLower()) {
     "activate" {
         # Force reload modules for activate (needed for environment setup)
-        Import-LuaEnvModules -Force | Out-Null
+        Import-LuaEnvModules | Out-Null
         Invoke-ActivateCommand @Arguments
     }
     "deactivate" {
