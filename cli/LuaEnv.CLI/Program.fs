@@ -676,7 +676,6 @@ let showConfig (config: BackendConfig) =
 let executeCommand (config: BackendConfig) (command: Command) : int =
     match command with
     | Install options ->
-        printfn "[INFO] Starting Lua installation..."
         match executeInstall config options with
         | Ok exitCode -> exitCode
         | Error errorMsg ->

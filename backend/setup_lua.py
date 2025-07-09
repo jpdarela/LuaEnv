@@ -404,8 +404,10 @@ def download_sources():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     download_script = os.path.join(current_dir, "download_lua_luarocks.py")
 
+    print("[PROGRESS] Starting download process...")
     info("Downloading sources...")
     subprocess.run([sys.executable, download_script], check=True, env=os.environ.copy())
+    print("[PROGRESS] Download completed successfully")
 
 
 def setup_build_scripts(with_dll=False, with_debug=False):
@@ -413,6 +415,7 @@ def setup_build_scripts(with_dll=False, with_debug=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     setup_build_script = os.path.join(current_dir, "setup_build.py")
 
+    print("[PROGRESS] Copying build scripts...")
     info("Setting up build scripts...")
     setup_build_args = [sys.executable, setup_build_script]
     if with_dll:
@@ -420,6 +423,7 @@ def setup_build_scripts(with_dll=False, with_debug=False):
     if with_debug:
         setup_build_args.append("--debug")
     subprocess.run(setup_build_args, check=True, env=os.environ.copy())
+    print("[PROGRESS] Build scripts setup completed")
 
 
 def build_lua(installation_path, with_dll=False, with_debug=False):
@@ -427,6 +431,7 @@ def build_lua(installation_path, with_dll=False, with_debug=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     build_script = os.path.join(current_dir, "build.py")
 
+    print("[PROGRESS] Starting compilation process...")
     info(f"Building and installing to {installation_path}...")
 
     # Debug: Check if VS environment variables are still present before calling build.py
@@ -448,6 +453,7 @@ def build_lua(installation_path, with_dll=False, with_debug=False):
     if with_debug:
         build_args.append("--debug")
     subprocess.run(build_args, check=True, env=os.environ.copy())
+    print("[PROGRESS] Lua build completed successfully")
 
 
 def test_lua_build(installation_path, lua_version, run_tests=True):
@@ -475,6 +481,7 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
 
         # Test 3: Run test suite if requested
         if run_tests:
+            print("[PROGRESS] Running comprehensive test suite...")
             current_dir = os.path.dirname(os.path.abspath(__file__))
             tests_dir = Path(current_dir) / "extracted" / get_lua_tests_dir_name()
             if tests_dir.exists():
@@ -514,11 +521,14 @@ def test_lua_build(installation_path, lua_version, run_tests=True):
 
                 finally:
                     os.chdir(original_cwd)
+                    print("[PROGRESS] Test suite completed")
             else:
                 warning(f"Tests directory {tests_dir} not found.")
                 return False
         else:
+            print("[PROGRESS] Running basic functionality test...")
             info("Skipping test suite (remove --skip-tests flag to enable)")
+            print("[PROGRESS] Basic test completed")
 
         log_with_location("Basic Lua functionality test passed!", "OK")
         return True
@@ -543,6 +553,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
 
     # Check environment unless explicitly skipped
     if not skip_env_check:
+        print("[PROGRESS] Setting up Visual Studio environment...")
         env_set = setenv(architecture)
         if not env_set:
             error("Environment setup failed. Build cannot proceed.")
@@ -575,15 +586,18 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
 
     try:
         # Step 1: Download sources
+        print("[PROGRESS] Downloading Lua sources...")
         download_sources()
 
         # Step 2: Setup build scripts
+        print("[PROGRESS] Setting up build scripts...")
         setup_build_scripts(
             with_dll=(build_type == "dll"),
             with_debug=(build_config == "debug")
         )
 
         # Step 3: Build and install
+        print("[PROGRESS] Building Lua with MSVC...")
         build_lua(
             installation_path,
             with_dll=(build_type == "dll"),
@@ -592,6 +606,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
 
         # Step 4: Test installation
         if not skip_tests:
+            print("[PROGRESS] Testing installation...")
             print("\n" + "="*60)
             print("TESTING INSTALLATION")
             print("="*60)
@@ -602,6 +617,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
                 log_with_location("All tests passed!", "OK")
         else:
             # Run minimal test even when tests are skipped
+            print("[PROGRESS] Running basic validation...")
             test_success = test_lua_build(installation_path, lua_version, run_tests=False)
             if not test_success:
                 error("Basic functionality test failed.")
@@ -611,6 +627,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
         # Mark installation as active
         registry.update_status(installation_id, "active")
 
+        print("[PROGRESS] Installation completed successfully!")
         log_with_location("Installation completed!", "OK")
         info(f"Installation ID: {installation_id}")
         info(f"Installation path: {installation_path}")
@@ -620,6 +637,7 @@ def create_installation(lua_version, luarocks_version, build_type, build_config,
         return installation_id
 
     except Exception as e:
+        print(f"[PROGRESS] Installation failed: {e}")
         error(f"Installation failed: {e}")
         # Mark installation as broken but don't remove it (user can debug)
         registry.update_status(installation_id, "broken")
