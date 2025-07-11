@@ -1,14 +1,39 @@
 # LuaEnv - Lua Environment Management for Windows
 
-Under development. Contributions are welcome!
+
+## Preamble
+
+Under development. The main branch has a working version with limited testing. Contributions are welcome!
 
 A Lua environment management system for Windows that provides automated building, installation, and configuration of Lua using the Microsoft Visual C++ (MSVC) toolchain. LuaEnv enables developers to easily manage multiple Lua installations with different versions and build configurations while providing integration with C/C++ development workflows. Luarocks binaries are download and installed/configured automatically. The system supports environment isolation through a UUID-based registry system.
 
 Note: Each Lua installation is set with an independent instalation of Luarocks. This is probably not the best approach, but it is the simplest one for now. The LuaRocks installation is done automatically during the Lua installation process. This means that each Lua installation has its own LuaRocks executable, which can be useful for testing different versions of LuaRocks with different versions of Lua.
 
+### System configuration that I used to develop this project:
+
+ - Windows 11 Pro 24H2
+ - PowerShell 7.5.2
+ - Visual Studio 2022 Community Edition 17.14.8 with C++ Desktop Development workload
+    - .NET SDK:
+      - Version:           9.0.302
+      - Commit:            bb2550b9af
+      - Workload version:  9.0.300-manifests.183aaee6
+      - MSBuild version:   17.14.13+65391c53b
+
+      - Runtime Environment:
+      - OS Name:     Windows
+      - OS Version:  10.0.26100
+      - OS Platform: Windows
+      - RID:         win-x64
+    - F# 9.0
+ - .NET 8.0 LTS (pre-built CLI binaries included in the repository)
+ - Python 3.13.5 embeddable for windows amd64. Downloaded at install, used by the backend system.
+
+I tested the system in a couple of machines with VS Build tools.
+
 Note: The system supports working version of Lua (5.4) and LuaRocks > 3.9.0
 
-Note: Older versions of Lua (5.1, 5.2, 5.3) are not supported by the system but can be integrated in the future.
+Note: Older versions of Lua (5.1, 5.2, 5.3) are not supported by the system but can be integrated in the future. The newer version (5.5) is not supported yet.
 
 Note: Check the [TODO.md](./TODO.md) file for the current development status and future plans.
 
@@ -30,7 +55,7 @@ Note: Check the [TODO.md](./TODO.md) file for the current development status and
 
 # Project Overview
 
-LuaEnv is a Lua environment management system designed specifically for Windows developers using the Microsoft Visual C++ (MSVC) toolchain. The system provides automated installation, building, and configuration of Lua and LuaRocks while enabling management of multiple isolated environments.
+LuaEnv is a Lua environment management system designed specifically for Windows developers using the Microsoft Visual C++ (MSVC) toolchain. The system provides automated installation, building, and configuration of Lua and LuaRocks while enabling management of multiple isolated environments. If vcpkg is installed and the VCPKG_ROOT environment variable is set, LuaEnv will automatically configure LuaRocks to use the MSVC toolchain and vcpkg (installed libraries and include directories). Note: Users may need to install vcpkg separately and set VCPKG_ROOT for integration to work. This allows LuaRocks packages that use C/C++ code to be built with the MSVC toolchain.
 
 ## Architecture Components
 
@@ -40,32 +65,31 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 
 ### 2. F# CLI Application
 - **Environment Management**: Installation creation, listing, removal, and configuration
-- **pkg-config Integration**: MSVC-compatible compiler flag generation for C/C++ projects
+- **pkg-config functionality**: Compiler flag generation for C/C++ projects
 
 ### 3. Python Backend System
 - **Download Management**: Version-aware downloading with registry and caching
-- **Build Orchestration**: Complete Lua/LuaRocks compilation process with MSVC integration
+- **Build Orchestration**: Complete Lua compilation process with MSVC
 - **Registry System**: UUID-based installation tracking in `%USERPROFILE%\.luaenv` with integrity verification
 
 ### 4. PowerShell Integration
-- **Environment Activation**: Session-specific Lua environment setup
-- **Visual Studio Integration**: Automatic MSVC toolchain detection and configuration
+- **Environment Activation and Management**: Session-specific Lua environment setup
+- **Visual Studio Integration**: Automatic MSVC toolchain and vcpkg detection and configuration
 - **CLI Wrapper System**: Seamless command forwarding and environment handling
 
 ## Key Features
-
 - **Multi-Version Support**: Manage multiple Lua and LuaRocks versions simultaneously
 - **Build Configuration**: Static library and DLL builds with debug/release configurations
 - **Environment Isolation**: Separate installations with UUID-based identification
-- **MSVC Integration**: Automatic Visual Studio toolchain detection and setup
-- **pkg-config-like Support**: Compiler flag generation for build systems
+- **MSVC Integration**: Automatic Visual Studio toolchain and vcpkg detection and setup
+- **PowerShell CLI**: Unified command-line interface for environment management
 
 
 # Installation
 
 ## Prerequisites
 
-- **Visual Studio 2019/2022** with C++ development tools (Community, Professional, or Enterprise). It is not tested with earlier versions of Visual Studio.
+- **Visual Studio 2022** with C++ development tools (Community, Professional, Enterprise, BuildTools). It is not tested with earlier versions of Visual Studio.
   - **C++ Desktop Development** workload installed
   - **Windows 10 SDK** (10.0.18362.0 or later)
 - **PowerShell 7** (install via winget `winget install Microsoft.PowerShell`).
@@ -74,22 +98,24 @@ LuaEnv is a Lua environment management system designed specifically for Windows 
 
 ## Installation Steps
 
-### Overview of the Bootstrap Process
+### Overview of the Installation Process
 
-LuaEnv installation is orchestrated through two main scripts located in the repository root:
+LuaEnv installation is managed through two main scripts located in the repository root:
 
 1. **setup.ps1**: Bootstrap script that downloads embedded Python 3.13.5 and orchestrates installation
 2. **install.py**: Installation script that uses the embedded Python and backend registry system (used by `setup.ps1`)
 
 ### Step 1: Clone the Repository
 
+Note: The repository contains the .NET runtime (~70MB) and pre-built CLI binaries for the amd64 architecture. I recommend a shallow clone to reduce download size and time.
+
 ```powershell
-git clone https://github.com/jpdarela/LuaEnv.git
+git clone --depth 1 https://github.com/jpdarela/LuaEnv.git # Clone the repository with a shallow copy
 cd LuaEnv
 ```
 Alternatively, download the repository as a [ZIP file](https://github.com/jpdarela/LuaEnv/archive/refs/heads/main.zip) and extract it to your desired location.
 
-### Step 2: Run Bootstrap Installation
+### Step 2: Run Installation
 
 The installation process is very rudimentary and will be improved in the future. The `setup.ps1` script provides a simple way to bootstrap the system, including building the CLI and installing the Python environment. Currently only the cli binaries and some core scripts of the backend are installed to the `~/.luaenv/bin` directory. The Python backend and the embedded Python are not installed yet, they stay in the repository root directory. The installation process will be improved in the future to deploy the backend folder and the embedded Python to the `~/.luaenv` directory.
 
@@ -97,7 +123,8 @@ Note: If you are using Powershell 5.1, check the execution policy of your PowerS
 
 ```powershell
 # Run the bootstrap script to set up the environment
-# After that you can add ~/.luaenv/bin to your PATH to use luaenv.
+# This will download the embedded Python and prepare the environment
+# The script will ask to include the installation directory in the PATH
 .\setup.ps1 -Bootstrap
 
 # The script offer some useful options to control the installation process, facilitating development and testing.
@@ -112,8 +139,9 @@ Note: If you are using Powershell 5.1, check the execution policy of your PowerS
 
 .\setup.ps1 -Help  # Show help for the setup script
 ```
+#### Adding LuaEnv to PATH
 
-Add the ~/.luaenv/bin directory to your PATH for easier access to the CLI commands.
+While the `setup.ps1` script can prompt to add the LuaEnv bin directory to your PATH, you can also do it manually for easier access to the CLI commands.
 
 ```powershell
 # Add ~/.luaenv/bin to PATH for current session
@@ -165,7 +193,7 @@ The wrapper automatically:
 
 ## Primary Interface: luaenv Command
 
-After installation, use the `luaenv` command from the `~/.luaenv/bin` directory:
+After installation, use the `luaenv` command to manage Lua environments. The command provides a unified interface for environment management, including installation, activation, and configuration:
 
 Note: Requires `~/.luaenv/bin` to be in your PATH.
 
@@ -197,8 +225,13 @@ COMMANDS:
     help                               Show CLI help message
 
   Shell Integration (PowerShell):
-    activate [alias|options]      Activate a Lua environment in current shell
-    local [<alias|uuid>|--unset]  Set/show/unset local version in current directory
+    activate [alias|options]        Activate a Lua environment in current shell
+    deactivate                      Deactivate the current Lua environment
+    current [options]               Show information about the active environment
+    local [<alias|uuid>|--unset]    Set/show/unset local version in current directory
+
+  Auxiliary tools:
+    luaconfig [options]             Pkg-config-like tool for Lua development
 
 For command-specific help:
   luaenv <command> --help
@@ -207,6 +240,8 @@ EXAMPLES:
   luaenv install --alias dev           # Install Lua with alias 'dev'
   luaenv activate dev                  # Activate 'dev' environment (shorthand)
   luaenv activate                      # Activate using .lua-version or default
+  luaenv current                       # Show current active environment
+  luaenv current --verbose             # Show detailed environment information
   luaenv local dev                     # Set local version to 'dev' in current directory
   luaenv local                         # Display current local version
   luaenv local --unset                 # Remove local version
@@ -217,14 +252,11 @@ EXAMPLES:
                                          with UUID 1234abcd (matches first 8 chars)
   luaenv remove-alias dev              # Remove the 'dev' alias
   luaenv remove-alias 1234abcd prod    # Remove alias 'prod' from installation with UUID 1234abcd
-
-Note: 'activate' is a PowerShell-only command that modifies your current shell.
-      All other commands are handled by the LuaEnv CLI application.
 ```
 
 
 ```powershell
-luaenv install --dll --lua-version 5.4.0 --luarocks-version 3.9.0   # Install Lua 5.4.0 with LuaRocks 3.9.0 as a DLL build
+luaenv install --dll --lua-version 5.4.0 --luarocks-version 3.9.0   # Install Lua 5.4.0 with LuaRocks 3.9.0 as a Release DLL build
 luaenv list                                                         # List all installations
 luaenv install --alias dev                                          # Create new installation with alias
 luaenv install --alias prod --x86                                   # Create 32-bit installation
@@ -275,9 +307,8 @@ setenv.ps1 -Arch x86 -Current        # Configure for 32-bit builds
    - Sets environment variables for compiler, linker, and tools
    - Searches for vcpkg integration if available (via VCPKG_ROOT)
    - Configures include and library paths for Lua
-2. **PATH Configuration**: Adds Lua and LuaRocks executables to PATH
-3. **Module Paths**: Sets `LUA_PATH` and `LUA_CPATH` for module loading
-4. **LuaRocks Config**: Configures LuaRocks for package compilation
+   - Sets up the stage for LuaRocks, enabling it to use the MSVC toolchain and vcpkg libraries to build packages that uses C/C++ code.
+2. **PATH Configuration**: Adds Lua and LuaRocks (plus LuaRocks-installed executables) executables to PATH.
 
 ## Available CLI Commands
 
@@ -303,12 +334,12 @@ LuaEnv provides complete environment isolation through a UUID-based registry sys
 - **Version Independence**: Different Lua/LuaRocks versions per environment
 
 ## Package Isolation
-- **Dedicated LuaRocks Trees**: Each environment has its own package tree in the installation directory (Can be overridden with luaenv activate --tree)
+- **Dedicated LuaRocks Trees**: Each environment has its own package tree in the installation directory
 - **Module Path Isolation**: `LUA_PATH` and `LUA_CPATH` are environment-specific during activation
 - **No Cross-Contamination**: Packages installed in one environment don't affect others
 
-# Available Versions od Lua and LuaRocks
-- **Build Settings**: Static vs DLL, Debug vs Release configurations per environment
+# Available Versions of Lua and LuaRocks
+- **Build Settings**: Static vs DLL, Debug vs Release, amd64 vs x86 configurations per environment
 
 # Project Structure
 
@@ -317,87 +348,82 @@ LuaEnv provides complete environment isolation through a UUID-based registry sys
 Outdated.
 
 ```
-lua_msvc_build/
-├── README.md                   # This file
-├── setup.ps1                   # Bootstrap installer with embedded Python management
-├── build_cli.ps1              # F# CLI builder with multi-architecture support
-├── install.py                  # Installation orchestrator using embedded Python
-├── activate.cmd                # Command prompt activation wrapper
-├── build_cli_aot.ps1          # AOT (Ahead-of-Time) CLI compilation script
-├── backend/                    # Python backend system
-│   ├── __init__.py            # Package initialization
-│   ├── config.py              # Configuration management (build_config.txt)
-│   ├── registry.py            # UUID-based installation registry
-│   ├── download_manager.py    # Version-aware download system
-│   ├── download_lua_luarocks.py # Download orchestration script
-│   ├── build.py               # Lua/LuaRocks compilation orchestrator
-│   ├── setup_build.py         # Build script preparation
-│   ├── setup_lua.py           # Complete installation workflow
-│   ├── pkg_config.py          # MSVC pkg-config support
-│   ├── utils.py               # Utility functions and file operations
-│   ├── clean.py               # Smart cleanup with safety checks
-│   ├── run_tests.py           # Test runner for backend components
-│   ├── luaenv.ps1            # CLI wrapper and environment activator
-│   ├── setenv.ps1            # Visual Studio environment setup
-│   ├── version_cache.json     # Version discovery cache
-│   ├── build_scripts/         # MSVC build scripts
-│   │   ├── build-static.bat   # Static library build
-│   │   ├── build-dll.bat      # DLL build
-│   │   ├── build-static-debug.bat # Debug static build
-│   │   ├── build-dll-debug.bat    # Debug DLL build
-│   │   ├── install_lua_dll.py     # DLL installation script
-│   │   └── setup-luarocks.bat     # LuaRocks setup
-│   ├── downloads/             # Downloaded source archives
-│   │   ├── download_registry.json # Download tracking
-│   │   ├── lua/              # Lua source archives by version
-│   │   └── luarocks/         # LuaRocks archives by version
-│   ├── extracted/            # Extracted source directories
-│   │   ├── lua-X.X.X/        # Extracted Lua sources
-│   │   ├── lua-X.X.X-tests/  # Extracted Lua test suites
-│   │   └── luarocks-X.X.X-windows-XX/ # Extracted LuaRocks
-│   └── tests/                # Backend-specific tests
-│       ├── test_config_basic.py      # Basic configuration tests
-│       ├── test_config_cache.py      # Version cache tests
-│       ├── test_config_cli.py        # CLI configuration tests
-│       ├── test_download.py          # Download system tests
-│       └── test_setup_build.py       # Build setup tests
-├── cli/                       # F# CLI application
-│   ├── LuaEnv.sln            # Visual Studio solution
-│   ├── LuaEnv.CLI/           # Main CLI project
-│   │   ├── LuaEnv.CLI.fsproj # Project file
-│   │   ├── Program.fs        # CLI entry point and command parsing
-│   │   ├── bin/              # Build output
-│   │   └── obj/              # Build intermediates
-│   └── LuaEnv.Core/          # Core library project
-│       ├── LuaEnv.Core.fsproj # Core project file
-│       ├── Types.fs          # Type definitions
-│       ├── RegistryAccess.fs # Registry integration
-│       ├── bin/              # Build output
-│       └── obj/              # Build intermediates
-├── examples/                  # Integration examples and tests
-│   └── build_systems/        # Build system integration examples
-│       ├── main.c            # Sample C program using Lua API
-│       ├── CMakeLists.txt    # CMake configuration
-│       ├── meson.build       # Meson build configuration
-│       ├── Makefile          # GNU Make configuration
-│       ├── Makefile_win      # Windows nmake configuration
-│       ├── build.bat         # Batch script example
-│       ├── build.ps1         # PowerShell script example
-│       ├── build_all.ps1     # Comprehensive test script
-│       └── README.md         # Integration documentation
-├── tests/                     # Repository-level tests # Incipient tests, only for download currently
-│   ├── unit/                 # Unit tests
-│   └── integration/          # Integration tests
-├── python/                    # Embedded Python 3.13.5
-│   ├── python.exe            # Python interpreter
-│   ├── python313.dll         # Python runtime
-│   ├── python313.zip         # Standard library
-│   └── [additional runtime files]
-├── win64/                   # Pre-built CLI binaries (.NET runtime included)
-│   ├── LuaEnv.CLI.exe        # Main CLI executable
-│   ├── LuaEnv.Core.dll       # Core library
-│   ├── FSharp.Core.dll       # F# runtime
-│   └── [.NET runtime dependencies]
+LuaEnv/
+├── .gitattributes                 # Git configuration for line endings and file handling
+├── .gitignore                     # Git ignore patterns
+├── README.md                      # Main project documentation
+├── LICENSE                        # Project license file
+├── TODO.md                        # Development status and future plans
+├── setup.ps1                      # Bootstrap installer with embedded Python management
+├── build_cli.ps1                  # F# CLI builder with multi-architecture support
+├── install.py                     # Installation orchestrator using embedded Python
+├── luaconfig.c                    # C source for pkg-config tool
+├── luaconfig.exe                  # Compiled pkg-config executable
+├── test_luaenv.py                 # Integration test script
+├── backend/                       # Python backend system
+│   ├── __init__.py               # Package initialization
+│   ├── .versions.json            # Version discovery cache
+│   ├── build_config.txt          # Configuration file for Lua/LuaRocks versions
+│   ├── build.py                  # Lua/LuaRocks compilation orchestrator
+│   ├── check-env.bat             # Environment verification utility
+│   ├── clean.py                  # Smart cleanup with safety checks
+│   ├── config.py                 # Configuration management system
+│   ├── download_lua_luarocks.py  # Download orchestration script
+│   ├── download_manager.py       # Version-aware download system
+│   ├── global.psm1               # Global PowerShell module functions
+│   ├── luaenv_core.psm1          # Core LuaEnv PowerShell functions
+│   ├── luaenv_ui.psm1            # UI/display PowerShell functions
+│   ├── luaenv_vs.psm1            # Visual Studio integration functions
+│   ├── luaenv-pkg-config.cmd     # Package configuration wrapper
+│   ├── luaenv.ps1                # CLI wrapper and environment activator
+│   ├── pkg_config.py             # MSVC pkg-config support
+│   ├── pkg_lookup.py             # Version checking and discovery utilities
+│   ├── registry.py               # UUID-based installation registry
+│   ├── run_tests.py              # Test runner for backend components
+│   ├── setenv.ps1                # Visual Studio environment setup
+│   ├── setup_build.py            # Build script preparation
+│   ├── README.md                 # Backend documentation (outdated)
+│   └── [runtime directories]     # Created during operation:
+│       ├── downloads/            # Downloaded source archives
+│       ├── extracted/            # Extracted source directories
+│       └── build_scripts/        # MSVC build scripts (copied during setup)
+├── cli/                          # F# CLI application
+│   ├── LuaEnv.sln               # Visual Studio solution
+│   ├── LuaEnv.CLI/              # Main CLI project
+│   │   ├── LuaEnv.CLI.fsproj    # Project file
+│   │   ├── Program.fs           # CLI entry point and command parsing
+│   │   ├── bin/                 # Build output
+│   │   └── obj/                 # Build intermediates
+│   └── LuaEnv.Core/             # Core library project
+│       ├── LuaEnv.Core.fsproj   # Core project file
+│       ├── Types.fs             # Type definitions
+│       ├── RegistryAccess.fs    # Registry integration
+│       ├── bin/                 # Build output
+│       └── obj/                 # Build intermediates
+├── examples/                     # Integration examples and tests
+│   └── build_systems/           # Build system integration examples
+│       ├── main.c               # Sample C program using Lua API
+│       ├── CMakeLists.txt       # CMake configuration
+│       ├── meson.build          # Meson build configuration
+│       ├── Makefile             # GNU Make configuration
+│       ├── Makefile_win         # Windows nmake configuration
+│       ├── build.bat            # Batch script example
+│       ├── build.ps1            # PowerShell script example
+│       ├── build_all.ps1        # Comprehensive test script
+│       └── README.md            # Integration documentation
+├── tests/                        # Repository-level tests
+│   ├── unit/                    # Unit tests (in development)
+│   └── integration/             # Integration tests (in development)
+├── python/                       # Embedded Python 3.13.5
+│   ├── python.exe               # Python interpreter
+│   ├── python313.dll            # Python runtime
+│   ├── python313.zip            # Standard library
+│   └── [additional runtime files] # Python standard library and dependencies
+└── win64/                        # Pre-built CLI binaries (.NET runtime included)
+    ├── LuaEnv.CLI.exe           # Main CLI executable
+    ├── LuaEnv.Core.dll          # Core library
+    ├── FSharp.Core.dll          # F# runtime
+    └── [.NET runtime dependencies] # Additional .NET runtime files
 ```
 
 ## Installation Directory Structure
@@ -406,14 +432,24 @@ lua_msvc_build/
 %USERPROFILE%\.luaenv/
 ├── registry.json             # Installation registry with UUID tracking
 ├── bin/                      # Global scripts and CLI binaries
-│   ├── luaenv.ps1            # CLI wrapper and environment activator
-│   ├── setenv.ps1            # Visual Studio environment setup
 │   ├── backend.config        # Backend configuration (JSON)
-│   └── cli/                  # F# CLI binaries
-│       ├── LuaEnv.CLI.exe    # Main executable
+│   ├── global.psm1           # Global PowerShell module functions
+│   ├── luaconfig.exe         # Pkg-config executable for C/C++ integration
+│   ├── luaenv_core.psm1      # Core LuaEnv PowerShell functions
+│   ├── luaenv_ui.psm1        # UI/display PowerShell functions
+│   ├── luaenv_vs.psm1        # Visual Studio integration functions
+│   ├── luaenv-pkg-config.cmd # Package configuration wrapper
+│   ├── luaenv.ps1            # CLI wrapper and environment manager
+│   ├── setenv.ps1            # Visual Studio environment setup
+│   └── cli/                  # F# CLI binaries with full .NET runtime
+│       ├── LuaEnv.CLI.exe    # Main CLI executable
 │       ├── LuaEnv.Core.dll   # Core library
 │       ├── FSharp.Core.dll   # F# runtime
-│       └── [dependencies]    # .NET runtime dependencies
+│       ├── coreclr.dll       # .NET Core runtime
+│       ├── clrjit.dll        # .NET JIT compiler
+│       ├── hostfxr.dll       # .NET hosting layer
+│       ├── hostpolicy.dll    # .NET hosting policy
+│       └── [100+ .NET dependencies] # Complete .NET 8.0 runtime files
 ├── installations/             # Individual Lua installations
 │   └── {uuid}/               # UUID-named installations
 │       ├── bin/              # Lua executables (lua.exe, luac.exe)
@@ -428,22 +464,15 @@ lua_msvc_build/
 │           └── rocks/        # Installed packages
 ├── environments/             # Environment-specific data
 │   └── {uuid}/               # Per-environment configurations
-└── cache/                    # Download and build cache
-    ├── downloads/            # Cached source downloads
-    └── build/                # Build artifacts cache
+└── logs/                     # Build and installation logs
+    └── install/              # Installation-specific logs
+        └── YYYY-MM-DD_HH-MM-SS_lua_installation.log  # Detailed installation logs
 ```
 
 # Tests
 
 Not completed yet.
 
-# Architecture Guidelines
-
-- **Backend Scripts**: Designed to run from `backend/` directory with relative imports
-- **Dual-Context Design**: Support both CLI execution and module import patterns
-- **No Backwards Compatibility**: Rapid iteration without breaking change concerns
-- **Configuration-Driven**: Use `build_config.txt` as single source of truth
-- **Error Recovery**: Include comprehensive error handling and cleanup
 
 # Contributing
 Contributions are welcome!
