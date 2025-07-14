@@ -227,9 +227,20 @@ function Invoke-ActivateCommand {
             return
         }
 
+        # Set prompt to show the active environment
+        $promptAlias = if ($installation.alias) { $installation.alias } else { $installation.name }
+        $promptSet = Set-LuaEnvPrompt -Alias $promptAlias
+        if ($promptSet) {
+            Write-Verbose "Set prompt to show active environment: $promptAlias"
+        } else {
+            Write-Warning "Failed to set custom prompt"
+        }
+
         # Clean up PATH by removing duplicate entries
         $uniquePaths = $env:PATH -split ';' | Select-Object -Unique
         $env:PATH = $uniquePaths -join ';'
+
+        Write-Host "[OK] Activated $($installation.name) environment" -ForegroundColor Green
 
     } catch {
         Write-Host "[ERROR] Environment activation failed: $($_.Exception.Message)" -ForegroundColor Red
@@ -273,9 +284,17 @@ function Invoke-DeactivateCommand {
             $env:PATH = $cleanedEntries -join ';'
         }
 
+        # Restore original prompt function
+        $promptRemoved = Remove-LuaEnvPrompt
+        if ($promptRemoved) {
+            Write-Verbose "Restored original prompt"
+        } else {
+            Write-Warning "Failed to restore original prompt"
+        }
+
         # Clear LuaEnv environment variables
         $luaEnvVars = @(
-            "LUAENV_CURRENT", "LUAENV_ORIGINAL_PATH",
+            "LUAENV_CURRENT", "LUAENV_ORIGINAL_PATH", "LUAENV_PROMPT_ALIAS",
             "LUA_PATH", "LUA_CPATH", "LUA_BINDIR", "LUA_INCDIR", "LUA_LIBDIR", "LUA_LIBRARIES",
             "LUAROCKS_CONFIG", "LUAROCKS_SYSCONFDIR", "LUAROCKS_SYSCONFIG", "LUAROCKS_USERCONFIG", "LUAROCKS_PREFIX"
         )

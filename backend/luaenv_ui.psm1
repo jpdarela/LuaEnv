@@ -563,6 +563,158 @@ function Show-LocalVersion {
 }
 
 # ==================================================================================
+# PROMPT MANAGEMENT FUNCTIONS
+# ==================================================================================
+
+<#
+.SYNOPSIS
+    Sets a custom prompt to show the active LuaEnv environment.
+
+.DESCRIPTION
+    This function modifies the PowerShell prompt to display the LuaEnv environment
+    alias/name in parentheses before the standard prompt. It preserves the original
+    prompt function for later restoration.
+
+.PARAMETER Alias
+    The alias or name of the LuaEnv environment to display in the prompt.
+
+.EXAMPLE
+    Set-LuaEnvPrompt -Alias "lua54"
+    Sets the prompt to show "(lua54)" before the standard prompt.
+
+.NOTES
+    The original prompt function is stored in $global:LUAENV_ORIGINAL_PROMPT for restoration.
+#>
+function Set-LuaEnvPrompt {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Alias
+    )
+
+    try {
+        # Set environment variable for the alias
+        $env:LUAENV_PROMPT_ALIAS = $Alias
+        Write-Verbose "Set LUAENV_PROMPT_ALIAS to: $Alias"
+
+        # Store original prompt function if not already stored
+        if (-not (Test-Path variable:global:LUAENV_ORIGINAL_PROMPT) -or $null -eq $global:LUAENV_ORIGINAL_PROMPT) {
+            # Get the current prompt function
+            if (Get-Command prompt -ErrorAction SilentlyContinue) {
+                $global:LUAENV_ORIGINAL_PROMPT = $function:prompt
+                Write-Verbose "Stored original prompt function"
+            } else {
+                # If no prompt function exists, create a basic one
+                $script = 'PS $($executionContext.SessionState.Path.CurrentLocation)$(">" * ($nestedPromptLevel + 1)) '
+                $global:LUAENV_ORIGINAL_PROMPT = [ScriptBlock]::Create($script)
+                Write-Verbose "Created and stored basic prompt function"
+            }
+        }
+
+        # Create a simple prompt that checks for the environment variable
+        $function:global:prompt = {
+            $alias = $env:LUAENV_PROMPT_ALIAS
+            if ($alias) {
+                $originalOutput = if ($global:LUAENV_ORIGINAL_PROMPT) {
+                    try {
+                        & $global:LUAENV_ORIGINAL_PROMPT
+                    } catch {
+                        "PS $($PWD.Path)> "
+                    }
+                } else {
+                    "PS $($PWD.Path)> "
+                }
+                "($alias) $originalOutput"
+            } else {
+                if ($global:LUAENV_ORIGINAL_PROMPT) {
+                    try {
+                        & $global:LUAENV_ORIGINAL_PROMPT
+                    } catch {
+                        "PS $($PWD.Path)> "
+                    }
+                } else {
+                    "PS $($PWD.Path)> "
+                }
+            }
+        }
+
+        Write-Verbose "Set custom LuaEnv prompt with alias: $Alias"
+        return $true
+
+    } catch {
+        Write-Warning "Failed to set LuaEnv prompt: $($_.Exception.Message)"
+        Write-Verbose "Error details: $($_.Exception.ToString())"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Removes the LuaEnv custom prompt and restores the original prompt.
+
+.DESCRIPTION
+    This function restores the original PowerShell prompt function and clears
+    the LuaEnv prompt-related environment variables.
+
+.EXAMPLE
+    Remove-LuaEnvPrompt
+    Restores the original prompt and removes LuaEnv prompt indicators.
+
+.NOTES
+    This function is safe to call even if no LuaEnv prompt is currently active.
+#>
+function Remove-LuaEnvPrompt {
+    try {
+        # Restore original prompt function
+        if ($global:LUAENV_ORIGINAL_PROMPT) {
+            $function:global:prompt = $global:LUAENV_ORIGINAL_PROMPT
+            $global:LUAENV_ORIGINAL_PROMPT = $null
+            Write-Verbose "Restored original prompt function"
+        } else {
+            Write-Verbose "No original prompt to restore"
+        }
+
+        # Clear the prompt alias environment variable
+        if ($env:LUAENV_PROMPT_ALIAS) {
+            $env:LUAENV_PROMPT_ALIAS = $null
+            Write-Verbose "Cleared LUAENV_PROMPT_ALIAS"
+        } else {
+            Write-Verbose "LUAENV_PROMPT_ALIAS was already clear"
+        }
+
+        Write-Verbose "Successfully removed LuaEnv prompt"
+        return $true
+
+    } catch {
+        Write-Warning "Failed to remove LuaEnv prompt: $($_.Exception.Message)"
+        Write-Verbose "Error details: $($_.Exception.ToString())"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Tests if a LuaEnv prompt is currently active.
+
+.DESCRIPTION
+    This function checks if a LuaEnv environment prompt is currently active
+    by verifying the presence of the prompt alias environment variable.
+
+.OUTPUTS
+    [bool] - True if a LuaEnv prompt is active, false otherwise.
+
+.EXAMPLE
+    if (Test-LuaEnvPromptActive) {
+        Write-Host "LuaEnv prompt is active"
+    }
+
+.NOTES
+    This is a utility function for checking prompt state.
+#>
+function Test-LuaEnvPromptActive {
+    return (-not [string]::IsNullOrEmpty($env:LUAENV_PROMPT_ALIAS))
+}
+
+# ==================================================================================
 # MESSAGE DISPLAY FUNCTIONS
 # ==================================================================================
 
@@ -695,5 +847,10 @@ Export-ModuleMember -Function @(
     # Message display functions
     'Show-ErrorMessage',
     'Show-SuccessMessage',
-    'Show-InfoMessage'
+    'Show-InfoMessage',
+
+    # Prompt management functions
+    'Set-LuaEnvPrompt',
+    'Remove-LuaEnvPrompt',
+    'Test-LuaEnvPromptActive'
 )
