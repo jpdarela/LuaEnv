@@ -16,10 +16,11 @@ if (Test-Path $luaenvPath) {
 $luaenvCompleter = {
     param($wordToComplete, $commandAst, $cursorPosition)
 
-    # Parse command line into words
-    $words = $commandAst.ToString() -split '\s+' | Where-Object { $_ -ne '' }
+    # Convert commandAst to string and split into words
+    $commandLine = $commandAst.ToString()
+    $words = @($commandLine -split '\s+' | Where-Object { $_ -ne '' })
 
-    # Main commands available in LuaEnv
+   # Main commands available in LuaEnv
     $mainCommands = @(
         'activate', 'deactivate', 'current', 'local',
         'install', 'uninstall', 'list', 'status', 'versions',
@@ -30,35 +31,78 @@ $luaenvCompleter = {
     $commandOptions = @{
         'activate' = @('--id', '--alias', '--list', '--env', '--tree', '--devshell', '--help', '-h')
         'deactivate' = @('--help', '-h')
-        'current' = @('--verbose', '--help', '-h')
-        'local' = @('--unset', '--help', '-h')
+        'current' = @('--verbose', '-v', '--help', '-h')
+        'local' = @('--unset', '-u', '--help', '-h')
+        'install' = @('--lua-version', '--luarocks-version', '--alias', '--name',
+                      '--dll', '--debug', '--x86', '--x64', '--skip-env-check',
+                      '--skip-tests', '--help', '-h')
+        'uninstall' = @('--force', '--yes', '--help', '-h')
+        'list' = @('--detailed', '--help', '-h')
+        'status' = @('--help', '-h')
+        'versions' = @('--available', '-a', '--online', '--refresh', '--help', '-h')
+        'default' = @('--help', '-h')
+        'pkg-config' = @('--cflag', '--lua-include', '--liblua', '--libdir',
+                         '--path', '--path-style', '--help', '-h')
+        'config' = @('--help', '-h')
+        'set-alias' = @('--help', '-h')
+        'remove-alias' = @('--help', '-h')
+        'help' = @()
     }
 
-    # Determine what to complete based on position
     $completions = @()
 
-    if ($words.Count -eq 1 -or ($words.Count -eq 2 -and $wordToComplete)) {
-        # Complete main commands (first argument after luaenv)
+    # Determine what we're completing
+    if ($words.Count -eq 1) {
+        # Only the command name, complete with main commands
         $completions = $mainCommands
-    } elseif ($words.Count -ge 2) {
-        # Complete options for specific commands
+    }
+    elseif ($words.Count -eq 2) {
+        # We have "luaenv" and we're completing the first argument
+        if ($mainCommands.Contains($words[1])) {
+            $completions = $commandOptions[$words[1]]
+        } else {
+            # If the first argument is not a command, do not suggest options nor main commands
+            # This prevents suggesting options for non-command arguments
+            $completions = $mainCommands
+        }
+    }
+    elseif ($words.Count -ge 3) {
+        # We have "luaenv command ..." and we're completing options
         $command = $words[1]
         if ($commandOptions.ContainsKey($command)) {
             $completions = $commandOptions[$command]
         } else {
-            # Default help options for commands without specific options
             $completions = @('--help', '-h')
         }
     }
 
-    # Filter and return matches
-    $completions | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
-        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+    # Filter completions based on what the user has typed
+    $filteredCompletions = $completions | Where-Object { $_ -like "$wordToComplete*" }
+
+    # Return completion results
+    $filteredCompletions | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new(
+            $_,                  # completionText
+            $_,                  # listItemText
+            'ParameterValue',    # resultType
+            $_                   # toolTip
+        )
     }
 }
 
-# Register completion for both alias and direct script
-Register-ArgumentCompleter -CommandName luaenv -ScriptBlock $luaenvCompleter
-Register-ArgumentCompleter -CommandName luaenv.ps1 -ScriptBlock $luaenvCompleter
+# Function to register or re-register the luaenv completers
+function Register-LuaEnvCompletion {
+    # Register the completers
+    try {
+        Register-ArgumentCompleter -Native -CommandName luaenv -ScriptBlock $luaenvCompleter
+        Register-ArgumentCompleter -Native -CommandName luaenv.ps1 -ScriptBlock $luaenvCompleter
+        Write-Verbose "LuaEnv tab completion registered successfully"
+    }
+    catch {
+        Write-Warning "Failed to register LuaEnv completion: $_"
+    }
+}
 
-Write-Host "LuaEnv tab completion loaded. Try: luaenv <TAB>" -ForegroundColor Green
+
+# Register completion for both alias and direct script
+Register-LuaEnvCompletion

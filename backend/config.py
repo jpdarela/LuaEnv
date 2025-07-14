@@ -211,7 +211,7 @@ def check_version_compatibility():
         if major != 5:
             warnings.append(f"Lua major version {major} may not be compatible with this build system (designed for Lua 5.x)")
 
-        if minor < 3:
+        if minor < 1:
             warnings.append(f"Lua {LUA_VERSION} is older than 5.4 - some features may not work as expected")
 
     except ValueError:
@@ -278,7 +278,7 @@ def validate_current_configuration():
 
     return all_valid, results
 
-def get_available_lua_versions(max_versions=9, use_cache=True, force_refresh=False, use_stderr=False):
+def get_available_lua_versions(max_versions=27, use_cache=True, force_refresh=False, use_stderr=False):
     """
     Try to discover available Lua versions by checking common version patterns.
     This is a best-effort approach since there's no API.
@@ -297,7 +297,9 @@ def get_available_lua_versions(max_versions=9, use_cache=True, force_refresh=Fal
     # Common Lua versions to check (most recent first)
     versions_to_check = [
         "5.4.8", "5.4.7", "5.4.6", "5.4.5", "5.4.4", "5.4.3", "5.4.2", "5.4.1", "5.4.0",
-        "5.3.6", "5.3.5", "5.3.4", "5.3.3", "5.3.2", "5.3.1", "5.3.0"]
+        "5.3.6", "5.3.5", "5.3.4", "5.3.3", "5.3.2", "5.3.1", "5.3.0",
+        "5.2.4", "5.2.3", "5.2.2", "5.2.1", "5.2.0",
+        "5.1.5", "5.1.4", "5.1.3", "5.1.2", "5.1.1", "5.1"]
 
     available_versions = []
     checked_count = 0

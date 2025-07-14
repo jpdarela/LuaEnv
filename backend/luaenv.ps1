@@ -182,7 +182,7 @@ function Invoke-ActivateCommand {
 
     # Handle --list option
     if ($showList) {
-        $registry = Get-LuaEnvRegistry
+        $registry = Get-LuaEnvRegistry -Force
         if ($registry) {
             Show-Installations -Registry $registry
         }
@@ -197,7 +197,7 @@ function Invoke-ActivateCommand {
 
     # Main activation logic
     try {
-        $registry = Get-LuaEnvRegistry
+        $registry = Get-LuaEnvRegistry -Force
         if (-not $registry) {
             Write-Host "[ERROR] Failed to load registry" -ForegroundColor Red
             return
@@ -336,7 +336,7 @@ function Invoke-CurrentCommand {
     }
 
     try {
-        $registry = Get-LuaEnvRegistry
+        $registry = Get-LuaEnvRegistry -Force
         if ($registry) {
             Show-CurrentEnvironment -Registry $registry -ShowVerbose:$verbose
         } else {
@@ -361,7 +361,7 @@ function Invoke-LocalCommand {
         # Show current local version
         $localVersion = Get-LocalLuaVersion
         if ($localVersion) {
-            $registry = Get-LuaEnvRegistry
+            $registry = Get-LuaEnvRegistry -Force
             Show-LocalVersion -LocalVersion $localVersion -Registry $registry
         } else {
             Write-Host "No local version configured for this directory" -ForegroundColor Yellow
@@ -385,7 +385,7 @@ function Invoke-LocalCommand {
     # Set local version
     try {
         # Load registry to validate the version
-        $registry = Get-LuaEnvRegistry
+        $registry = Get-LuaEnvRegistry -Force
         if (-not $registry) {
             Write-Host "[ERROR] Failed to load registry" -ForegroundColor Red
             return
@@ -447,6 +447,98 @@ function Invoke-LuaEnvCLI {
 # COMMAND ROUTING
 # ==================================================================================
 
+# PowerShell parameter completion for LuaEnv
+$luaenvCompleter = {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    # Convert commandAst to string and split into words
+    $commandLine = $commandAst.ToString()
+    $words = @($commandLine -split '\s+' | Where-Object { $_ -ne '' })
+
+   # Main commands available in LuaEnv
+    $mainCommands = @(
+        'activate', 'deactivate', 'current', 'local',
+        'install', 'uninstall', 'list', 'status', 'versions',
+        'default', 'pkg-config', 'config', 'set-alias', 'remove-alias', 'help'
+    )
+
+    # Command-specific options
+    $commandOptions = @{
+        'activate' = @('--id', '--alias', '--list', '--env', '--tree', '--devshell', '--help', '-h')
+        'deactivate' = @('--help', '-h')
+        'current' = @('--verbose', '-v', '--help', '-h')
+        'local' = @('--unset', '-u', '--help', '-h')
+        'install' = @('--lua-version', '--luarocks-version', '--alias', '--name',
+                      '--dll', '--debug', '--x86', '--x64', '--skip-env-check',
+                      '--skip-tests', '--help', '-h')
+        'uninstall' = @('--force', '--yes', '--help', '-h')
+        'list' = @('--detailed', '--help', '-h')
+        'status' = @('--help', '-h')
+        'versions' = @('--available', '-a', '--online', '--refresh', '--help', '-h')
+        'default' = @('--help', '-h')
+        'pkg-config' = @('--cflag', '--lua-include', '--liblua', '--libdir',
+                         '--path', '--path-style', '--help', '-h')
+        'config' = @('--help', '-h')
+        'set-alias' = @('--help', '-h')
+        'remove-alias' = @('--help', '-h')
+        'help' = @()
+    }
+
+    $completions = @()
+
+    # Determine what we're completing
+    if ($words.Count -eq 1) {
+        # Only the command name, complete with main commands
+        $completions = $mainCommands
+    }
+    elseif ($words.Count -eq 2) {
+        # We have "luaenv" and we're completing the first argument
+        if ($mainCommands.Contains($words[1])) {
+            $completions = $commandOptions[$words[1]]
+        } else {
+            # If the first argument is not a command, do not suggest options nor main commands
+            $completions = $mainCommands
+        }
+        # $completions = $mainCommands
+    }
+    elseif ($words.Count -ge 3) {
+        # We have "luaenv command ..." and we're completing options
+        $command = $words[1]
+        if ($commandOptions.ContainsKey($command)) {
+            $completions = $commandOptions[$command]
+        } else {
+            $completions = @('--help', '-h')
+        }
+    }
+
+    # Filter completions based on what the user has typed
+    $filteredCompletions = $completions | Where-Object { $_ -like "$wordToComplete*" }
+
+    # Return completion results
+    $filteredCompletions | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new(
+            $_,                  # completionText
+            $_,                  # listItemText
+            'ParameterValue',    # resultType
+            $_                   # toolTip
+        )
+    }
+}
+
+# Function to register or re-register the luaenv completers
+function Register-LuaEnvCompletion {
+    # Register the completers
+    try {
+        Register-ArgumentCompleter -Native -CommandName luaenv -ScriptBlock $luaenvCompleter
+        Register-ArgumentCompleter -Native -CommandName luaenv.ps1 -ScriptBlock $luaenvCompleter
+        Write-Verbose "LuaEnv tab completion registered successfully"
+    }
+    catch {
+        Write-Warning "Failed to register LuaEnv completion: $_"
+    }
+}
+
+
 # Handle empty command
 if (-not $Command) {
     Show-LuaEnvHelp
@@ -459,16 +551,28 @@ switch ($Command.ToLower()) {
         # Force reload modules for activate (needed for environment setup)
         Import-LuaEnvModules | Out-Null
         Invoke-ActivateCommand @Arguments
+        Register-LuaEnvCompletion
     }
     "deactivate" {
         # Don't force reload for deactivate - just use already loaded modules
         Invoke-DeactivateCommand @Arguments
+        Register-LuaEnvCompletion
     }
-    "current" { Invoke-CurrentCommand @Arguments }
-    "local" { Invoke-LocalCommand @Arguments }
-    { $_ -in @("help", "-h", "--help", "/?") } { Show-LuaEnvHelp }
+    "current" {
+        Invoke-CurrentCommand @Arguments
+        Register-LuaEnvCompletion
+    }
+    "local" {
+        Invoke-LocalCommand @Arguments
+        Register-LuaEnvCompletion
+    }
+    { $_ -in @("help", "-h", "--help", "/?") } {
+        Show-LuaEnvHelp
+        Register-LuaEnvCompletion
+    }
     default {
         # For all other commands, delegate to CLI
         Invoke-LuaEnvCLI
+        Register-LuaEnvCompletion
     }
 }

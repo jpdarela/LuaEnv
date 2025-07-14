@@ -258,6 +258,98 @@ TROUBLESHOOTING:
 "@ -ForegroundColor Cyan
 }
 
+# PowerShell parameter completion for LuaEnv
+$luaenvCompleter = {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    # Convert commandAst to string and split into words
+    $commandLine = $commandAst.ToString()
+    $words = @($commandLine -split '\s+' | Where-Object { $_ -ne '' })
+
+    # Main commands available in LuaEnv
+    $mainCommands = @(
+        'activate', 'deactivate', 'current', 'local',
+        'install', 'uninstall', 'list', 'status', 'versions',
+        'default', 'pkg-config', 'config', 'set-alias', 'remove-alias', 'help'
+    )
+
+    # Command-specific options
+    $commandOptions = @{
+        'activate' = @('--id', '--alias', '--list', '--env', '--tree', '--devshell', '--help', '-h')
+        'deactivate' = @('--help', '-h')
+        'current' = @('--verbose', '-v', '--help', '-h')
+        'local' = @('--unset', '-u', '--help', '-h')
+        'install' = @('--lua-version', '--luarocks-version', '--alias', '--name',
+                      '--dll', '--debug', '--x86', '--x64', '--skip-env-check',
+                      '--skip-tests', '--help', '-h')
+        'uninstall' = @('--force', '--yes', '--help', '-h')
+        'list' = @('--detailed', '--help', '-h')
+        'status' = @('--help', '-h')
+        'versions' = @('--available', '-a', '--online', '--refresh', '--help', '-h')
+        'default' = @('--help', '-h')
+        'pkg-config' = @('--cflag', '--lua-include', '--liblua', '--libdir',
+                         '--path', '--path-style', '--help', '-h')
+        'config' = @('--help', '-h')
+        'set-alias' = @('--help', '-h')
+        'remove-alias' = @('--help', '-h')
+        'help' = @()
+    }
+
+    $completions = @()
+
+    # Determine what we're completing
+    if ($words.Count -eq 1) {
+        # Only the command name, complete with main commands
+        $completions = $mainCommands
+    }
+    elseif ($words.Count -eq 2) {
+        # We have "luaenv" and we're completing the first argument
+        if ($mainCommands.Contains($words[1])) {
+            $completions = $commandOptions[$words[1]]
+        } else {
+            # If the first argument is not a command, do not suggest options nor main commands
+            $completions = $mainCommands
+        }
+        # $completions = $mainCommands
+    }
+    elseif ($words.Count -ge 3) {
+        # We have "luaenv command ..." and we're completing options
+        $command = $words[1]
+        if ($commandOptions.ContainsKey($command)) {
+            $completions = $commandOptions[$command]
+        } else {
+            $completions = @('--help', '-h')
+        }
+    }
+
+    # Filter completions based on what the user has typed
+    $filteredCompletions = $completions | Where-Object { $_ -like "$wordToComplete*" }
+
+    # Return completion results
+    $filteredCompletions | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new(
+            $_,                  # completionText
+            $_,                  # listItemText
+            'ParameterValue',    # resultType
+            $_                   # toolTip
+        )
+    }
+}
+
+# Function to register or re-register the luaenv completers
+function Register-LuaEnvCompletion {
+    # Register the completers
+    try {
+        Register-ArgumentCompleter -Native -CommandName luaenv -ScriptBlock $luaenvCompleter
+        Register-ArgumentCompleter -Native -CommandName luaenv.ps1 -ScriptBlock $luaenvCompleter
+        Write-Verbose "LuaEnv tab completion registered successfully"
+    }
+    catch {
+        Write-Warning "Failed to register LuaEnv completion: $_"
+    }
+}
+
+
 function Invoke-CliBuild {
     if (-not (Test-Path $BuildCliScript)) {
         Write-Err "Build script not found: $BuildCliScript"
@@ -575,6 +667,7 @@ try {
         }
 
         'Bootstrap' {
+            Register-LuaEnvCompletion
             Write-Info "Mode: Bootstrap installation (pre-built components only)"
 
             # Get host architecture
@@ -637,6 +730,7 @@ try {
         }
 
         'BuildCli' {
+            Register-LuaEnvCompletion
             Write-Info "Mode: Build CLI then install"
             $arch = Get-HostArchitecture
 
@@ -662,6 +756,7 @@ try {
         }
 
         'LuaConfig' {
+            Register-LuaEnvCompletion
             Write-Info "Mode: LuaConfig build then install"
             $arch = Get-HostArchitecture
 
@@ -687,6 +782,7 @@ try {
         }
 
         'Python' {
+            Register-LuaEnvCompletion
             Write-Info "Mode: Python installation only"
             if (-not (Install-EmbeddedPython -ForceReinstall)) {
                 Write-Err "Failed to install embedded Python"
@@ -698,6 +794,7 @@ try {
         }
 
         'Reset' {
+            Register-LuaEnvCompletion
             Write-Warn "DANGER: Reset mode will completely remove your LuaEnv installation!"
             Write-Host "This will delete:" -ForegroundColor Yellow
             Write-Host "  • ~/.luaenv folder and all contents" -ForegroundColor Yellow
@@ -738,6 +835,7 @@ try {
         }
 
         'Default' {
+            Register-LuaEnvCompletion
             Write-Info "Mode: Standard installation"
             $arch = Get-HostArchitecture
 
