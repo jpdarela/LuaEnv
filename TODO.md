@@ -3,10 +3,10 @@
 ### HIGH PRIORITY
 
 ### MEDIUM PRIORITY
-
- - Doc
+ - Imporove message printing of the ui
+ - Add supoport for earlier Lua versions (5.1, 5.2, 5.3)
+ - Docs
  - tests
- - final deployment (move backend and embeded python to luaenv directory at install time)
 
 **Last Updated**: July 9, 2025
 **Status**: Working version of LuaEnv with modular architecture. Phase 1 Step 1 completed - Setup-LuaEnv successfully modularized.

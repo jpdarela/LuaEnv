@@ -578,8 +578,7 @@ module Backend =
 
                     // Complete progress reporting
                     if exitCode = 0 then
-                        // completeProgress true "\n"
-                        printfn "\n"
+                        completeProgress true "Installation completed successfully!"
                     else
                         completeProgress false (sprintf "Installation failed with exit code %d" exitCode)
 
