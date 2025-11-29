@@ -1,5 +1,3 @@
-#!/usr/bin/env pwsh
-
 # This is free and unencumbered software released into the public domain.
 # For more details, see the LICENSE file in the project root.
 
@@ -295,7 +293,7 @@ function Invoke-DeactivateCommand {
         # Clear LuaEnv environment variables
         $luaEnvVars = @(
             "LUAENV_CURRENT", "LUAENV_ORIGINAL_PATH", "LUAENV_PROMPT_ALIAS",
-            "LUA_PATH", "LUA_CPATH", "LUA_BINDIR", "LUA_INCDIR", "LUA_LIBDIR", "LUA_LIBRARIES",
+            "LUA_PATH", "LUA_CPATH", "LUA_BINDIR", "LUA_INCDIR", "LUA_LIBDIR", "LUA_INC", "LUA_LIB", "LUA_LIBRARIES",
             "LUAROCKS_CONFIG", "LUAROCKS_SYSCONFDIR", "LUAROCKS_SYSCONFIG", "LUAROCKS_USERCONFIG", "LUAROCKS_PREFIX"
         )
 

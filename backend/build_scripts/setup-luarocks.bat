@@ -97,6 +97,8 @@ luarocks config lua_compiler "%LUA_DIR%\bin\luac.exe"
 luarocks config lua_version 5.4
 luarocks config lua_incdir "%LUA_DIR%\include"
 luarocks config lua_libdir "%LUA_DIR%\lib"
+luarocks config lua_inc "%LUA_DIR%\include"
+luarocks config lua_lib "%LUA_DIR%\lib"
 
 REM Configure library linking based on build type
 if "%BUILD_TYPE%"=="dll" (

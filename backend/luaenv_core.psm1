@@ -895,7 +895,9 @@ function Set-LuaEnvironmentVariables {
 
     $env:LUA_BINDIR = $luaBinPath
     $env:LUA_INCDIR = $luaIncDir
+    $env:LUA_INC = $luaIncDir
     $env:LUA_LIBDIR = $luaLibDir
+    $env:LUA_LIB = $luaLibDir
     $env:LUA_LIBRARIES = Join-Path $luaLibDir "lua54.lib"
 
     Write-Verbose "Set Lua environment variables for installation: $($Installation.id)"

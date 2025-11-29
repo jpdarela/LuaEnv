@@ -488,6 +488,12 @@ function Show-CurrentEnvironment {
             if ($env:LUA_LIBDIR) {
                 Write-Host "  LUA_LIBDIR: $env:LUA_LIBDIR" -ForegroundColor Gray
             }
+            if ($env:LUA_INC) {
+                Write-Host "  LUA_INC: $env:LUA_INC" -ForegroundColor Gray
+            }
+            if ($env:LUA_LIB) {
+                Write-Host "  LUA_LIBDIR: $env:LUA_LIB" -ForegroundColor Gray
+            }
 
             # Show installed packages if available
             if ($installation.packages -and $installation.packages.count -gt 0) {

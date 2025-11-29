@@ -19,36 +19,7 @@
 .PARAMETER LuaConfig
     Build the luaconfig.exe tool before installation. Compiles the C program for pkg-config support.
 
-.PAR            # Step 3: Run LuaEnv installation
-            if (-not (Invoke-LuaEnvInstall @("--force", "--arch", $arch))) {
-                Write-Err "LuaEnv installation failed"
-                exit 1
-            }
-
-            # Step 4: Offer to add LuaEnv to PATH if not already there
-            $luaEnvBinPath = Join-Path $env:USERPROFILE ".luaenv\bin"
-
-            if (-not (Test-PathEnvironmentVariable -PathToCheck $luaEnvBinPath)) {
-                Write-Host ""
-                Write-Info "LuaEnv is not in your PATH environment variable."
-                $addToPath = Read-Host "Would you like to add LuaEnv to your PATH? (Y/n)"
-
-                if ($addToPath -eq "" -or $addToPath.ToLower() -eq "y") {
-                    if (Add-ToPathEnvironmentVariable -PathToAdd $luaEnvBinPath) {
-                        Write-OK "LuaEnv added to your PATH environment variable"
-                        Write-Info "You may need to restart your terminal for the PATH change to take effect"
-                    } else {
-                        Write-Warn "Failed to add LuaEnv to PATH. You can add it manually later."
-                    }
-                } else {
-                    Write-Info "LuaEnv was not added to PATH"
-                    Write-Info "To use LuaEnv, you'll need to manually add $luaEnvBinPath to your PATH"
-                }
-            } else {
-                Write-OK "LuaEnv is already in your PATH environment variable"
-            }
-
-            Write-OK "LuaEnv installation completed successfully!"Bootstrap
+.PARAMETER Bootstrap
     Install pre-built components only, skipping CLI build. Downloads embedded Python,
     installs scripts and CLI binaries from win64 folder. Use for deployments where
     build tools are not available on the target system.
@@ -113,7 +84,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$PythonVersion = "3.13.5"
+$PythonVersion = "3.14.0"
 
 # Function to detect current architecture
 function Get-HostArchitecture {
